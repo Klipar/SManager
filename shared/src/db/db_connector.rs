@@ -1,6 +1,7 @@
-use sqlx::{postgres::PgPool, Row};
+use sqlx::postgres::PgPool;
 
 use std::sync::Arc;
+use sqlx::postgres::PgRow;
 
 pub struct DbConnector {
     pub pool: Arc<PgPool>,
@@ -34,29 +35,7 @@ impl DbConnector {
         })
     }
 
-    pub async fn execute_query(&self, query: &str) -> Result<Vec<Vec<String>>, sqlx::Error> {
-        let rows = sqlx::query(query).fetch_all(&*self.pool).await?;
-        let mut result = Vec::new();
-
-        for row in rows {
-            let mut row_data = Vec::new();
-            for i in 0..row.len() {
-                let val = match row.try_get::<String, _>(i) {
-                    Ok(v) => v,
-                    Err(_) => {
-                        // fallback for numbers
-                        if let Ok(num) = row.try_get::<i32, _>(i) {
-                            num.to_string()
-                        } else {
-                            "".to_string()
-                        }
-                    }
-                };
-                row_data.push(val);
-            }
-            result.push(row_data);
-        }
-
-        Ok(result)
+    pub async fn execute_query(&self, query: &str) -> Result<Vec<PgRow>, sqlx::Error> {
+        Ok(sqlx::query(query).fetch_all(&*self.pool).await?)
     }
 }
