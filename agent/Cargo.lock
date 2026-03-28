@@ -7,7 +7,6 @@ name = "agent"
 version = "0.1.0"
 dependencies = [
  "dotenvy",
- "shared",
  "sqlx",
  "tokio",
 ]
@@ -95,10 +94,6 @@ name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
-
-[[package]]
-name = "core"
-version = "0.1.0"
 
 [[package]]
 name = "cpufeatures"
@@ -954,15 +949,6 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
-]
-
-[[package]]
-name = "shared"
-version = "0.1.0"
-dependencies = [
- "dotenvy",
- "sqlx",
- "tokio",
 ]
 
 [[package]]

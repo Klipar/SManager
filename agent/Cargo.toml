@@ -4,3 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+tokio = { version = "1.50.0", features = ["full"] }
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio",
+    "postgres",
+    "macros"
+] }
+dotenvy = "0.15.7"
+
+shared = { path = "../shared" }
+
+[lib]
+name = "agent_lib"
+path = "src/lib.rs"

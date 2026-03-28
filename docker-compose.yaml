@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  s_manager_agent_db:
+    image: postgres:15
+    container_name: s_manager_agent_db
+    environment:
+      POSTGRES_USER: ${AGENT_DB_USER}
+      POSTGRES_PASSWORD: ${AGENT_DB_PASS}
+      POSTGRES_DB: ${AGENT_DB_NAME}
+    ports:
+      - "${AGENT_DB_IP}:${AGENT_DB_PORT}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - SManagerTestNetwork
+
+  pgadmin:
+    image: dpage/pgadmin4:7
+    container_name: smanager_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASS}
+    ports:
+      - "${PGADMIN_IP}:${PGADMIN_PORT}:80"
+    depends_on:
+      - s_manager_agent_db
+    networks:
+      - SManagerTestNetwork
+
+volumes:
+  db_data:
+
+networks:
+  SManagerTestNetwork:
+    driver: bridge
