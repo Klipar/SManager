@@ -1,7 +1,3 @@
 [workspace]
 resolver = "3"
-members = [
-    "agent",
-    "core",
-    "shared",
-]
+members = [ "agent", "core", "shared", "tasks", ]
