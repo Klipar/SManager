@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio_util::codec::{Framed, LinesCodec};
+use futures::StreamExt;
 use serde_json::Value;
 use anyhow::Result;
+use futures::SinkExt;
 
 use crate::server::handler_trait::HandlerTrait;
-
 
 pub struct Server {
     pub ip: String,
@@ -36,23 +37,18 @@ impl Server {
         println!("Server listening on {}:{}", self.ip, self.port);
 
         loop {
-            let (mut socket, addr) = listener.accept().await?;
+            let (socket, addr) = listener.accept().await?;
             println!("New connection from {}", addr);
 
-            let handlers = self.handlers.clone(); // clone Arc handles
+            let handlers = self.handlers.clone();
 
             tokio::spawn(async move {
-                let mut buf = vec![0; 1024];
-                loop {
-                    match socket.read(&mut buf).await {
-                        Ok(0) => {
-                            println!("Connection closed: {}", addr);
-                            return;
-                        }
-                        Ok(n) => {
-                            let received = &buf[..n];
-                            // to json
-                            if let Ok(json) = serde_json::from_slice::<Value>(received) {
+                let mut framed = Framed::new(socket, LinesCodec::new_with_max_length(65536)); //Set to 64 kb data per json. if need can be extended
+
+                while let Some(result) = framed.next().await {
+                    match result {
+                        Ok(line) => {
+                            if let Ok(json) = serde_json::from_str::<Value>(&line) {
                                 if let Some(request) = json.get("request").and_then(|r| r.as_str()) {
                                     if let Some(handler) = handlers.get(request) {
                                         let data = json.get("data").cloned().unwrap_or(Value::Null);
@@ -67,13 +63,13 @@ impl Server {
                                 eprintln!("Failed to parse JSON from {}", addr);
                             }
 
-                            if let Err(e) = socket.write_all(received).await {
+                            if let Err(e) = framed.send(line).await {
                                 eprintln!("Failed to write to {}: {}", addr, e);
                                 return;
                             }
                         }
                         Err(e) => {
-                            eprintln!("Failed to read from {}: {}", addr, e);
+                            eprintln!("Error reading from {}: {}", addr, e);
                             return;
                         }
                     }
