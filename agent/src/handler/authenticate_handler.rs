@@ -51,6 +51,7 @@ impl HandlerTrait for AuthenticateHandler {
                 Ok(core) => {
                     info!("Successful authentication for: `{}`", core.name);
                     ctx.authenticated = true;
+                    ctx.id = Some(core.id);
                     return Message::new_response (
                         Status::Ok,
                         json!({"message":"Authorized successfully!"}),
