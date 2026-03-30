@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use serde_json::Value;
-use shared::server::{connection_context::ConnectionContext, handler_trait::HandlerTrait};
+use serde_json::{Value, json};
+use shared::server::{connection_context::ConnectionContext, handler_trait::HandlerTrait, message::{Message, Status}};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 
@@ -20,7 +20,7 @@ impl NewCoreHandler {
 
 #[async_trait]
 impl HandlerTrait for NewCoreHandler {
-    async fn handle(&self, data: Value, ctx: &mut ConnectionContext) {
+    async fn handle(&self, data: Value, ctx: &mut ConnectionContext) -> Message {
         println!("Creating new core using data: {}", data);
 
         let mut bytes = [0u8; 32];
@@ -40,5 +40,10 @@ impl HandlerTrait for NewCoreHandler {
         let hash_base64 = general_purpose::STANDARD.encode(result);
 
         println!("{}", hash_base64);
+        return Message::new_response (
+            Status::Error,
+            json!({ "message": "Not implemented" }),
+            9999,
+        );
     }
 }

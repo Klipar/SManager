@@ -1,9 +1,9 @@
 use async_trait::async_trait;
 use serde_json::Value;
-use shared::{db::models::Core, server::{connection_context::ConnectionContext, handler_trait::HandlerTrait}};
+use shared::{db::models::Core, server::{connection_context::ConnectionContext, handler_trait::HandlerTrait, message::{Message, Status}}};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
-
+use serde_json::json;
 use base64::{engine::general_purpose, Engine as _};
 use sha2::{Sha256, Digest};
 
@@ -21,12 +21,16 @@ impl AuthenticateHandler {
 
 #[async_trait]
 impl HandlerTrait for AuthenticateHandler {
-    async fn handle(&self, data: Value, ctx: &mut ConnectionContext) {
+    async fn handle(&self, data: Value, ctx: &mut ConnectionContext) -> Message {
         if ctx.authenticated{
             error!("Received authenticate request for already authenticated socket...");
-            let _ = ctx.send_response("Fails, second auth").await;  //TODO: normal response
-            return;
+            return Message::new_response (
+                Status::Error,
+                json!({"message":"Unauthorized"}),
+                401,
+            );
         }
+
         info!("Received authenticate request");
 
         if let Some(token) = data.get("token").and_then(|v| v.as_str()) {
@@ -47,20 +51,30 @@ impl HandlerTrait for AuthenticateHandler {
                 Ok(core) => {
                     info!("Successful authentication for: `{}`", core.name);
                     ctx.authenticated = true;
-                    let _ = ctx.send_response("OK").await;
+                    return Message::new_response (
+                        Status::Ok,
+                        json!({"message":"Authorized successfully!"}),
+                        200,
+                    );
                 }
                 Err(e) => {
-                    let addr = ctx.framed.get_ref().peer_addr().unwrap();
-                    warn!("Failed to authentication client [{}:{}] using token: {}", addr.ip(), addr.port(), token);
+                    warn!("Failed to authentication client using token: {}", token);
                     debug!("{}", e);
 
-                    let _ = ctx.send_response("Failed to fetch core").await; //TODO: normal response
+                    return Message::new_response (
+                        Status::Error,
+                        json!({"message":"Invalid token."}),
+                        401,
+                    );
                 }
             }
         } else {
-            let addr = ctx.framed.get_ref().peer_addr().unwrap();
-            error!("Received invalid `authenticate` from [{}:{}], request: {}", addr.ip(), addr.port(), data);
-            let _ = ctx.send_response("Fails").await;  //TODO: normal response
+            error!("Received invalid `authenticate` request: {}", data);
+            return Message::new_response (
+                Status::Error,
+                json!({"message":"Invalid auth request."}),
+                400,
+            );
         }
     }
 }

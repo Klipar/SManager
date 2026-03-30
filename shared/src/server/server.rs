@@ -3,10 +3,11 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio_util::codec::{Framed, LinesCodec};
 use futures::StreamExt;
-use serde_json::Value;
 use anyhow::Result;
-
-use crate::server::{connection_context::ConnectionContext, handler_trait::HandlerTrait};
+use futures::sink::SinkExt;
+use serde_json::json;
+use crate::server::{connection_context::ConnectionContext, handler_trait::HandlerTrait, message::{Message, Status}};
+use log::{info, error};
 
 pub struct Server {
     pub ip: String,
@@ -33,49 +34,66 @@ impl Server {
         let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port)).await?;
         self.is_active = true;
 
-        println!("Server listening on {}:{}", self.ip, self.port);
+        info!("Server listening on {}:{}", self.ip, self.port);
 
         loop {
             let (socket, addr) = listener.accept().await?;
-            println!("New connection from {}", addr);
+            info!("New connection from {}", addr);
 
             let handlers = self.handlers.clone();
 
             tokio::spawn(async move {
-                let mut ctx = ConnectionContext::new(Framed::new(socket, LinesCodec::new_with_max_length(65536))); //Set to 64 kb data per json. if need can be extended
+                let mut framed =  Framed::new(socket, LinesCodec::new_with_max_length(65536)); //Set to 64 kb data per json. if need can be extended
 
-                while let Some(result) = ctx.framed.next().await {
+                let mut ctx = ConnectionContext::new();
+
+                while let Some(result) = framed.next().await {
                     match result {
                         Ok(line) => {
-                            if let Ok(json) = serde_json::from_str::<Value>(&line) {
-                                if let Some(request) = json.get("request").and_then(|r| r.as_str()) {
-                                    if ctx.authenticated || request == "authenticate" {
-                                        if let Some(handler) = handlers.get(request) {
-                                            let data = json.get("data").cloned().unwrap_or(Value::Null);
-                                            handler.handle(data, &mut ctx).await;
+                            if let Ok(msg) = serde_json::from_str::<Message>(&line) {
+                                match msg {
+                                    Message::Request {  id, action, data } => {
+                                        if ctx.authenticated || action == "authenticate" {
+                                            if let Some(handler) = handlers.get(&action) {
+                                                let mut response = handler.handle(data, &mut ctx).await;
+                                                response.set_id(id);
+
+                                                let json = serde_json::to_string(&response).unwrap();
+
+                                                framed.send(json).await.unwrap();
+                                            } else {
+                                                error!("Unknown request: {}", action);
+                                            }
                                         } else {
-                                            eprintln!("Unknown request: {}", request);
+                                            let response = Message::Response {
+                                                id,
+                                                status: Status::Error,
+                                                data: json!({ "message": "Unauthorized" }),
+                                                code: 401,
+                                            };
+
+                                            let json = serde_json::to_string(&response).unwrap();
+                                            if let Err(e) = framed.send(json).await {
+                                                error!("Failed to write to {}: {}", addr, e);
+                                                return;
+                                            }
                                         }
-                                    } else {
-                                        if let Err(e) = ctx.send_response("FAILLLLLL, not authenticated").await { //TODO: implement normal fail
-                                            eprintln!("Failed to write to {}: {}", addr, e);
-                                            return;
-                                        }
+                                    },
+                                    Message::Response { .. } => {
+                                        println!("{:?}", msg); //TODO: process responses
                                     }
-                                } else {
-                                    eprintln!("Missing 'request' field");
                                 }
                             } else {
-                                eprintln!("Failed to parse JSON from {}", addr);
+                                error!("Failed to parse from {}", addr);
                             }
                         }
                         Err(e) => {
-                            eprintln!("Error reading from {}: {}", addr, e);
+                            error!("Error reading from {}: {}", addr, e);
                             return;
                         }
                     }
                 }
-                println!("Unconnected {}", addr);
+                info!("Unconnected {}", addr);
             });
         }
     }
