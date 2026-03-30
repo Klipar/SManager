@@ -16,7 +16,8 @@ CREATE TABLE CORES (
     id SERIAL PRIMARY KEY,
     ip VARCHAR NOT NULL,
     port INT NOT NULL,
-    name VARCHAR NOT NULL
+    name VARCHAR NOT NULL,
+    CONSTRAINT unique_ip_port UNIQUE (ip, port)
 );
 
 CREATE TABLE TASKS (

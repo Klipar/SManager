@@ -64,10 +64,21 @@ impl HandlerTrait for NewCoreHandler {
                     200,
                 );
             }
-            Err(e) => {
-                error!("Failed to create core: {}", e);
+             Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e { // non uniq ip-port
+                    if let Some(constraint) = db_err.constraint() {
+                        if constraint == "unique_ip_port" {
+                            return Message::new_response(
+                                Status::Error,
+                                json!({"message":"Core with this IP and port already exists."}),
+                                409,
+                            );
+                        }
+                    }
+                }
 
-                return Message::new_response (
+                error!("Failed to create core: {}", e);
+                return Message::new_response(
                     Status::Error,
                     json!({"message":"Failed to create new core."}),
                     500,
