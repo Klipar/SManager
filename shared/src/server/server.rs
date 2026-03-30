@@ -5,9 +5,8 @@ use tokio_util::codec::{Framed, LinesCodec};
 use futures::StreamExt;
 use serde_json::Value;
 use anyhow::Result;
-use futures::SinkExt;
 
-use crate::server::handler_trait::HandlerTrait;
+use crate::server::{connection_context::ConnectionContext, handler_trait::HandlerTrait};
 
 pub struct Server {
     pub ip: String,
@@ -43,29 +42,31 @@ impl Server {
             let handlers = self.handlers.clone();
 
             tokio::spawn(async move {
-                let mut framed = Framed::new(socket, LinesCodec::new_with_max_length(65536)); //Set to 64 kb data per json. if need can be extended
+                let mut ctx = ConnectionContext::new(Framed::new(socket, LinesCodec::new_with_max_length(65536))); //Set to 64 kb data per json. if need can be extended
 
-                while let Some(result) = framed.next().await {
+                while let Some(result) = ctx.framed.next().await {
                     match result {
                         Ok(line) => {
                             if let Ok(json) = serde_json::from_str::<Value>(&line) {
                                 if let Some(request) = json.get("request").and_then(|r| r.as_str()) {
-                                    if let Some(handler) = handlers.get(request) {
-                                        let data = json.get("data").cloned().unwrap_or(Value::Null);
-                                        handler.handle(data).await;
+                                    if ctx.authenticated || request == "authenticate" {
+                                        if let Some(handler) = handlers.get(request) {
+                                            let data = json.get("data").cloned().unwrap_or(Value::Null);
+                                            handler.handle(data, &mut ctx).await;
+                                        } else {
+                                            eprintln!("Unknown request: {}", request);
+                                        }
                                     } else {
-                                        eprintln!("Unknown request: {}", request);
+                                        if let Err(e) = ctx.send_response("FAILLLLLL, not authenticated").await { //TODO: implement normal fail
+                                            eprintln!("Failed to write to {}: {}", addr, e);
+                                            return;
+                                        }
                                     }
                                 } else {
                                     eprintln!("Missing 'request' field");
                                 }
                             } else {
                                 eprintln!("Failed to parse JSON from {}", addr);
-                            }
-
-                            if let Err(e) = framed.send(line).await {
-                                eprintln!("Failed to write to {}: {}", addr, e);
-                                return;
                             }
                         }
                         Err(e) => {

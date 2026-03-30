@@ -4,27 +4,21 @@ use shared::server::{connection_context::ConnectionContext, handler_trait::Handl
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 
-pub struct TestHandler {
+pub struct CreateTaskHandler {
     pub pool: Arc<PgPool>,
 }
 
-impl TestHandler {
+impl CreateTaskHandler {
     pub fn new(pool: Arc<PgPool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl HandlerTrait for TestHandler {
+impl HandlerTrait for CreateTaskHandler {
     async fn handle(&self, data: Value, ctx: &mut ConnectionContext) {
-        println!("TestHandler received data: {}", data);
+        println!("Creating new task on data: {}", data);
 
-        if let Some(msg) = data.get("message").and_then(|v| v.as_str()) {
-            println!("Message field: {}", msg);
-        } else {
-            println!("No 'message' field found");
-        }
 
-        let _ = ctx.send_response("OK").await;
     }
 }
