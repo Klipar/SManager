@@ -26,7 +26,7 @@ impl HandlerTrait for AuthenticateHandler {
             error!("Received authenticate request for already authenticated socket...");
             return Message::new_response (
                 Status::Error,
-                json!({"message":"Unauthorized"}),
+                json!({"message":"Double authorization"}),
                 401,
             );
         }
