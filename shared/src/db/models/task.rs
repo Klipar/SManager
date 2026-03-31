@@ -17,6 +17,4 @@ pub struct Task {
 
     pub restart_policy: RestartPolicy,
     pub status: TaskStatus,
-
-    pub token_hash: String,
 }
