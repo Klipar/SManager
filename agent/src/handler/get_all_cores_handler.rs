@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde_json::Value;
 use shared::server::{connection_context::ConnectionContext,
-                    dto::get_cores_dto::GetAllCoresDTO,
+                    dto::get_cores_dto::CoresDTO,
                     handler_trait::HandlerTrait, message::{Message, Status}};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ impl HandlerTrait for GetAllCoresHandler {
     async fn handle(&self, _data: Value, _ctx: &mut ConnectionContext)-> Message {
         info!("Received request for extracting all cores");
         let cores = sqlx::query_as!(
-            GetAllCoresDTO,
+            CoresDTO,
             r#"
             SELECT id, ip, port, name
             FROM cores
