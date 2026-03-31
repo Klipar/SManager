@@ -45,7 +45,12 @@ impl Server {
             tokio::spawn(async move {
                 let mut framed =  Framed::new(socket, LinesCodec::new_with_max_length(65536)); //Set to 64 kb data per json. if need can be extended
 
-                let mut ctx = ConnectionContext::new();
+                let mut ctx = ConnectionContext::new(framed
+                    .get_ref()
+                    .peer_addr()
+                    .map(|a| a.ip().to_string())
+                    .unwrap_or_else(|_| "0.0.0.0".to_string())
+                );
 
                 while let Some(result) = framed.next().await {
                     match result {
