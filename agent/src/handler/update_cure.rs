@@ -52,7 +52,6 @@ impl HandlerTrait for UpdateCoreHandler {
 
         match updated_core{
             Ok(cores) => {
-                let cores: Value = json!(cores);
                 let response = json!({"message" : "Successfully updated core.", "cores" : cores});
                 return Message::new_response (
                     Status::Ok,

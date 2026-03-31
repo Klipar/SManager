@@ -7,5 +7,4 @@ ADD COLUMN token_hash TEXT NOT NULL;
 ALTER TABLE CORES
 ADD COLUMN token_hash TEXT NOT NULL;
 
-CREATE UNIQUE INDEX idx_tasks_token_hash ON TASKS(token_hash);
 CREATE UNIQUE INDEX idx_cores_token_hash ON CORES(token_hash);
