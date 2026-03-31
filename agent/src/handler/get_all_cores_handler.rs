@@ -25,7 +25,7 @@ impl HandlerTrait for GetAllCoresHandler {
         let cores = sqlx::query_as!(
             CoresDTO,
             r#"
-            SELECT id, ip, port, name
+            SELECT id, ip, name
             FROM cores
             "#
         )

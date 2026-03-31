@@ -42,12 +42,11 @@ impl HandlerTrait for NewCoreHandler {
         let inserted = sqlx::query_as!(
             Core,
             r#"
-            INSERT INTO cores (ip, port, name, token_hash)
-            VALUES ($1, $2, $3, $4)
-            RETURNING id, ip, port, name, token_hash
+            INSERT INTO cores (ip, name, token_hash)
+            VALUES ($1, $2, $3)
+            RETURNING id, ip, name, token_hash
             "#,
             dto.ip,
-            dto.port,
             dto.name,
             hash
         )
