@@ -6,3 +6,4 @@ pub mod update_cure;
 pub mod remove_core_handler;
 pub mod get_all_task_handler;
 pub mod update_task_handler;
+pub mod remove_task_handler;
