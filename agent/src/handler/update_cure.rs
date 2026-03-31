@@ -38,12 +38,11 @@ impl HandlerTrait for UpdateCoreHandler {
             CoresDTO,
             r#"
             UPDATE cores
-            SET ip = $1, port = $2, name = $3
-            WHERE id = $4
-            RETURNING id, ip, port, name
+            SET ip = $1, name = $2
+            WHERE id = $3
+            RETURNING id, ip, name
             "#,
             core.ip,
-            core.port,
             core.name,
             core.id,
         )
