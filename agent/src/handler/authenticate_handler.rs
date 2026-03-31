@@ -31,6 +31,15 @@ impl HandlerTrait for AuthenticateHandler {
             );
         }
 
+        if ctx.ip == "0.0.0.0"{
+            error!("Failed to check ip, unable to get it...");
+            return Message::new_response (
+                Status::Error,
+                json!({"message":"Socket error, unable to check ip"}),
+                500,
+            );
+        }
+
         info!("Received authenticate request");
 
         if let Some(token) = data.get("token").and_then(|v| v.as_str()) {
@@ -41,9 +50,10 @@ impl HandlerTrait for AuthenticateHandler {
             let token_hash = general_purpose::STANDARD.encode(result);
 
             let core = sqlx::query_as::<_, Core>(
-                "SELECT * FROM cores WHERE token_hash = $1"
+                "SELECT * FROM cores WHERE token_hash = $1 AND ip = $2"
             )
             .bind(token_hash)
+            .bind(&ctx.ip)
             .fetch_one(&*self.pool)
             .await;
 
@@ -64,7 +74,7 @@ impl HandlerTrait for AuthenticateHandler {
 
                     return Message::new_response (
                         Status::Error,
-                        json!({"message":"Invalid token."}),
+                        json!({"message":"Failed to authenticate."}),
                         401,
                     );
                 }
