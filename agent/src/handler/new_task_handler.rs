@@ -19,8 +19,20 @@ impl NewTaskHandler {
 
 #[async_trait]
 impl HandlerTrait for NewTaskHandler {
-    async fn handle(&self, data: Value, ctx: &mut ConnectionContext)-> Message {
-        info!("Creating new task on data: {}", data);
+    async fn handle(&self, data: Option<Value>, ctx: &mut ConnectionContext)-> Message {
+        info!("Creating new task");
+
+        let data = match data {
+            Some(v) => v,
+            None => {
+                return Message::new_response(
+                    Status::Error,
+                    None,
+                    400,
+                    "Missing data"
+                );
+            }
+        };
 
         let dto: NewTaskRequestDTO = match serde_json::from_value(data) {
             Ok(v) => v,
@@ -28,8 +40,9 @@ impl HandlerTrait for NewTaskHandler {
                 error!("Failed to parse create new task request: {}", e);
                 return Message::new_response(
                     Status::Error,
-                    json!({ "message": "Invalid new-task request" }),
+                    None,
                     400,
+                    "Invalid new-task request"
                 );
             }
         };
@@ -61,22 +74,20 @@ impl HandlerTrait for NewTaskHandler {
 
         match inserted {
             Ok(task) => {
-                let response = json!({
-                    "message" : "Successfully created new task.",
-                    "task" : task
-                });
                 return Message::new_response (
                     Status::Ok,
-                    response,
+                    Some(json!({"task" : task})),
                     200,
+                    "Successfully created new task."
                 );
             }
             Err(e) => {
                 error!("Failed to create new task: {}", e);
                 return Message::new_response (
                     Status::Error,
-                    json!({ "message": "Failed to create new task" }),
+                    None,
                     400,
+                    "Failed to create new task"
                 );
             }
         }
