@@ -19,7 +19,7 @@ impl GetAllTaskHandler {
 
 #[async_trait]
 impl HandlerTrait for GetAllTaskHandler {
-    async fn handle(&self, _data: Value, _ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, _data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
         info!("Extracting all tasks");
 
         let tasks = sqlx::query_as::<_, Task>(
@@ -30,22 +30,20 @@ impl HandlerTrait for GetAllTaskHandler {
 
         match tasks {
             Ok(tasks) => {
-                let response = json!({
-                    "message" : "Successfully extracted all tasks.",
-                    "task" : tasks
-                });
                 return Message::new_response (
                     Status::Ok,
-                    response,
+                    Some(json!({"tasks" : tasks})),
                     200,
+                    "Successfully extracted all tasks."
                 );
             }
             Err(e) => {
                 error!("Failed to extract tasks: {}", e);
                 return Message::new_response (
                     Status::Error,
-                    json!({ "message": "Failed to extract tasks" }),
+                    None,
                     400,
+                    "Failed to extract tasks"
                 );
             }
         }

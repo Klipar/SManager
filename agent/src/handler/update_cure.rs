@@ -20,16 +20,30 @@ impl UpdateCoreHandler {
 
 #[async_trait]
 impl HandlerTrait for UpdateCoreHandler {
-    async fn handle(&self, data: Value, _ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
         info!("Received request for updating core");
+
+        let data = match data {
+            Some(v) => v,
+            None => {
+                return Message::new_response(
+                    Status::Error,
+                    None,
+                    400,
+                    "Missing data"
+                );
+            }
+        };
+
         let core: CoresDTO = match serde_json::from_value(data) {
             Ok(v) => v,
             Err(e) => {
                 error!("Failed to parse update-core request: {}", e);
                 return Message::new_response(
                     Status::Error,
-                    json!({ "message": "Invalid update-core request" }),
+                    None,
                     400,
+                    "Invalid update-core request"
                 );
             }
         };
@@ -50,20 +64,21 @@ impl HandlerTrait for UpdateCoreHandler {
         .await;
 
         match updated_core{
-            Ok(cores) => {
-                let response = json!({"message" : "Successfully updated core.", "cores" : cores});
+            Ok(core) => {
                 return Message::new_response (
                     Status::Ok,
-                    response,
+                    Some(json!({"core" : core})),
                     200,
+                    "Successfully updated core."
                 );
             }
             Err(e) => {
                 error!("Failed to update core: {}", e);
                 return Message::new_response (
                     Status::Error,
-                    json!({ "message": "Failed to update core" }),
+                    None,
                     400,
+                    "Failed to update core"
                 );
             }
         }

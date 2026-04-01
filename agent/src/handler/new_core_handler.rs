@@ -22,8 +22,20 @@ impl NewCoreHandler {
 
 #[async_trait]
 impl HandlerTrait for NewCoreHandler {
-    async fn handle(&self, data: Value, _ctx: &mut ConnectionContext) -> Message {
-        info!("Creating new core using data: {}", data);
+    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext) -> Message {
+        info!("Creating new core");
+
+        let data = match data {
+            Some(v) => v,
+            None => {
+                return Message::new_response(
+                    Status::Error,
+                    None,
+                    400,
+                    "Missing data"
+                );
+            }
+        };
 
         let dto: CreateCoreDto = match serde_json::from_value(data) {
             Ok(v) => v,
@@ -31,8 +43,9 @@ impl HandlerTrait for NewCoreHandler {
                 error!("Failed to parse create new core request: {}", e);
                 return Message::new_response(
                     Status::Error,
-                    json!({ "message": "Invalid new-core request" }),
+                    None,
                     400,
+                    "Invalid new-core request"
                 );
             }
         };
@@ -59,8 +72,9 @@ impl HandlerTrait for NewCoreHandler {
 
                 return Message::new_response (
                     Status::Ok,
-                    json!({"message":"Created successfully!", "token":token}),
+                    Some(json!({"token" : token})),
                     200,
+                    "Created successfully!"
                 );
             }
              Err(e) => {
@@ -69,8 +83,9 @@ impl HandlerTrait for NewCoreHandler {
                         if constraint == "unique_ip_port" {
                             return Message::new_response(
                                 Status::Error,
-                                json!({"message":"Core with this IP and port already exists."}),
+                                None,
                                 409,
+                                "Core with this IP and port already exists."
                             );
                         }
                     }
@@ -79,8 +94,9 @@ impl HandlerTrait for NewCoreHandler {
                 error!("Failed to create core: {}", e);
                 return Message::new_response(
                     Status::Error,
-                    json!({"message":"Failed to create new core."}),
+                    None,
                     500,
+                    "Failed to create new core."
                 );
             }
         }
