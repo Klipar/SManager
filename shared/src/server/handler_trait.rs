@@ -5,5 +5,5 @@ use crate::server::{connection_context::ConnectionContext, message::Message};
 
 #[async_trait]
 pub trait HandlerTrait: Send + Sync {
-    async fn handle(&self, data: Value, ctx: &mut ConnectionContext) -> Message;
+    async fn handle(&self, data: Option<Value>, ctx: &mut ConnectionContext) -> Message;
 }

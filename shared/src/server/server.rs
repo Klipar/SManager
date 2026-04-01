@@ -5,7 +5,6 @@ use tokio_util::codec::{Framed, LinesCodec};
 use futures::StreamExt;
 use anyhow::Result;
 use futures::sink::SinkExt;
-use serde_json::json;
 use crate::server::{connection_context::ConnectionContext, handler_trait::HandlerTrait, message::{Message, Status}};
 use log::{info, error};
 
@@ -73,8 +72,9 @@ impl Server {
                                             let response = Message::Response {
                                                 id,
                                                 status: Status::Error,
-                                                data: json!({ "message": "Unauthorized" }),
+                                                data: None,
                                                 code: 401,
+                                                message: "Unauthorized".to_string()
                                             };
 
                                             let json = serde_json::to_string(&response).unwrap();

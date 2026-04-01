@@ -18,16 +18,30 @@ impl UpdateTaskHandler {
 
 #[async_trait]
 impl HandlerTrait for UpdateTaskHandler {
-    async fn handle(&self, data: Value, _ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
         info!("Received request for updating task");
+
+        let data = match data {
+            Some(v) => v,
+            None => {
+                return Message::new_response(
+                    Status::Error,
+                    None,
+                    400,
+                    "Missing data"
+                );
+            }
+        };
+
         let task: UpdateTaskDTO = match serde_json::from_value(data) {
             Ok(v) => v,
             Err(e) => {
                 error!("Failed to parse update-task request: {}", e);
                 return Message::new_response(
                     Status::Error,
-                    json!({ "message": "Invalid update-task request" }),
+                    None,
                     400,
+                    "Invalid update-task request"
                 );
             }
         };
@@ -61,19 +75,20 @@ impl HandlerTrait for UpdateTaskHandler {
 
         match updated{
             Ok(task) => {
-                let response = json!({"message" : "Successfully updated task.", "task" : task});
                 return Message::new_response (
                     Status::Ok,
-                    response,
+                    Some(json!({"task" : task})),
                     200,
+                    "Successfully updated task."
                 );
             }
             Err(e) => {
                 error!("Failed to update task: {}", e);
                 return Message::new_response (
                     Status::Error,
-                    json!({ "message": "Failed to update task" }),
+                    None,
                     400,
+                    "Failed to update task"
                 );
             }
         }

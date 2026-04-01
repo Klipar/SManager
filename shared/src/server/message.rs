@@ -8,14 +8,19 @@ pub enum Message {
     Request {
         id: u64,
         action: String,
-        data: Value,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        data: Option<Value>,
     },
     #[serde(rename = "response")]
     Response {
         id: u64,
         status: Status,
-        data: Value,
+
+        #[serde(skip_serializing_if = "Option::is_none")]
+        data: Option<Value>,
         code: u16,
+        message: String,
     },
 }
 
@@ -29,12 +34,18 @@ pub enum Status {
 
 
 impl Message {
-    pub fn new_response(status: Status, data: Value, code: u16) -> Self {
+    pub fn new_response(
+        status: Status,
+        data: Option<Value>,
+        code: u16,
+        message: impl Into<String>
+    ) -> Self {
         Message::Response {
             id: 0,
             status,
             data,
             code,
+            message: message.into(),
         }
     }
 

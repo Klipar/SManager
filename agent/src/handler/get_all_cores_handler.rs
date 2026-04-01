@@ -20,7 +20,7 @@ impl GetAllCoresHandler {
 
 #[async_trait]
 impl HandlerTrait for GetAllCoresHandler {
-    async fn handle(&self, _data: Value, _ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, _data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
         info!("Received request for extracting all cores");
         let cores = sqlx::query_as!(
             CoresDTO,
@@ -34,20 +34,20 @@ impl HandlerTrait for GetAllCoresHandler {
 
         match cores{
             Ok(cores) => {
-                let cores = json!(cores);
-                let response = json!({"message" : "Successfully extracted cores on this agent.", "cores" : cores});
                 return Message::new_response (
                     Status::Ok,
-                    response,
+                    Some(json!({"cores" : cores})),
                     200,
+                    "Successfully extracted cores on this agent."
                 );
             }
             Err(e) => {
                 error!("Failed to extract cores: {}", e);
                 return Message::new_response (
                     Status::Error,
-                    json!({ "message": "No cores found" }),
+                    None,
                     404,
+                    "No cores found"
                 );
             }
         }
