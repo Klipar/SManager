@@ -1,5 +1,5 @@
 use std::{collections::HashMap, sync::Arc, fs::File, io::BufReader};
-
+use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tokio_rustls::{TlsAcceptor, rustls};
 use tokio_util::codec::{Framed, LinesCodec};
@@ -8,11 +8,10 @@ use futures::{StreamExt, SinkExt};
 use anyhow::Result;
 use log::{info, error};
 
-use crate::server::{
-    connection_context::ConnectionContext,
-    handler_trait::HandlerTrait,
-    message::{Message, Status},
-};
+
+use crate::{db::models::Core, server::{
+    connection_context::ConnectionContext, get_hash::get_hash, handler_trait::HandlerTrait, message::{Message, Status}
+}};
 
 use tokio_rustls::rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 
@@ -77,15 +76,17 @@ pub struct Server {
     pub port: u16,
     pub is_active: bool,
     pub handlers: HashMap<String, Arc<dyn HandlerTrait>>,
+    pool: Arc<PgPool>,
 }
 
 impl Server {
-    pub fn new(ip: String, port: u16) -> Self {
+    pub fn new(ip: String, port: u16, pool: Arc<PgPool>) -> Self {
         Self {
             ip,
             port,
             is_active: false,
             handlers: HashMap::new(),
+            pool,
         }
     }
 
@@ -106,11 +107,61 @@ impl Server {
             let (socket, addr) = listener.accept().await?;
             let acceptor = acceptor.clone();
             let handlers = self.handlers.clone();
-
+            let pool = self.pool.clone();
             tokio::spawn(async move {
+                let mut ctx = ConnectionContext::new(
+                    addr.ip().to_string()
+                );
+
                 // ---- TLS HANDSHAKE ----
                 let tls_stream = match acceptor.accept(socket).await {
-                    Ok(stream) => stream,
+                    Ok(stream) => {
+                        // ---- Extract client certificate ----
+                        let client_certs = stream.get_ref().1.peer_certificates();
+
+                        if let Some(certs) = client_certs {
+                            if let Some(cert_der) = certs.get(0) {
+                                // parse X.509 certificate
+                                if let Ok((_rem, parsed_cert)) = x509_parser::parse_x509_certificate(cert_der.as_ref()) {
+                                    let cn = parsed_cert
+                                        .tbs_certificate
+                                        .subject
+                                        .iter_common_name()
+                                        .next()
+                                        .map(|cn| cn.as_str().unwrap_or_default())
+                                        .unwrap_or_default();
+
+                                    let core = sqlx::query_as::<_, Core>(
+                                        "SELECT * FROM cores WHERE client_hash = $1 AND ip = $2"
+                                    )
+                                    .bind(get_hash(&cn))
+                                    .bind(addr.ip().to_string())
+                                    .fetch_one(&*pool)
+                                    .await;
+
+                                    match core {
+                                        Ok(core) => {
+                                            info!("Successful authentication for: `{}`", core.name);
+                                            ctx.authenticated = true;
+                                            ctx.id = Some(core.id);
+                                        }
+                                        Err(_e) => {
+                                            error!("Unauthorized client: {}", cn);
+                                            return;
+                                        }
+                                    }
+                                }
+                            } else {
+                                error!("Client did not send a certificate: {}", addr);
+                                return;
+                            }
+                        } else {
+                            error!("No client certificates: {}", addr);
+                            return;
+                        }
+
+                        stream // ok
+                    },
                     Err(e) => {
                         error!("TLS error from {}: {}", addr, e);
                         return;
@@ -122,10 +173,6 @@ impl Server {
                 let mut framed = Framed::new(
                     tls_stream,
                     LinesCodec::new_with_max_length(65536),
-                );
-
-                let mut ctx = ConnectionContext::new(
-                    addr.ip().to_string()
                 );
 
                 while let Some(result) = framed.next().await {

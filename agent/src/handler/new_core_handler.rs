@@ -1,13 +1,8 @@
 use async_trait::async_trait;
-use serde_json::{Value, json};
-use shared::{db::models::Core, server::{connection_context::ConnectionContext,
-                                        dto::create_core_dto::CreateCoreDto,
-                                        generate_token::generate_token,
-                                        handler_trait::HandlerTrait,
-                                        message::{Message, Status}}};
+use serde_json::Value;
+use shared::{db::models::Core, server::{get_hash::get_hash, connection_context::ConnectionContext, dto::create_core_dto::CreateCoreDto, handler_trait::HandlerTrait, message::{Message, Status}}};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
-
 use log::{info, error};
 
 pub struct NewCoreHandler {
@@ -50,18 +45,16 @@ impl HandlerTrait for NewCoreHandler {
             }
         };
 
-        let (token, hash) = generate_token();
-
         let inserted = sqlx::query_as!(
             Core,
             r#"
-            INSERT INTO cores (ip, name, token_hash)
+            INSERT INTO cores (ip, name, client_hash)
             VALUES ($1, $2, $3)
-            RETURNING id, ip, name, token_hash
+            RETURNING id, ip, name, client_hash
             "#,
             dto.ip,
             dto.name,
-            hash
+            get_hash(&dto.client_cn)
         )
         .fetch_one(&*self.pool)
         .await;
@@ -72,7 +65,7 @@ impl HandlerTrait for NewCoreHandler {
 
                 return Message::new_response (
                     Status::Ok,
-                    Some(json!({"token" : token})),
+                    None,
                     200,
                     "Created successfully!"
                 );
