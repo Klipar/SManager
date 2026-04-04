@@ -8,7 +8,7 @@ use futures::{StreamExt, SinkExt};
 use anyhow::Result;
 use log::{info, error};
 
-use crate::{db::models::Core, server::{ connection_context::ConnectionContext, get_hash::get_hash, handler_trait::HandlerTrait, message::Message }};
+use shared::{db::models::Core, server::{ connection_context::ConnectionContext, get_hash::get_hash, handler_trait::HandlerTrait, message::Message }};
 
 use tokio_rustls::rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 
