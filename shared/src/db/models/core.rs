@@ -6,5 +6,5 @@ pub struct Core {
     pub id: i32,
     pub ip: String,
     pub name: String,
-    pub token_hash: String,
+    pub client_hash: String,
 }

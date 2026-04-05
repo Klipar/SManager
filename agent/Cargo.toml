@@ -5,11 +5,6 @@ edition = "2024"
 
 [dependencies]
 tokio = { version = "1.50.0", features = ["full"] }
-sqlx = { version = "0.8.6", features = [
-    "runtime-tokio",
-    "postgres",
-    "macros"
-] }
 async-trait = "0.1"
 dotenvy = "0.15.7"
 
@@ -25,6 +20,24 @@ sha2 = "0.10"
 
 log = "0.4"
 env_logger = "0.11"
+
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio",
+    "postgres",
+    "macros",
+    "tls-native-tls"
+] }
+chrono = { version = "0.4", features = ["serde"] }
+
+tokio-util = { version = "0.7", features = ["codec"] }
+futures = "0.3"
+
+jsonwebtoken = "9"
+
+tokio-rustls = "0.26"
+rustls = "0.23"
+rustls-pemfile = "2"
+x509-parser = "0.18.1"
 
 [lib]
 name = "agent_lib"
