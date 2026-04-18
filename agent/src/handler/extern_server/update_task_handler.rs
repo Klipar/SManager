@@ -46,7 +46,7 @@ impl HandlerTrait for UpdateTaskHandler {
             }
         };
 
-        let updated = sqlx::query_as::<_, Task>(
+        let updated  = sqlx::query_as::<_, Task>( // TODO: use repository for this.
             r#"
             UPDATE tasks
             SET
