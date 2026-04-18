@@ -6,3 +6,5 @@ pub mod create_user_dto;
 pub mod update_user_dto;
 pub mod user_response_dto;
 pub mod get_users_dto;
+pub mod login_user_dto;
+pub mod login_response_dto;

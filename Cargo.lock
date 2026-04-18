@@ -323,6 +323,7 @@ dependencies = [
  "dotenvy",
  "env_logger",
  "futures-util",
+ "jsonwebtoken",
  "log",
  "rand",
  "serde",

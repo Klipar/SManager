@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use core_lib::{handler::{new_user_handler::NewUserHandler, get_all_users_handler::GetAllUsersHandler, update_user_handler::UpdateUserHandler, remove_user_handler::RemoveUserHandler}, state::AppState};
+use core_lib::{handler::{new_user_handler::NewUserHandler, get_all_users_handler::GetAllUsersHandler, update_user_handler::UpdateUserHandler, remove_user_handler::RemoveUserHandler, login_user_handler::LoginUserHandler}, state::AppState};
 use sqlx::postgres::PgPool;
 use dotenvy::dotenv;
 mod server;
@@ -16,6 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut server = server::server::Server::new("127.0.0.1".to_string(), 6767);
 
     // CRUD for Users
+    server.add_handler("login", Arc::new(LoginUserHandler::new(state.pool.clone())));
     server.add_handler("new-user", Arc::new(NewUserHandler::new(state.pool.clone())));
     server.add_handler("get-all-users", Arc::new(GetAllUsersHandler::new(state.pool.clone())));
     server.add_handler("update-user", Arc::new(UpdateUserHandler::new(state.pool.clone())));
