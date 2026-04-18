@@ -16,6 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let intern_endpoint = Arc::new(Endpoint::new("127.0.0.1", 6767));
+    let extern_endpoint = Arc::new(Endpoint::new("127.0.0.1", 6969));
 
     let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone()));
     // let _result = TaskManager::run_task(task_manager.clone(), 2, ScriptType::Install).await;
@@ -31,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let mut extern_server = Server::new("127.0.0.1".to_string(), 6969, shared_pool.clone());
+    let mut extern_server = Server::new(extern_endpoint.clone(), shared_pool.clone());
 
     // CRUD for Cores
     extern_server.add_handler("new-core", Arc::new(NewCoreHandler::new(shared_pool.clone())));
