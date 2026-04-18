@@ -7,6 +7,8 @@ use std::path::PathBuf;
 
 use dashmap::DashMap;
 
+use log::error;
+
 pub struct TaskManager {
     pub pool: Arc<PgPool>,
     pub tasks: Arc<DashMap<i64, ManagedTask>>,
@@ -66,9 +68,23 @@ impl TaskManager {
     }
 
     pub async fn handle_exit(&self, run_id: i64, code: i32) {
-        println!("[MANAGER EXIT] {}: {}", run_id, code);
+        // TODO: notice if need that task is finished
         self.tasks.remove(&run_id);
-        //TODO: implement this
+
+        let res = sqlx::query!(
+            r#"
+            UPDATE runs
+            SET end_time = NOW(),
+                return_code = $1
+            WHERE id = $2
+            "#,
+            code,
+            run_id
+        )
+        .execute(&*self.pool)
+        .await;
+
+        if let Err(e) = res { error!("[MANAGER EXIT DB ERROR] {}", e) }
     }
 
     async fn create_run_record(
