@@ -117,7 +117,7 @@ impl Server {
 
                 let response = match parsed {
                     Message::Request { id, action, data } => {
-                        if action != "login" {
+                        if action == "authenticate" {
                             let token = match extract_token(&data) {
                                 Some(token) => token,
                                 None => {
@@ -140,6 +140,18 @@ impl Server {
                                     ctx.user_id = Some(claims.sub);
                                     ctx.is_admin = claims.is_admin;
                                     ctx.id = Some(claims.sub);
+
+                                    let mut response = Message::new_response(
+                                        Status::Ok,
+                                        Some(serde_json::json!({
+                                            "user_id": claims.sub,
+                                            "is_admin": claims.is_admin
+                                        })),
+                                        200,
+                                        "Authenticated",
+                                    );
+                                    response.set_id(id);
+                                    response
                                 }
                                 Err(_) => {
                                     let mut response = Message::new_response(
@@ -149,6 +161,33 @@ impl Server {
                                         "Invalid token",
                                     );
                                     response.set_id(id);
+                                    response
+                                }
+                            }
+                        } else {
+                            if action != "login" {
+                                if ctx.user_id.is_none() {
+                                    let mut response = Message::new_response(
+                                        Status::Error,
+                                        None,
+                                        401,
+                                        "Not authenticated. Send authenticate first",
+                                    );
+                                    response.set_id(id);
+                                    if let Err(e) = ws_stream.send(response_to_ws(response)).await {
+                                        eprintln!("Write ws error {}: {}", addr, e);
+                                    }
+                                    continue;
+                                }
+
+                                if !is_action_allowed(&action, &data, &ctx) {
+                                    let mut response = Message::new_response(
+                                        Status::Error,
+                                        None,
+                                        403,
+                                        "Forbidden",
+                                    );
+                                    response.set_id(id);
                                     if let Err(e) = ws_stream.send(response_to_ws(response)).await {
                                         eprintln!("Write ws error {}: {}", addr, e);
                                     }
@@ -156,34 +195,20 @@ impl Server {
                                 }
                             }
 
-                            if !is_action_allowed(&action, &data, &ctx) {
-                                let mut response = Message::new_response(
+                            let mut response = if let Some(handler) = handlers.get(&action) {
+                                handler.handle(data, &mut ctx).await
+                            } else {
+                                Message::new_response(
                                     Status::Error,
                                     None,
-                                    403,
-                                    "Forbidden",
-                                );
-                                response.set_id(id);
-                                if let Err(e) = ws_stream.send(response_to_ws(response)).await {
-                                    eprintln!("Write ws error {}: {}", addr, e);
-                                }
-                                continue;
-                            }
+                                    404,
+                                    format!("Unknown action: {}", action),
+                                )
+                            };
+
+                            response.set_id(id);
+                            response
                         }
-
-                        let mut response = if let Some(handler) = handlers.get(&action) {
-                            handler.handle(data, &mut ctx).await
-                        } else {
-                            Message::new_response(
-                                Status::Error,
-                                None,
-                                404,
-                                format!("Unknown action: {}", action),
-                            )
-                        };
-
-                        response.set_id(id);
-                        response
                     }
                     Message::Response { .. } => Message::new_response(
                         Status::Error,
