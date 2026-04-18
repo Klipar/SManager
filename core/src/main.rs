@@ -5,6 +5,7 @@ use core_lib::{
         get_all_agents_handler::GetAllAgentsHandler,
         get_all_users_handler::GetAllUsersHandler,
         get_all_tasks_handler::GetAllTasksHandler,
+        get_logs_handler::GetLogsHandler,
         login_user_handler::LoginUserHandler,
         new_agent_handler::NewAgentHandler,
         new_user_handler::NewUserHandler,
@@ -50,6 +51,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     server.add_handler("get-all-tasks", Arc::new(GetAllTasksHandler::new(state.pool.clone())));
     server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(state.pool.clone())));
     server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(state.pool.clone())));
+
+    // Read Logs
+    server.add_handler("get-logs", Arc::new(GetLogsHandler::new(state.pool.clone())));
 
     server.start_server().await;
 

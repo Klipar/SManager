@@ -11,3 +11,4 @@ pub mod new_task_handler;
 pub mod get_all_tasks_handler;
 pub mod update_task_handler;
 pub mod remove_task_handler;
+pub mod get_logs_handler;
