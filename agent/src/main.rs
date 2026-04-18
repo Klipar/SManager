@@ -1,4 +1,4 @@
-use agent_lib::{extern_server::server::Server, handler::{get_all_cores_handler::GetAllCoresHandler, get_all_task_handler::GetAllTaskHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_cure::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}};
+use agent_lib::{enums::script_types::ScriptTypes, extern_server::server::Server, handler::extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_task_handler::GetAllTaskHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_cure::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, managers::task_manager::TaskManager};
 use sqlx::postgres::PgPool;
 
 use dotenvy::dotenv;
@@ -12,6 +12,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let shared_pool = Arc::new(
         PgPool::connect(&std::env::var("DATABASE_URL_Agent")?).await?
     );
+
+    let task_manager = Arc::new(TaskManager::new(shared_pool.clone()));
+    let _result = TaskManager::run_task(task_manager.clone(), 2, ScriptTypes::InstallScript).await;
+
 
     let mut server = Server::new("127.0.0.1".to_string(), 6969, shared_pool.clone());
 
