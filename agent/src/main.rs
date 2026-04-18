@@ -15,8 +15,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         PgPool::connect(&std::env::var("DATABASE_URL_Agent")?).await?
     );
 
-    let intern_endpoint = Arc::new(Endpoint::new("127.0.0.1", 6767));
-    let extern_endpoint = Arc::new(Endpoint::new("127.0.0.1", 6969));
+    let intern_port: u16 = std::env::var("AGENT_INTERN_SERVER_PORT")
+        .unwrap_or_else(|e| {
+            eprintln!("Env error: {}", e);
+            "6767".to_string()
+        })
+        .parse()
+        .unwrap_or_else(|e| {
+            eprintln!("Parse error: {}", e);
+            6767
+        });
+
+    let extern_ip = std::env::var("AGENT_EXTERN_SERVER_IP")
+        .unwrap_or_else(|e| {
+            eprintln!("Env error: {}", e);
+            "127.0.0.1".to_string()
+        });
+
+    let extern_port: u16 = std::env::var("AGENT_EXTERN_SERVER_PORT")
+        .unwrap_or_else(|e| {
+            eprintln!("Env error: {}", e);
+            "6969".to_string()
+        })
+        .parse()
+        .unwrap_or_else(|e| {
+            eprintln!("Parse error: {}", e);
+            6969
+        });
+
+    let intern_endpoint = Arc::new(Endpoint::new("127.0.0.1", intern_port));
+    let extern_endpoint = Arc::new(Endpoint::new(extern_ip, extern_port));
 
     let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone()));
     let _result = TaskManager::run_task(task_manager.clone(), 2, ScriptType::Install).await;
