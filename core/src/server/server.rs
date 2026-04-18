@@ -106,6 +106,7 @@ impl Server {
                     }
                 };
 
+                // TODO: Add Admin check for handlers that require it
                 let response = match parsed {
                     Message::Request { id, action, data } => {
                         let mut response = if let Some(handler) = handlers.get(&action) {
