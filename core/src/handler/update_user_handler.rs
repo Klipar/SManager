@@ -23,7 +23,7 @@ impl UpdateUserHandler {
 
 #[async_trait]
 impl HandlerTrait for UpdateUserHandler {
-    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, data: Option<Value>, ctx: &mut ConnectionContext)-> Message {
         info!("Received request for updating user");
 
         let data = match data {
@@ -50,6 +50,15 @@ impl HandlerTrait for UpdateUserHandler {
                 );
             }
         };
+
+        if !ctx.is_admin && dto.is_admin.is_some() {
+            return Message::new_response(
+                Status::Error,
+                None,
+                403,
+                "Forbidden"
+            );
+        }
 
         if dto.name.is_none()
             && dto.email.is_none()
