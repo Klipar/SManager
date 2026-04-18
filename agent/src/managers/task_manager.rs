@@ -56,16 +56,31 @@ impl TaskManager {
     }
 
     pub async fn handle_stdout(&self, run_id: i64, line: &str) {
-        println!("[MANAGER STDOUT] {}: {}", run_id, line);
-
-        //TODO: implement this
+        // TODO: notice if need that task is finished
+        TaskManager::write_std_to_db(&self, run_id, line, "STDOUT").await;
     }
 
     pub async fn handle_stderr(&self, run_id: i64, line: &str) {
-        println!("[MANAGER STDERR] {}: {}", run_id, line);
-
-        //TODO: implement this
+        // TODO: notice if need that task is finished
+        TaskManager::write_std_to_db(&self, run_id, line, "STDERR").await;
     }
+
+    async fn write_std_to_db(&self, run_id: i64, line: &str, test_type: &str) {
+        let res = sqlx::query!(
+            r#"
+            UPDATE runs
+            SET output = COALESCE(output, '') || $1 || E'\n'
+            WHERE id = $2
+            "#,
+            format!("[{}] {}", test_type, line),
+            run_id
+        )
+        .execute(&*self.pool)
+        .await;
+
+        if let Err(e) = res { error!("[MANAGER STDOUT DB ERROR] {}", e) }
+    }
+
 
     pub async fn handle_exit(&self, run_id: i64, code: i32) {
         // TODO: notice if need that task is finished
