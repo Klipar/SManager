@@ -1,4 +1,4 @@
-use crate::{enums::{script_types::ScriptTypes, task_errors::TaskError}, managers::{managed_task::ManagedTask}, repository::task_repository::TaskRepository};
+use crate::{enums::{script_types::ScriptType, task_errors::TaskError}, managers::{managed_task::ManagedTask}, repository::task_repository::TaskRepository};
 use shared::db::models::{Task, TaskStatus};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
@@ -9,7 +9,7 @@ use dashmap::DashMap;
 
 pub struct TaskManager {
     pub pool: Arc<PgPool>,
-    pub tasks: Arc<DashMap<i32, ManagedTask>>,
+    pub tasks: Arc<DashMap<i64, ManagedTask>>,
 }
 
 impl TaskManager {
@@ -20,7 +20,7 @@ impl TaskManager {
         }
     }
 
-    pub async fn run_task(self: Arc<Self>, task_id: i32, scrypt_type: ScriptTypes) -> Result<(), TaskError> {
+    pub async fn run_task(self: Arc<Self>, task_id: i32, scrypt_type: ScriptType) -> Result<(), TaskError> {
         let rask_repository = TaskRepository::new(self.pool.clone());
 
         let mut task = rask_repository.get_by_id(task_id).await?;
@@ -33,16 +33,19 @@ impl TaskManager {
 
         task = rask_repository.update_task(task).await?;
 
+        let run_id = TaskManager::create_run_record(self.pool.clone(), &task, scrypt_type).await
+            .map_err(|_| TaskError::DatabaseError)?;
+
         let script_path = self.prepare_dir(&task, scrypt_type)
             .await
             .map_err(|e| TaskError::FailedToPrepareEnvironment(e.to_string()))?;
 
         self.tasks.insert(
-            task_id,
+            run_id,
             ManagedTask::new(
-                task,
                 script_path,
-                self.clone()
+                self.clone(),
+                run_id
             ).await
             .map_err(|_e| TaskError::FailedToRunTask)?
         );
@@ -50,25 +53,47 @@ impl TaskManager {
         return Ok(());
     }
 
-    pub async fn handle_stdout(&self, task: &Task, line: &str) {
-        println!("[MANAGER STDOUT] {}: {}", task.id, line);
+    pub async fn handle_stdout(&self, run_id: i64, line: &str) {
+        println!("[MANAGER STDOUT] {}: {}", run_id, line);
 
         //TODO: implement this
     }
 
-    pub async fn handle_stderr(&self, task: &Task, line: &str) {
-        println!("[MANAGER STDERR] {}: {}", task.id, line);
+    pub async fn handle_stderr(&self, run_id: i64, line: &str) {
+        println!("[MANAGER STDERR] {}: {}", run_id, line);
 
         //TODO: implement this
     }
 
-    pub async fn handle_exit(&self, task: &Task, code: i32) {
-        println!("[MANAGER EXIT] {}: {}", task.id, code);
-        self.tasks.remove(&task.id);
+    pub async fn handle_exit(&self, run_id: i64, code: i32) {
+        println!("[MANAGER EXIT] {}: {}", run_id, code);
+        self.tasks.remove(&run_id);
         //TODO: implement this
     }
 
-    async fn prepare_dir(&self, task: &Task, scrypt_type: ScriptTypes) -> std::io::Result<PathBuf>{
+    async fn create_run_record(
+        pool: Arc<PgPool>,
+        task: &Task,
+        script_type: ScriptType,
+    ) -> Result<i64, sqlx::Error> {
+
+        let rec = sqlx::query!(
+            r#"
+            INSERT INTO runs (task_id, core_id, script)
+            VALUES ($1, $2, $3)
+            RETURNING id
+            "#,
+            task.id,
+            task.core_id,
+            script_type as ScriptType
+        )
+        .fetch_one(&*pool)
+        .await?;
+
+        Ok(rec.id)
+    }
+
+    async fn prepare_dir(&self, task: &Task, scrypt_type: ScriptType) -> std::io::Result<PathBuf>{
         let mut path = PathBuf::from("tasks_storage/data");
         path.push(task.id.to_string());
 
@@ -76,7 +101,7 @@ impl TaskManager {
 
         path.push(scrypt_type.file_name());
 
-        match scrypt_type.get_scrypt(&task) {
+        match scrypt_type.get_script(&task) {
             Some(scrypt) => {
                 fs::write(&path, scrypt).await?;
                 return Ok(path);

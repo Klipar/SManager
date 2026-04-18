@@ -1,4 +1,3 @@
-use shared::db::models::Task;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -10,14 +9,14 @@ use tokio::sync::Mutex;
 use crate::managers::task_manager::TaskManager;
 
 pub struct ManagedTask {
-    child: Arc<Mutex<Child>>,
+    child: Arc<Mutex<Child>>
 }
 
 impl ManagedTask {
     pub async fn new(
-        task: Task,
         script_path: PathBuf,
         manager: Arc<TaskManager>,
+        run_id: i64,
     ) -> anyhow::Result<Self> {
 
         let script_dir = script_path
@@ -44,50 +43,49 @@ impl ManagedTask {
         let stderr = child.stderr.take()
             .ok_or_else(|| anyhow::anyhow!("Failed to capture stderr"))?;
 
-        let task = Arc::new(task);
         let child = Arc::new(Mutex::new(child));
 
         let managed = Self { child: child.clone() };
 
-        Self::listen_stdout(task.clone(), stdout, manager.clone());
-        Self::listen_stderr(task.clone(), stderr, manager.clone());
-        Self::listen_exit(task.clone(), child.clone(), manager.clone());
+        Self::listen_stdout(stdout, manager.clone(), run_id);
+        Self::listen_stderr(stderr, manager.clone(), run_id);
+        Self::listen_exit(child.clone(), manager.clone(), run_id);
 
         Ok(managed)
     }
 
     fn listen_stdout(
-        task: Arc<Task>,
         stdout: tokio::process::ChildStdout,
         manager: Arc<TaskManager>,
+        run_id: i64
     ) {
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout).lines();
 
             while let Ok(Some(line)) = reader.next_line().await {
-                manager.handle_stdout(&task, &line).await;
+                manager.handle_stdout(run_id, &line).await;
             }
         });
     }
 
     fn listen_stderr(
-        task: Arc<Task>,
         stderr: tokio::process::ChildStderr,
         manager: Arc<TaskManager>,
+        run_id: i64
     ) {
         tokio::spawn(async move {
             let mut reader = BufReader::new(stderr).lines();
 
             while let Ok(Some(line)) = reader.next_line().await {
-                manager.handle_stderr(&task, &line).await;
+                manager.handle_stderr(run_id, &line).await;
             }
         });
     }
 
     fn listen_exit(
-        task: Arc<Task>,
         child: Arc<Mutex<Child>>,
         manager: Arc<TaskManager>,
+        run_id: i64
     ) {
         tokio::spawn(async move {
             let status = child.lock().await.wait().await;
@@ -95,7 +93,7 @@ impl ManagedTask {
             match status {
                 Ok(status) => {
                     let code = status.code().unwrap_or(-1);
-                    manager.handle_exit(&task, code).await;
+                    manager.handle_exit(run_id, code).await;
                 }
                 Err(e) => {
                     eprintln!("Failed to wait process: {}", e);

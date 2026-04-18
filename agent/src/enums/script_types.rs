@@ -1,38 +1,27 @@
 use shared::db::models::Task;
 
-#[derive(Debug)]
-pub enum ScriptTypes {
-    InstallScript,
-    RunScript,
-    DeleteScript,
+#[derive(Debug, Clone, Copy, sqlx::Type)]
+#[sqlx(type_name = "script_type", rename_all = "lowercase")]
+pub enum ScriptType {
+    Install,
+    Run,
+    Delete,
 }
 
-impl ScriptTypes {
-    pub fn file_name(&self) -> String{
+impl ScriptType {
+        pub fn file_name(&self) -> &'static str {
         match self {
-            ScriptTypes::InstallScript => {
-                return "install.sh".to_string().clone();
-            }
-            ScriptTypes::RunScript => {
-                return "run.sh".to_string().clone();
-            }
-            ScriptTypes::DeleteScript => {
-                return "delete.sh".to_string().clone();
-            }
+            ScriptType::Install => "install.sh",
+            ScriptType::Run => "run.sh",
+            ScriptType::Delete => "delete.sh",
         }
     }
 
-    pub fn get_scrypt(self, task: &Task) -> Option<String>{
+    pub fn get_script<'a>(&self, task: &'a Task) -> Option<&'a str> {
         match self {
-            ScriptTypes::InstallScript => {
-                return task.install_script.clone();
-            }
-            ScriptTypes::RunScript => {
-                return task.run_script.clone();
-            }
-            ScriptTypes::DeleteScript => {
-                return task.delete_script.clone();
-            }
+            ScriptType::Install => task.install_script.as_deref(),
+            ScriptType::Run => task.run_script.as_deref(),
+            ScriptType::Delete => task.delete_script.as_deref(),
         }
     }
 }
