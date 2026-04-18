@@ -14,7 +14,7 @@ impl TaskRepository {
         Self { pool }
     }
 
-    pub async fn get_by_id(&self, id: i32) -> Result<Task, TaskError> {
+    pub async fn get_by_id(&self, id: i64) -> Result<Task, TaskError> {
         let task = sqlx::query_as::<_, Task>(
                 "SELECT * FROM tasks WHERE id=$1"
             )

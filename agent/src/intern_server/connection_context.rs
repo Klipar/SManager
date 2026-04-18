@@ -1,6 +1,6 @@
 pub struct ConnectionContext {
     pub authenticated: bool,
-    pub id: Option<i32>,
+    pub id: Option<i64>,
 }
 
 impl ConnectionContext {

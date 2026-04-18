@@ -27,7 +27,7 @@ impl TaskManager {
         }
     }
 
-    pub async fn run_task(self: Arc<Self>, task_id: i32, scrypt_type: ScriptType) -> Result<(), TaskError> {
+    pub async fn run_task(self: Arc<Self>, task_id: i64, scrypt_type: ScriptType) -> Result<(), TaskError> {
         let rask_repository = TaskRepository::new(self.pool.clone());
 
         let mut task = rask_repository.get_by_id(task_id).await?;
@@ -55,7 +55,7 @@ impl TaskManager {
                 run_id,
                 {
                     let mut tm = self.token_manager.lock().await;
-                    tm.gen_token(run_id)
+                    tm.gen_token(task_id)
                 },
                 self.endpoint.clone()
             ).await
@@ -162,5 +162,10 @@ impl TaskManager {
         name.chars()
             .map(|c| if forbidden.contains(&c) || c.is_control() { '_' } else { c })
             .collect()
+    }
+
+    pub async fn token_to_task_id(self: Arc<Self>, token: &String) -> Option<i64>{
+        let mut tm = self.token_manager.lock().await;
+        tm.use_token(token)
     }
 }

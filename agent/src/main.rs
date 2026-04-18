@@ -1,4 +1,4 @@
-use agent_lib::{extern_server::server::Server, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_task_handler::GetAllTaskHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_cure::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
+use agent_lib::{enums::script_types::ScriptType, extern_server::server::Server, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_task_handler::GetAllTaskHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_cure::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
 use shared::server::endpoint::Endpoint;
 use sqlx::postgres::PgPool;
 
@@ -19,12 +19,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let extern_endpoint = Arc::new(Endpoint::new("127.0.0.1", 6969));
 
     let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone()));
-    // let _result = TaskManager::run_task(task_manager.clone(), 2, ScriptType::Install).await;
+    let _result = TaskManager::run_task(task_manager.clone(), 2, ScriptType::Install).await;
 
 
     let mut intern_server = agent_lib::intern_server::server::Server::new(intern_endpoint.clone());
 
-    intern_server.add_handler("auth", Arc::new(AuthenticateHandler::new(shared_pool.clone(), task_manager.clone())));
+    intern_server.add_handler("authenticate", Arc::new(AuthenticateHandler::new(shared_pool.clone(), task_manager.clone())));
 
     let intern_handle = tokio::spawn(async move {
         if let Err(e) = intern_server.start_server().await {
