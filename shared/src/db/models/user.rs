@@ -8,7 +8,7 @@ pub struct User {
     pub id: i32,
     pub name: String,
     pub email: String,
-    pub password_hash: String,
+    pub password: String,
     pub is_admin: bool,
     pub last_login: Option<NaiveDateTime>,
     pub last_update: Option<NaiveDateTime>,
