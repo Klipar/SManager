@@ -5,23 +5,21 @@ use tokio_util::codec::{Framed, LinesCodec};
 use futures::StreamExt;
 use anyhow::Result;
 use futures::sink::SinkExt;
-use shared::server::{message::{Message, Status}};
+use shared::server::{endpoint::Endpoint, message::{Message, Status}};
 use log::{info, error};
 
 use crate::intern_server::{connection_context::ConnectionContext, handler_trait::HandlerTrait};
 
 pub struct Server {
-    pub ip: String,
-    pub port: u16,
+    pub endpoint: Arc<Endpoint>,
     pub is_active: bool,
     pub handlers: HashMap<String, Arc<dyn HandlerTrait>>,
 }
 
 impl Server {
-    pub fn new(ip: String, port: u16) -> Self {
+    pub fn new(endpoint: Arc<Endpoint>) -> Self {
         Self {
-            ip,
-            port,
+            endpoint,
             is_active: false,
             handlers: HashMap::new(),
         }
@@ -32,10 +30,10 @@ impl Server {
     }
 
     pub async fn start_server(mut self) -> Result<()> {
-        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port)).await?;
+        let listener = TcpListener::bind(format!("{}:{}", self.endpoint.ip, self.endpoint.port)).await?;
         self.is_active = true;
 
-        info!("Server listening on {}:{}", self.ip, self.port);
+        info!("Server listening on {}", self.endpoint);
 
         loop {
             let (socket, addr) = listener.accept().await?;
@@ -46,12 +44,7 @@ impl Server {
             tokio::spawn(async move {
                 let mut framed =  Framed::new(socket, LinesCodec::new_with_max_length(65536)); //Set to 64 kb data per json. if need can be extended
 
-                let mut ctx = ConnectionContext::new(framed
-                    .get_ref()
-                    .peer_addr()
-                    .map(|a| a.ip().to_string())
-                    .unwrap_or_else(|_| "0.0.0.0".to_string())
-                );
+                let mut ctx = ConnectionContext::new();
 
                 while let Some(result) = framed.next().await {
                     match result {

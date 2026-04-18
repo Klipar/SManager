@@ -1,6 +1,8 @@
-use agent_lib::{enums::script_types::ScriptType, extern_server::server::Server, handler::extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_task_handler::GetAllTaskHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_cure::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, managers::task_manager::TaskManager};
+use agent_lib::{extern_server::server::Server, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_task_handler::GetAllTaskHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_cure::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
+use shared::server::endpoint::Endpoint;
 use sqlx::postgres::PgPool;
 
+use log::error;
 use dotenvy::dotenv;
 use std::sync::Arc;
 
@@ -13,24 +15,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         PgPool::connect(&std::env::var("DATABASE_URL_Agent")?).await?
     );
 
-    let task_manager = Arc::new(TaskManager::new(shared_pool.clone()));
-    let _result = TaskManager::run_task(task_manager.clone(), 2, ScriptType::Install).await;
+    let intern_endpoint = Arc::new(Endpoint::new("127.0.0.1", 6767));
+
+    let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone()));
+    // let _result = TaskManager::run_task(task_manager.clone(), 2, ScriptType::Install).await;
 
 
-    let mut server = Server::new("127.0.0.1".to_string(), 6969, shared_pool.clone());
+    let mut intern_server = agent_lib::intern_server::server::Server::new(intern_endpoint.clone());
+
+    intern_server.add_handler("auth", Arc::new(AuthenticateHandler::new(shared_pool.clone(), task_manager.clone())));
+
+    let intern_handle = tokio::spawn(async move {
+        if let Err(e) = intern_server.start_server().await {
+            error!("[INTERN SERVER ERROR] {}", e);
+        }
+    });
+
+    let mut extern_server = Server::new("127.0.0.1".to_string(), 6969, shared_pool.clone());
 
     // CRUD for Cores
-    server.add_handler("new-core", Arc::new(NewCoreHandler::new(shared_pool.clone())));
-    server.add_handler("get-all-cores", Arc::new(GetAllCoresHandler::new(shared_pool.clone())));
-    server.add_handler("update-core", Arc::new(UpdateCoreHandler::new(shared_pool.clone())));
-    server.add_handler("remove-core", Arc::new(RemoveCoreHandler::new(shared_pool.clone())));
+    extern_server.add_handler("new-core", Arc::new(NewCoreHandler::new(shared_pool.clone())));
+    extern_server.add_handler("get-all-cores", Arc::new(GetAllCoresHandler::new(shared_pool.clone())));
+    extern_server.add_handler("update-core", Arc::new(UpdateCoreHandler::new(shared_pool.clone())));
+    extern_server.add_handler("remove-core", Arc::new(RemoveCoreHandler::new(shared_pool.clone())));
 
     // CRUD for Tasks
-    server.add_handler("new-task", Arc::new(NewTaskHandler::new(shared_pool.clone())));
-    server.add_handler("get-all-tasks", Arc::new(GetAllTaskHandler::new(shared_pool.clone())));
-    server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(shared_pool.clone())));
-    server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(shared_pool.clone())));
-    server.start_server().await?;
+    extern_server.add_handler("new-task", Arc::new(NewTaskHandler::new(shared_pool.clone())));
+    extern_server.add_handler("get-all-tasks", Arc::new(GetAllTaskHandler::new(shared_pool.clone())));
+    extern_server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(shared_pool.clone())));
+    extern_server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(shared_pool.clone())));
+
+    let extern_handle = tokio::spawn(async move {
+        if let Err(e) = extern_server.start_server().await {
+            error!("[EXTERN SERVER ERROR] {}", e);
+        }
+    });
+
+    tokio::try_join!(intern_handle, extern_handle)?;
 
     Ok(())
 }

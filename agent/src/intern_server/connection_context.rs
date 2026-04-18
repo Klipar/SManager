@@ -4,7 +4,7 @@ pub struct ConnectionContext {
 }
 
 impl ConnectionContext {
-    pub fn new(_ip: String) -> Self {
+    pub fn new() -> Self {
         Self {
             authenticated: false,
             id: None,

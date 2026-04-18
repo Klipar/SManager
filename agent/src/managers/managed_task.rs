@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use shared::server::endpoint::Endpoint;
 use tokio::process::{Command, Child};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use std::process::Stdio;
@@ -17,6 +18,8 @@ impl ManagedTask {
         script_path: PathBuf,
         manager: Arc<TaskManager>,
         run_id: i64,
+        token: String,
+        endpoint: Arc<Endpoint>
     ) -> anyhow::Result<Self> {
 
         let script_dir = script_path
@@ -29,10 +32,10 @@ impl ManagedTask {
 
         let mut child = Command::new("bash")
             .arg(&file_name)
-            .current_dir(script_dir) // TODO: /work with real data for scrypt
-            .env("AGENT_IP", "127.0.0.1")
-            .env("AGENT_PORT", "6969")
-            .env("TOKEN", "NOO it is secret token....")
+            .current_dir(script_dir)
+            .env("AGENT_IP", &endpoint.ip)
+            .env("AGENT_PORT", endpoint.port.to_string())
+            .env("TOKEN", token)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()?;

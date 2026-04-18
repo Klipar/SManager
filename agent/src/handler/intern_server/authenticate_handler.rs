@@ -8,18 +8,18 @@ use sha2::{Sha256, Digest};
 
 use log::{info, warn, error, debug};
 
-use crate::intern_server::{connection_context::ConnectionContext, handler_trait::HandlerTrait};
+use crate::{intern_server::{connection_context::ConnectionContext, handler_trait::HandlerTrait}, managers::task_manager::TaskManager};
 
 pub struct AuthenticateHandler {
     pub pool: Arc<PgPool>,
+    pub task_manager: Arc<TaskManager>,
 }
 
 impl AuthenticateHandler {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(pool: Arc<PgPool>, task_manager: Arc<TaskManager>) -> Self {
+        Self { pool, task_manager }
     }
 }
-//TODO: refactor for central task manager class.
 
 #[async_trait]
 impl HandlerTrait for AuthenticateHandler {

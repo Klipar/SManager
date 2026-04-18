@@ -1,24 +1,29 @@
-use crate::{enums::{script_types::ScriptType, task_errors::TaskError}, managers::{managed_task::ManagedTask}, repository::task_repository::TaskRepository};
-use shared::db::models::{Task, TaskStatus};
+use crate::{enums::{script_types::ScriptType, task_errors::TaskError}, managers::{managed_task::ManagedTask, token_manager::{TokenManager}}, repository::task_repository::TaskRepository};
+use shared::{db::models::{Task, TaskStatus}, server::endpoint::Endpoint};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use tokio::fs;
 use std::path::PathBuf;
+use tokio::sync::Mutex;
 
 use dashmap::DashMap;
 
 use log::error;
 
 pub struct TaskManager {
-    pub pool: Arc<PgPool>,
-    pub tasks: Arc<DashMap<i64, ManagedTask>>,
+    pool: Arc<PgPool>,
+    tasks: Arc<DashMap<i64, ManagedTask>>,
+    token_manager: Arc<Mutex<TokenManager>>,
+    endpoint: Arc<Endpoint>
 }
 
 impl TaskManager {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: Arc<PgPool>, endpoint: Arc<Endpoint>) -> Self {
         Self {
             pool: pool,
-            tasks: Arc::new(DashMap::new())
+            tasks: Arc::new(DashMap::new()),
+            token_manager: Arc::new(Mutex::new(TokenManager::new())),
+            endpoint
         }
     }
 
@@ -47,7 +52,12 @@ impl TaskManager {
             ManagedTask::new(
                 script_path,
                 self.clone(),
-                run_id
+                run_id,
+                {
+                    let mut tm = self.token_manager.lock().await;
+                    tm.gen_token(run_id)
+                },
+                self.endpoint.clone()
             ).await
             .map_err(|_e| TaskError::FailedToRunTask)?
         );
