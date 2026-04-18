@@ -1,5 +1,8 @@
 pub mod create_core_dto;
 pub mod get_cores_dto;
+pub mod create_agent_dto;
+pub mod update_agent_dto;
+pub mod agent_response_dto;
 pub mod new_task_request_dto;
 pub mod update_task_dto;
 pub mod create_user_dto;

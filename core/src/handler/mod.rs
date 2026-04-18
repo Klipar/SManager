@@ -3,3 +3,7 @@ pub mod update_user_handler;
 pub mod remove_user_handler;
 pub mod get_all_users_handler;
 pub mod login_user_handler;
+pub mod new_agent_handler;
+pub mod get_all_agents_handler;
+pub mod update_agent_handler;
+pub mod remove_agent_handler;
