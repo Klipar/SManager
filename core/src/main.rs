@@ -18,6 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // CRUD for Users
     server.add_handler("new-user", Arc::new(NewUserHandler::new(state.pool.clone())));
     server.add_handler("get-all-users", Arc::new(GetAllUsersHandler::new(state.pool.clone())));
+    server.add_handler("update-user", Arc::new(core_lib::handler::update_user_handler::UpdateUserHandler::new(state.pool.clone())));
 
     server.start_server().await;
 
