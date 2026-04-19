@@ -1,4 +1,6 @@
 use std::sync::Arc;
+use sqlx::postgres::PgPool;
+use dotenvy::dotenv;
 
 use core_lib::{
     handler::{
@@ -20,8 +22,6 @@ use core_lib::{
     state::AppState,
     server::server::Server,
 };
-use sqlx::postgres::PgPool;
-use dotenvy::dotenv;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

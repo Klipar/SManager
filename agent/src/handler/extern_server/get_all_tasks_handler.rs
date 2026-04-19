@@ -7,18 +7,18 @@ use serde_json::json;
 
 use log::{info, error};
 
-pub struct GetAllTaskHandler {
+pub struct GetAllTasksHandler {
     pub pool: Arc<PgPool>,
 }
 
-impl GetAllTaskHandler {
+impl GetAllTasksHandler {
     pub fn new(pool: Arc<PgPool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
-impl HandlerTrait for GetAllTaskHandler {
+impl HandlerTrait for GetAllTasksHandler {
     async fn handle(&self, _data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
         info!("Extracting all tasks");
 

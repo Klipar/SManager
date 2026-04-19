@@ -1,6 +1,5 @@
 use std::fmt;
 
-
 #[derive(Hash, Eq, PartialEq, Clone)]
 pub struct Endpoint {
     pub ip: String,

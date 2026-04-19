@@ -1,4 +1,4 @@
-use agent_lib::{enums::script_types::ScriptType, extern_server::server::Server, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_task_handler::GetAllTaskHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_cure::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
+use agent_lib::{enums::script_types::ScriptType, extern_server::server::Server, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
 use shared::server::endpoint::Endpoint;
 use sqlx::postgres::PgPool;
 
@@ -10,6 +10,7 @@ use std::sync::Arc;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
     env_logger::init();
+
     // connecting to db, and extracting shared_pool
     let shared_pool = Arc::new(
         PgPool::connect(&std::env::var("DATABASE_URL_AGENT")?).await?
@@ -70,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // CRUD for Tasks
     extern_server.add_handler("new-task", Arc::new(NewTaskHandler::new(shared_pool.clone())));
-    extern_server.add_handler("get-all-tasks", Arc::new(GetAllTaskHandler::new(shared_pool.clone())));
+    extern_server.add_handler("get-all-tasks", Arc::new(GetAllTasksHandler::new(shared_pool.clone())));
     extern_server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(shared_pool.clone())));
     extern_server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(shared_pool.clone())));
 

@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use shared::server::generate_token::generate_token;
 
-
 pub struct TokenManager {
     token_storage: HashMap<String, i64>
 }
