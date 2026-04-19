@@ -1,7 +1,7 @@
 CREATE TYPE SCRIPT_TYPE AS ENUM (
     'install',
     'run',
-    'delete',
+    'delete'
 );
 
 UPDATE runs SET script = 'run';

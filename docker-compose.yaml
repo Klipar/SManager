@@ -29,9 +29,49 @@ services:
     networks:
       - SManagerTestNetwork
 
+  s_manager_agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    container_name: s_manager_agent
+    depends_on:
+      - s_manager_agent_db
+    environment:
+      DATABASE_URL: postgresql://${AGENT_DB_USER}:${AGENT_DB_PASS}@s_manager_agent_db:5432/${AGENT_DB_NAME}
+      DATABASE_URL_AGENT: postgresql://${AGENT_DB_USER}:${AGENT_DB_PASS}@s_manager_agent_db:5432/${AGENT_DB_NAME}
+      PGPASSWORD: ${AGENT_DB_PASS}
+      CARGO_HOME: /usr/local/cargo
+      PATH: /usr/local/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      AGENT_EXTERN_SERVER_IP: 0.0.0.0
+      AGENT_EXTERN_SERVER_PORT: ${AGENT_EXTERN_SERVER_PORT:-6969}
+      AGENT_INTERN_SERVER_PORT: ${AGENT_INTERN_SERVER_PORT:-6767}
+      CERTIFICATES_LOCATION: /workspace/certs/dev/
+      RUST_LOG: ${RUST_LOG:-debug}
+    command:
+      - bash
+      - -lc
+      - |
+        until pg_isready -h s_manager_agent_db -p 5432 -U "${AGENT_DB_USER}" >/dev/null 2>&1; do
+          echo "waiting for s_manager_agent_db";
+          sleep 1;
+        done
+
+        /usr/local/cargo/bin/cargo run -p agent --locked
+    ports:
+      - "${AGENT_EXTERN_SERVER_PORT:-6969}:${AGENT_EXTERN_SERVER_PORT:-6969}"
+      - "${AGENT_INTERN_SERVER_PORT:-6767}:${AGENT_INTERN_SERVER_PORT:-6767}"
+    volumes:
+      - .:/workspace
+      - agent_target:/workspace/target
+      - agent_tasks_storage:/workspace/tasks_storage
+    networks:
+      - SManagerTestNetwork
+
 volumes:
   agent_db_data:
   core_db_data:
+  agent_target:
+  agent_tasks_storage:
 
 networks:
   SManagerTestNetwork:
