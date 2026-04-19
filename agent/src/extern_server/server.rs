@@ -8,7 +8,7 @@ use futures::{StreamExt, SinkExt};
 use anyhow::Result;
 use log::{info, error};
 
-use shared::{db::models::Core, server::{ connection_context::ConnectionContext, get_hash::get_hash, handler_trait::HandlerTrait, message::Message }};
+use shared::{db::models::Core, server::{ connection_context::ConnectionContext, endpoint::Endpoint, get_hash::get_hash, handler_trait::HandlerTrait, message::Message }};
 
 use tokio_rustls::rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 
@@ -96,18 +96,16 @@ fn resolve_certificates_dir(configured: &str) -> Option<PathBuf> {
 // ---------------- SERVER ----------------
 
 pub struct Server {
-    pub ip: String,
-    pub port: u16,
+    endpoint: Arc<Endpoint>,
     pub is_active: bool,
     pub handlers: HashMap<String, Arc<dyn HandlerTrait>>,
     pool: Arc<PgPool>,
 }
 
 impl Server {
-    pub fn new(ip: String, port: u16, pool: Arc<PgPool>) -> Self {
+    pub fn new(endpoint: Arc<Endpoint>, pool: Arc<PgPool>) -> Self {
         Self {
-            ip,
-            port,
+            endpoint,
             is_active: false,
             handlers: HashMap::new(),
             pool,
@@ -119,13 +117,13 @@ impl Server {
     }
 
     pub async fn start_server(mut self) -> Result<()> {
-        let listener = TcpListener::bind(format!("{}:{}", self.ip, self.port)).await?;
+        let listener = TcpListener::bind(format!("{}:{}", self.endpoint.ip, self.endpoint.port)).await?;
         let tls_config = build_tls_config();
         let acceptor = TlsAcceptor::from(tls_config);
 
         self.is_active = true;
 
-        info!("mTLS Server listening on {}:{}", self.ip, self.port);
+        info!("mTLS Server listening on {}", self.endpoint);
 
         loop {
             let (socket, addr) = listener.accept().await?;
