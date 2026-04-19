@@ -6,7 +6,6 @@ Minimal run guide for local development.
 
 - agent: mTLS TCP server on 127.0.0.1:6969
 - core: WebSocket server on ws://127.0.0.1:6767
-- tasks: demo binaries
 
 ## Quick Start
 
@@ -40,13 +39,6 @@ sqlx migrate run --source core/migrations
 ```powershell
 cargo run -p agent
 cargo run -p core
-```
-
-5. Run tasks binaries (optional):
-
-```powershell
-cargo run -p tasks
-cargo run -p tasks --bin sensors
 ```
 
 ## Notes
