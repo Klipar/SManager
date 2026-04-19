@@ -1,12 +1,8 @@
 use async_trait::async_trait;
 use log::{error, info};
 use serde_json::{json, Value};
-use shared::server::{
-    connection_context::ConnectionContext,
-    dto::update_agent_dto::UpdateAgentDto,
-    handler_trait::HandlerTrait,
-    message::{Message, Status},
-};
+use crate::{handler::handler_trait::HandlerTrait, server::connection_context::ConnectionContext};
+use shared::server::{dto::update_agent_dto::UpdateAgentDto, message::{Message, Status}};
 use shared::db::models::Agent;
 use sqlx::postgres::PgPool;
 use std::sync::Arc;

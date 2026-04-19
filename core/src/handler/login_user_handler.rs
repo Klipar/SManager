@@ -5,17 +5,8 @@ use jsonwebtoken::{encode, EncodingKey, Header};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use shared::server::{
-    connection_context::ConnectionContext,
-    dto::{
-        login_response_dto::LoginResponseDto,
-        login_user_dto::LoginUserDto,
-        user_response_dto::UserResponseDto,
-    },
-    get_hash::get_hash,
-    handler_trait::HandlerTrait,
-    message::{Message, Status},
-};
+use crate::{handler::handler_trait::HandlerTrait, server::connection_context::ConnectionContext};
+use shared::server::{dto::{login_response_dto::LoginResponseDto, login_user_dto::LoginUserDto, user_response_dto::UserResponseDto}, get_hash::get_hash, message::{Message, Status}};
 use sqlx::postgres::PgPool;
 
 pub struct LoginUserHandler {

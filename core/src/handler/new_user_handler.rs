@@ -1,12 +1,7 @@
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use shared::server::{
-    connection_context::ConnectionContext,
-    dto::{create_user_dto::CreateUserDto, user_response_dto::UserResponseDto},
-    get_hash::get_hash,
-    handler_trait::HandlerTrait,
-    message::{Message, Status},
-};
+use crate::{handler::handler_trait::HandlerTrait, server::connection_context::ConnectionContext};
+use shared::server::{dto::{create_user_dto::CreateUserDto, user_response_dto::UserResponseDto}, get_hash::get_hash, message::{Message, Status}};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use log::{info, error};

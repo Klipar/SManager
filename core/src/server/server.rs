@@ -7,11 +7,11 @@ use serde_json::Value;
 use tokio::net::TcpListener;
 use tokio_tungstenite::accept_async;
 
-use shared::server::{
-    connection_context::ConnectionContext,
-    handler_trait::HandlerTrait,
-    message::{Message, Status},
+use crate::{
+    handler::handler_trait::HandlerTrait,
+    server::connection_context::ConnectionContext,
 };
+use shared::server::message::{Message, Status};
 
 pub struct Server {
     pub ip: String,

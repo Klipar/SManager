@@ -18,10 +18,10 @@ use core_lib::{
         update_task_handler::UpdateTaskHandler,
     },
     state::AppState,
+    server::server::Server,
 };
 use sqlx::postgres::PgPool;
 use dotenvy::dotenv;
-mod server;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -31,7 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pg_pool = PgPool::connect(&std::env::var("DATABASE_URL_CORE")?).await?;
     let state = AppState::new(pg_pool);
 
-    let mut server = server::server::Server::new("127.0.0.1".to_string(), 6767);
+    let mut server = Server::new("127.0.0.1".to_string(), 6767);
 
     // CRUD for Users
     server.add_handler("login", Arc::new(LoginUserHandler::new(state.pool.clone())));
