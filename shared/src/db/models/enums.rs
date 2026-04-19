@@ -12,6 +12,7 @@ pub enum RestartPolicy {
     #[sqlx(rename = "on-failure")]
     OnFailure,
 }
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[sqlx(type_name = "task_status", rename_all = "lowercase")]
 pub enum TaskStatus {
@@ -20,4 +21,12 @@ pub enum TaskStatus {
     Failed,
     Stopped,
     Executed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[sqlx(type_name = "agent_status", rename_all = "lowercase")]
+pub enum AgentStatus {
+    Online,
+    Offline,
+    Error,
 }

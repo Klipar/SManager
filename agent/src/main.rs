@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     // connecting to db, and extracting shared_pool
     let shared_pool = Arc::new(
-        PgPool::connect(&std::env::var("DATABASE_URL_Agent")?).await?
+        PgPool::connect(&std::env::var("DATABASE_URL_AGENT")?).await?
     );
 
     let intern_port: u16 = std::env::var("AGENT_INTERN_SERVER_PORT")
