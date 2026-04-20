@@ -28,10 +28,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
     env_logger::init();
 
-    let pg_pool = PgPool::connect(&std::env::var("DATABASE_URL_CORE")?).await?;
+    let pg_pool = PgPool::connect(&std::env::var("CORE_DATABASE_URL")?).await?;
     let state = AppState::new(pg_pool);
 
-    let mut server = Server::new("127.0.0.1".to_string(), 6767);
+    let ip = std::env::var("CORE_SERVER_IP")
+        .unwrap_or_else(|e| {
+            eprintln!("Env error: {}", e);
+            "127.0.0.1".to_string()
+        });
+
+    let port: u16 = std::env::var("CORE_SERVER_PORT")
+        .unwrap_or_else(|e| {
+            eprintln!("Env error: {}", e);
+            "6767".to_string()
+        })
+        .parse()
+        .unwrap_or_else(|e| {
+            eprintln!("Parse error: {}", e);
+            6767
+        });
+
+    let mut server = Server::new(ip.to_string(), port);
 
     // CRUD for Users
     server.add_handler("login", Arc::new(LoginUserHandler::new(state.pool.clone())));
