@@ -51,7 +51,7 @@ function AgentRow({ agent, isSelected, isExpanded, isCollapsed, onSelect }: Agen
             <div className="flex items-center gap-2">
               <span className="truncate text-sm font-medium">{agent.name}</span>
               <Circle
-                className={cn("size-2.5 fill-current", statusStyles[agent.status])}
+                className={cn("size-2.5 shrink-0 fill-current", statusStyles[agent.status])}
                 aria-hidden="true"
               />
             </div>

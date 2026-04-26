@@ -8,6 +8,7 @@ type Agent = {
 
 type CurrentUser = {
   username: string
+  role: "admin" | "user"
 }
 
 export type { Agent, AgentStatus, CurrentUser }

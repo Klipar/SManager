@@ -10,7 +10,8 @@ const agents: Agent[] = [
 ]
 
 const currentUser: CurrentUser = {
-  username: "User_idiot_nickname",
+  username: "Arsenicum",
+  role: "admin",
 }
 
 export { agents, currentUser }

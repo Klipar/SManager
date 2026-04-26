@@ -73,7 +73,7 @@ function Sidebar({
             const startWidth = width
 
             const handlePointerMove = (moveEvent: PointerEvent) => {
-              const nextWidth = Math.min(284, Math.max(220, startWidth + (moveEvent.clientX - startX)))
+              const nextWidth = Math.min(320, Math.max(220, startWidth + (moveEvent.clientX - startX)))
               onResizeWidth(nextWidth)
             }
 
