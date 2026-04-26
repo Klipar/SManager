@@ -1,5 +1,8 @@
 import { Server } from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
+
 import { EmptyState } from "./empty-state"
 import type { Agent } from "./types"
 
@@ -24,10 +27,10 @@ function MainPanel({ selectedAgent }: MainPanelProps) {
       <div className="relative flex w-full flex-col justify-center">
         {selectedAgent ? (
           <div className="mx-auto w-full max-w-4xl space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-3 py-2 text-xs text-white/60">
+            <Badge variant="outline" className="gap-2 rounded-full border-white/8 bg-white/[0.03] px-3 py-2 text-xs text-white/60">
               <Server className="size-3.5 text-cyan-200" aria-hidden="true" />
               <span>{statusLabel[selectedAgent.status]}</span>
-            </div>
+            </Badge>
 
             <div>
               <h1 className="text-4xl font-semibold tracking-tight text-white sm:text-5xl">
@@ -45,10 +48,12 @@ function MainPanel({ selectedAgent }: MainPanelProps) {
                 ["Metrics", "Server health snapshot"],
                 ["Actions", "Queued operations"],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4">
-                  <p className="text-xs uppercase tracking-[0.14em] text-white/35">{label}</p>
-                  <p className="mt-2 text-sm text-white/78">{value}</p>
-                </div>
+                <Card key={label} className="rounded-2xl border-white/8 bg-white/[0.03]">
+                  <CardContent className="px-4 py-4">
+                    <p className="text-xs uppercase tracking-[0.14em] text-white/35">{label}</p>
+                    <p className="mt-2 text-sm text-white/78">{value}</p>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>

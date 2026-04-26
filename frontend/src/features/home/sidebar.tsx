@@ -4,6 +4,7 @@ import { AddAgentButton } from "./add-agent-button"
 import { AgentList } from "./agent-list"
 import { SidebarHeader } from "./sidebar-header"
 import { UserFooter } from "./user-footer"
+import { Separator } from "@/components/ui/separator"
 import type { Agent, CurrentUser } from "./types"
 
 type SidebarProps = {
@@ -62,6 +63,7 @@ function Sidebar({
           />
         </div>
 
+        {!isCollapsed ? <Separator className="bg-white/[0.04]" /> : null}
         <UserFooter user={user} isCollapsed={isCollapsed} />
       </div>
 

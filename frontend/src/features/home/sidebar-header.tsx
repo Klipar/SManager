@@ -1,5 +1,7 @@
 import { ChevronLeft, ChevronRight, Orbit } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
+
 type SidebarHeaderProps = {
   isCollapsed: boolean
   onToggleCollapse: () => void
@@ -9,15 +11,17 @@ function SidebarHeader({ isCollapsed, onToggleCollapse }: SidebarHeaderProps) {
   return (
     <div className={isCollapsed ? "flex justify-center px-1 py-1" : "flex items-center justify-between gap-3 px-1 py-1"}>
       {isCollapsed ? (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onClick={onToggleCollapse}
-          className="group relative flex size-10 items-center justify-center rounded-2xl border border-white/5 bg-white/[0.03] text-cyan-200 transition-colors hover:bg-white/[0.05] hover:text-white"
+          className="group relative size-10 rounded-2xl border border-white/5 bg-white/[0.03] p-0 text-cyan-200 hover:bg-white/[0.05] hover:text-white"
           aria-label="Expand sidebar"
         >
           <Orbit className="size-5 transition-opacity duration-200 group-hover:opacity-0" aria-hidden="true" />
           <ChevronRight className="absolute size-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden="true" />
-        </button>
+        </Button>
       ) : (
         <>
           <div className="flex items-center gap-3">
@@ -27,14 +31,16 @@ function SidebarHeader({ isCollapsed, onToggleCollapse }: SidebarHeaderProps) {
             <p className="text-[15px] font-semibold tracking-tight text-white">SManager</p>
           </div>
 
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={onToggleCollapse}
-            className="flex size-8 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-white/45 transition-colors hover:bg-white/[0.06] hover:text-white"
+            className="size-8 rounded-xl border border-white/5 bg-white/[0.03] p-0 text-white/45 hover:bg-white/[0.06] hover:text-white"
             aria-label="Collapse sidebar"
           >
             <ChevronLeft className="size-4" aria-hidden="true" />
-          </button>
+          </Button>
         </>
       )}
     </div>
