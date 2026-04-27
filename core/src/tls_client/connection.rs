@@ -4,7 +4,7 @@ use tokio_rustls::{TlsConnector, rustls};
 use tokio_rustls::rustls::pki_types::{ServerName, PrivateKeyDer, PrivatePkcs8KeyDer};
 use tokio_util::codec::{Framed, LinesCodec};
 
-// ---- cert helpers (rovnaké ako na serveri) ----
+// ---- cert helpers ----
 
 fn load_certs(path: &Path) -> Vec<rustls::pki_types::CertificateDer<'static>> {
     let file = File::open(path).unwrap_or_else(|_| panic!("Failed to load cert: {}", path.display()));
