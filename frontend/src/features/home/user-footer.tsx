@@ -7,9 +7,10 @@ import type { CurrentUser } from "./types"
 type UserFooterProps = {
   user: CurrentUser
   isCollapsed: boolean
+  onOpenSettings?: () => void
 }
 
-function UserFooter({ user, isCollapsed }: UserFooterProps) {
+function UserFooter({ user, isCollapsed, onOpenSettings }: UserFooterProps) {
   const initials = user.username
     .split("_")
     .map((part) => part[0])
@@ -59,8 +60,8 @@ function UserFooter({ user, isCollapsed }: UserFooterProps) {
           }
         >
           <DropdownMenuItem
-            className="flex cursor-default items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white"
-            onSelect={() => undefined}
+            className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white"
+            onSelect={() => onOpenSettings?.()}
           >
             <Settings className="size-4 text-white/55" />
             <span>Settings</span>

@@ -13,6 +13,7 @@ function HomePage() {
   const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(228)
+  const [showSettings, setShowSettings] = useState(false)
 
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null
   const selectedAgentTasks = selectedAgent ? (tasksByAgentId[selectedAgent.id] ?? []) : []
@@ -37,13 +38,14 @@ function HomePage() {
   const handleAddTask = (agentId: string) => {
     setCreateTaskAgentId(agentId)
     setShowCreateTask(true)
+    setShowSettings(false)
     setSelectedTaskId(null)
     setSelectedLogId(null)
   }
 
   return (
-    <main className="min-h-screen bg-[#070b10] text-white">
-      <div className="flex min-h-screen flex-col md:flex-row">
+    <main className="min-h-screen w-full bg-[#070b10] text-white">
+      <div className="flex min-h-screen w-full flex-col md:flex-row">
         <Sidebar
           agents={agents}
           selectedAgentId={selectedAgentId}
@@ -58,6 +60,10 @@ function HomePage() {
           width={sidebarWidth}
           onResizeWidth={setSidebarWidth}
           user={currentUser}
+          onOpenSettings={() => {
+            setShowSettings(true)
+            setShowCreateTask(false)
+          }}
         />
         <MainPanel
           selectedAgent={selectedAgent}
@@ -67,6 +73,8 @@ function HomePage() {
           showCreateTask={showCreateTask}
           createTaskAgent={agents.find((a) => a.id === createTaskAgentId) ?? null}
           onCloseCreateTask={() => setShowCreateTask(false)}
+          showSettings={showSettings}
+          onCloseSettings={() => setShowSettings(false)}
         />
       </div>
     </main>
