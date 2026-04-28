@@ -5,13 +5,16 @@ import { AgentList } from "./agent-list"
 import { SidebarHeader } from "./sidebar-header"
 import { UserFooter } from "./user-footer"
 import { Separator } from "@/components/ui/separator"
-import type { Agent, CurrentUser } from "./types"
+import type { Agent, CurrentUser, Task } from "./types"
 
 type SidebarProps = {
   agents: Agent[]
   selectedAgentId: string | null
   expandedAgentId: string | null
+  selectedTaskId: string | null
+  tasksByAgentId: Record<string, Task[]>
   onSelectAgent: (agentId: string) => void
+  onSelectTask: (taskId: string) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   width: number
@@ -23,7 +26,10 @@ function Sidebar({
   agents,
   selectedAgentId,
   expandedAgentId,
+  selectedTaskId,
+  tasksByAgentId,
   onSelectAgent,
+  onSelectTask,
   isCollapsed,
   onToggleCollapse,
   width,
@@ -59,7 +65,10 @@ function Sidebar({
             selectedAgentId={selectedAgentId}
             expandedAgentId={expandedAgentId}
             isCollapsed={isCollapsed}
+            selectedTaskId={selectedTaskId}
+            tasksByAgentId={tasksByAgentId}
             onSelectAgent={onSelectAgent}
+            onSelectTask={onSelectTask}
           />
         </div>
 

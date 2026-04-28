@@ -4,25 +4,42 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
 import { AgentTasks } from "./agent-tasks"
-import type { Agent } from "./types"
+import type { Agent, Task } from "./types"
 
 type AgentRowProps = {
   agent: Agent
   isSelected: boolean
   isExpanded: boolean
   isCollapsed: boolean
+  tasks: Task[]
+  selectedTaskId: string | null
   onSelect: (agentId: string) => void
+  onSelectTask: (taskId: string) => void
 }
 
 const statusStyles: Record<Agent["status"], string> = {
   online: "text-emerald-400",
   offline: "text-white/25",
-  warning: "text-amber-400",
+  error: "text-red-400",
 }
 
-function AgentRow({ agent, isSelected, isExpanded, isCollapsed, onSelect }: AgentRowProps) {
+function AgentRow({
+  agent,
+  isSelected,
+  isExpanded,
+  isCollapsed,
+  tasks,
+  selectedTaskId,
+  onSelect,
+  onSelectTask,
+}: AgentRowProps) {
   return (
-    <div>
+    <div
+      className={cn(
+        "rounded-xl border border-transparent bg-transparent transition-colors",
+        !isCollapsed && isExpanded && "border-white/[0.04] bg-white/[0.018]",
+      )}
+    >
       <button
         type="button"
         aria-pressed={isSelected}
@@ -30,6 +47,7 @@ function AgentRow({ agent, isSelected, isExpanded, isCollapsed, onSelect }: Agen
         onClick={() => onSelect(agent.id)}
         className={cn(
           "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
+          !isCollapsed && isExpanded && "rounded-b-none",
           isCollapsed && "justify-center px-2",
           isSelected
             ? "bg-white/[0.065] text-white"
@@ -69,7 +87,13 @@ function AgentRow({ agent, isSelected, isExpanded, isCollapsed, onSelect }: Agen
         ) : null}
       </button>
 
-      {!isCollapsed && isExpanded ? <AgentTasks agentName={agent.name} /> : null}
+      {!isCollapsed && isExpanded ? (
+        <AgentTasks
+          tasks={tasks}
+          selectedTaskId={selectedTaskId}
+          onSelectTask={onSelectTask}
+        />
+      ) : null}
     </div>
   )
 }

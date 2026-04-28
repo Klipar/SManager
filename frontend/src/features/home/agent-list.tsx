@@ -1,14 +1,17 @@
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 import { AgentRow } from "./agent-row"
-import type { Agent } from "./types"
+import type { Agent, Task } from "./types"
 
 type AgentListProps = {
   agents: Agent[]
   selectedAgentId: string | null
   expandedAgentId: string | null
   isCollapsed: boolean
+  tasksByAgentId: Record<string, Task[]>
+  selectedTaskId: string | null
   onSelectAgent: (agentId: string) => void
+  onSelectTask: (taskId: string) => void
 }
 
 function AgentList({
@@ -16,7 +19,10 @@ function AgentList({
   selectedAgentId,
   expandedAgentId,
   isCollapsed,
+  tasksByAgentId,
+  selectedTaskId,
   onSelectAgent,
+  onSelectTask,
 }: AgentListProps) {
   return (
     <ScrollArea className="min-h-0 flex-1 pr-1">
@@ -28,7 +34,10 @@ function AgentList({
             isSelected={agent.id === selectedAgentId}
             isExpanded={agent.id === expandedAgentId}
             isCollapsed={isCollapsed}
+            tasks={tasksByAgentId[agent.id] ?? []}
+            selectedTaskId={selectedTaskId}
             onSelect={onSelectAgent}
+            onSelectTask={onSelectTask}
           />
         ))}
       </div>
