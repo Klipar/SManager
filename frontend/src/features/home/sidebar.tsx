@@ -15,6 +15,7 @@ type SidebarProps = {
   tasksByAgentId: Record<string, Task[]>
   onSelectAgent: (agentId: string) => void
   onSelectTask: (taskId: string) => void
+  onAddTask?: (agentId: string) => void
   isCollapsed: boolean
   onToggleCollapse: () => void
   width: number
@@ -30,6 +31,7 @@ function Sidebar({
   tasksByAgentId,
   onSelectAgent,
   onSelectTask,
+  onAddTask,
   isCollapsed,
   onToggleCollapse,
   width,
@@ -69,6 +71,7 @@ function Sidebar({
             tasksByAgentId={tasksByAgentId}
             onSelectAgent={onSelectAgent}
             onSelectTask={onSelectTask}
+            onAddTask={onAddTask}
           />
         </div>
 

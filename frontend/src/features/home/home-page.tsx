@@ -9,6 +9,8 @@ function HomePage() {
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null)
+  const [showCreateTask, setShowCreateTask] = useState(false)
+  const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(228)
 
@@ -29,6 +31,14 @@ function HomePage() {
   const handleSelectTask = (taskId: string) => {
     setSelectedTaskId(taskId)
     setSelectedLogId(null)
+    setShowCreateTask(false)
+  }
+
+  const handleAddTask = (agentId: string) => {
+    setCreateTaskAgentId(agentId)
+    setShowCreateTask(true)
+    setSelectedTaskId(null)
+    setSelectedLogId(null)
   }
 
   return (
@@ -42,6 +52,7 @@ function HomePage() {
           tasksByAgentId={tasksByAgentId}
           onSelectAgent={handleSelectAgent}
           onSelectTask={handleSelectTask}
+          onAddTask={handleAddTask}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapse={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
           width={sidebarWidth}
@@ -53,6 +64,9 @@ function HomePage() {
           selectedTask={selectedTask}
           selectedLog={selectedLog ?? null}
           onSelectLog={setSelectedLogId}
+          showCreateTask={showCreateTask}
+          createTaskAgent={agents.find((a) => a.id === createTaskAgentId) ?? null}
+          onCloseCreateTask={() => setShowCreateTask(false)}
         />
       </div>
     </main>

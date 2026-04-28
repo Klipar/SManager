@@ -12,6 +12,7 @@ type AgentListProps = {
   selectedTaskId: string | null
   onSelectAgent: (agentId: string) => void
   onSelectTask: (taskId: string) => void
+  onAddTask?: (agentId: string) => void
 }
 
 function AgentList({
@@ -23,6 +24,7 @@ function AgentList({
   selectedTaskId,
   onSelectAgent,
   onSelectTask,
+  onAddTask,
 }: AgentListProps) {
   return (
     <ScrollArea className="min-h-0 flex-1 pr-1">
@@ -38,6 +40,7 @@ function AgentList({
             selectedTaskId={selectedTaskId}
             onSelect={onSelectAgent}
             onSelectTask={onSelectTask}
+            onAddTask={onAddTask}
           />
         ))}
       </div>

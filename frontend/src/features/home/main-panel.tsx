@@ -1,5 +1,6 @@
 import { EmptyState } from "./empty-state"
 import { TaskWorkspace } from "./task-workspace"
+import CreateTaskPanel from "./create-task-panel"
 import type { Agent, Task, TaskLog } from "./types"
 
 type MainPanelProps = {
@@ -7,9 +8,12 @@ type MainPanelProps = {
   selectedTask: Task | null
   selectedLog: TaskLog | null
   onSelectLog: (logId: string | null) => void
+  showCreateTask?: boolean
+  createTaskAgent?: Agent | null
+  onCloseCreateTask?: () => void
 }
 
-function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog }: MainPanelProps) {
+function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog, showCreateTask, createTaskAgent, onCloseCreateTask }: MainPanelProps) {
   return (
     <section className="relative flex min-h-[calc(100vh-4rem)] flex-1 items-stretch py-5 pl-0 pr-5 sm:pl-1 sm:pr-6 md:py-8 md:pl-2 md:pr-10">
       <div
@@ -18,7 +22,9 @@ function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog }: Ma
       />
 
       <div className="relative flex w-full flex-col justify-center">
-        {selectedAgent ? (
+        {showCreateTask ? (
+          <CreateTaskPanel agent={createTaskAgent ?? null} onClose={onCloseCreateTask ?? (() => {})} />
+        ) : selectedAgent ? (
           <TaskWorkspace
             key={selectedAgent.id}
             agent={selectedAgent}

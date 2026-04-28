@@ -11,6 +11,7 @@ type AgentTasksProps = {
   tasks: Task[]
   selectedTaskId: string | null
   onSelectTask: (taskId: string) => void
+  onAddTask?: () => void
 }
 
 const taskStatusStyles: Record<Task["status"], string> = {
@@ -21,7 +22,7 @@ const taskStatusStyles: Record<Task["status"], string> = {
   executed: "text-white/60",
 }
 
-function AgentTasks({ tasks, selectedTaskId, onSelectTask }: AgentTasksProps) {
+function AgentTasks({ tasks, selectedTaskId, onSelectTask, onAddTask }: AgentTasksProps) {
   return (
     <div className="space-y-2 border-t border-white/[0.04] px-3 pb-3 pt-2 text-sm text-white/65">
       <p className="text-[11px] uppercase tracking-[0.16em] text-white/35">
@@ -62,6 +63,7 @@ function AgentTasks({ tasks, selectedTaskId, onSelectTask }: AgentTasksProps) {
         type="button"
         variant="secondary"
         className="h-8 w-full justify-start rounded-lg border border-white/[0.05] bg-white/[0.035] px-2 text-xs font-medium text-white/82 hover:bg-white/[0.055]"
+      onClick={() => onAddTask?.()}
       >
         <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
         Add new task

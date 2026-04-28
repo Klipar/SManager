@@ -15,6 +15,7 @@ type AgentRowProps = {
   selectedTaskId: string | null
   onSelect: (agentId: string) => void
   onSelectTask: (taskId: string) => void
+  onAddTask?: (agentId: string) => void
 }
 
 const statusStyles: Record<Agent["status"], string> = {
@@ -32,6 +33,7 @@ function AgentRow({
   selectedTaskId,
   onSelect,
   onSelectTask,
+  onAddTask,
 }: AgentRowProps) {
   return (
     <div
@@ -92,6 +94,7 @@ function AgentRow({
           tasks={tasks}
           selectedTaskId={selectedTaskId}
           onSelectTask={onSelectTask}
+          onAddTask={() => onAddTask?.(agent.id)}
         />
       ) : null}
     </div>
