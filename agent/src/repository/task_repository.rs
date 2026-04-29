@@ -36,8 +36,9 @@ impl TaskRepository {
                 install_script = $3,
                 run_script = $4,
                 delete_script = $5,
-                restart_policy = $6
-            WHERE id = $7
+                restart_policy = $6,
+                status = $7
+            WHERE id = $8
             RETURNING
                 id, core_id, name, description,
                 install_script, run_script, delete_script,
@@ -50,6 +51,7 @@ impl TaskRepository {
         .bind(&task.run_script)
         .bind(&task.delete_script)
         .bind(task.restart_policy)
+        .bind(task.status)
         .bind(task.id)
         .fetch_optional(&*self.pool)
         .await;
