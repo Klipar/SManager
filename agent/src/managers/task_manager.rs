@@ -115,11 +115,11 @@ impl TaskManager {
         .map_err(|_| TaskError::FailedToManageRun)?
         .ok_or(TaskError::FailedToManageRun)?;
 
-        let managed_task_pid = self.tasks.remove(&run_id)
-            .ok_or(TaskError::TaskAlreadyStopped)?.1.pid;
+        let managed_task_pgid = self.tasks.remove(&run_id)
+            .ok_or(TaskError::TaskAlreadyStopped)?.1.pgid;
 
-        nix::sys::signal::kill(
-            nix::unistd::Pid::from_raw(managed_task_pid as i32),
+        nix::sys::signal::killpg(
+            nix::unistd::Pid::from_raw(managed_task_pgid),
             nix::sys::signal::Signal::SIGTERM
         ).ok();
 

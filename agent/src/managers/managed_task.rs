@@ -8,7 +8,7 @@ use tokio::sync::Mutex;
 use crate::managers::task_manager::TaskManager;
 
 pub struct ManagedTask {
-    pub pid: u32,
+     pub pgid: i32,
 }
 
 impl ManagedTask {
@@ -34,6 +34,7 @@ impl ManagedTask {
             .env("TOKEN", token)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
+            .process_group(0)
             .spawn()?;
 
         let stdout = child.stdout.take()
@@ -50,7 +51,7 @@ impl ManagedTask {
         Self::listen_stderr(stderr, manager.clone(), run_id);
         Self::listen_exit(child.clone(), manager.clone(), run_id);
 
-        Ok(Self { pid })
+        Ok(Self { pgid: pid as i32 })
     }
 
     fn listen_stdout(stdout: tokio::process::ChildStdout, manager: Arc<TaskManager>, run_id: i64) {
@@ -84,12 +85,5 @@ impl ManagedTask {
                 }
             }
         });
-    }
-
-    pub async fn kill(&self) {
-    let _ = tokio::process::Command::new("kill")
-            .arg(self.pid.to_string())
-            .status()
-            .await;
     }
 }
