@@ -6,15 +6,13 @@ use tokio::fs;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
 
-
-
 use dashmap::DashMap;
 
 use log::{error};
 
 pub struct TaskManager {
     pool: Arc<PgPool>,
-    tasks: Arc<DashMap<i64, ManagedTask>>, // i64 -> run id
+    tasks: Arc<DashMap<i64, ManagedTask>>, // i64 -> run_id
     token_manager: Arc<Mutex<TokenManager>>,
     endpoint: Arc<Endpoint>
 }
