@@ -6,6 +6,8 @@ use tokio::fs;
 use std::path::PathBuf;
 use tokio::sync::Mutex;
 
+
+
 use dashmap::DashMap;
 
 use log::{error};
@@ -92,17 +94,16 @@ impl TaskManager {
     }
 
     pub async fn stop_task(self: Arc<Self>, task_id: i64) -> Result<(), TaskError> {
-        let rask_repository = TaskRepository::new(self.pool.clone());
+        let task_repository = TaskRepository::new(self.pool.clone());
 
-        let mut task = rask_repository.get_by_id(task_id).await?;
-        if matches!( task.status, TaskStatus::Stopped | TaskStatus::Executed | TaskStatus::Failed ) {
+        let mut task = task_repository.get_by_id(task_id).await?;
+        if matches!(task.status, TaskStatus::Stopped | TaskStatus::Executed | TaskStatus::Failed) {
             return Err(TaskError::TaskAlreadyStopped);
         }
 
-        let last_run_id = sqlx::query_scalar!(
+        let run_id = sqlx::query_scalar!(
             r#"
-            SELECT id
-            FROM runs
+            SELECT id FROM runs
             WHERE task_id = $1
             ORDER BY id DESC
             LIMIT 1
@@ -110,21 +111,20 @@ impl TaskManager {
             task_id as i32
         )
         .fetch_optional(&*self.pool)
-        .await;
+        .await
+        .map_err(|_| TaskError::FailedToManageRun)?
+        .ok_or(TaskError::FailedToManageRun)?;
 
-        let run_id = last_run_id
-            .map_err(|_| TaskError::FailedToManageRun)?
-            .ok_or(TaskError::FailedToManageRun)?;
+        let managed_task_pid = self.tasks.remove(&run_id)
+            .ok_or(TaskError::TaskAlreadyStopped)?.1.pid;
 
-        let run = self
-            .tasks
-            .get(&run_id)
-            .ok_or(TaskError::TaskAlreadyStopped)?;
-
-        run.kill().await;
+        nix::sys::signal::kill(
+            nix::unistd::Pid::from_raw(managed_task_pid as i32),
+            nix::sys::signal::Signal::SIGTERM
+        ).ok();
 
         task.status = TaskStatus::Stopped;
-        rask_repository.update_task(task).await?;
+        task_repository.update_task(task).await?;
 
         Ok(())
     }
@@ -147,17 +147,21 @@ impl TaskManager {
         .fetch_one(&*self.pool)
         .await;
 
-        match res {// updating task status after finishing
+        match res { // updating task status after finishing
             Ok(row) => {
-                let rask_repository = TaskRepository::new(self.pool.clone());
-                let task = rask_repository.get_by_id(row.task_id as i64).await;
+                let task_repository = TaskRepository::new(self.pool.clone());
+                let task = task_repository.get_by_id(row.task_id as i64).await;
                 match task {
                     Ok(mut task) => {
+                        if matches!(task.status, TaskStatus::Stopped) {
+                            return;
+                        }
+
                         task.status = match code {
                             0 => TaskStatus::Executed,
                             _ => TaskStatus::Failed,
                         };
-                        let task = rask_repository.update_task(task).await;
+                        let task = task_repository.update_task(task).await;
                         match task {
                             Ok(..) => {},
                             Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }

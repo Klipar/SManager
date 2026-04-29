@@ -39,6 +39,7 @@ rustls = "0.23"
 rustls-pemfile = "2"
 x509-parser = "0.18.1"
 dashmap = "6.1.0"
+nix = { version = "0.31.2", features = ["signal", "process"] }
 
 [lib]
 name = "agent_lib"
