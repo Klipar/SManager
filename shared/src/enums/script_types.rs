@@ -1,6 +1,8 @@
-use shared::db::models::Task;
+use crate::db::models::Task;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, sqlx::Type)]
+
+#[derive(Deserialize, Serialize, Debug, Clone, Copy, sqlx::Type)]
 #[sqlx(type_name = "script_type", rename_all = "lowercase")]
 pub enum ScriptType {
     Install,

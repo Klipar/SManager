@@ -14,3 +14,4 @@ pub mod get_users_dto;
 pub mod login_user_dto;
 pub mod login_response_dto;
 pub mod get_logs_dto;
+pub mod run_task_dto;

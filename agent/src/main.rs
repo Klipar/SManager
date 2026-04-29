@@ -1,4 +1,4 @@
-use agent_lib::{enums::script_types::ScriptType, extern_server::server::Server, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
+use agent_lib::{extern_server::server::Server, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, run_task_handler::RunTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
 use shared::server::endpoint::Endpoint;
 use sqlx::postgres::PgPool;
 
@@ -48,8 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let extern_endpoint = Arc::new(Endpoint::new(extern_ip, extern_port));
 
     let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone()));
-    let _result = TaskManager::run_task(task_manager.clone(), 2, ScriptType::Install).await;
-
 
     let mut intern_server = agent_lib::intern_server::server::Server::new(intern_endpoint.clone());
 
@@ -74,6 +72,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     extern_server.add_handler("get-all-tasks", Arc::new(GetAllTasksHandler::new(shared_pool.clone())));
     extern_server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(shared_pool.clone())));
     extern_server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(shared_pool.clone())));
+
+    // Task Operation
+    extern_server.add_handler("run-task", Arc::new(RunTaskHandler::new(task_manager.clone())));
+    // extern_server.add_handler("stop-task", Arc::new(RemoveTaskHandler::new(shared_pool.clone())));
 
     let extern_handle = tokio::spawn(async move {
         if let Err(e) = extern_server.start_server().await {
