@@ -1,0 +1,1 @@
+CREATE INDEX idx_runs_task_id_id ON runs(task_id, id DESC);

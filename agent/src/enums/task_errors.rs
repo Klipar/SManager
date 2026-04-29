@@ -8,6 +8,8 @@ pub enum TaskError {
     TaskAlreadyRunning,
     DatabaseError,
     FailedToPrepareEnvironment(String),
+    TaskAlreadyStopped,
+    FailedToManageRun,
 }
 
 impl fmt::Display for TaskError {
@@ -19,7 +21,9 @@ impl fmt::Display for TaskError {
             TaskError::DatabaseError => write!(f, "DatabaseError"),
             TaskError::FailedToPrepareEnvironment(msg) => {
                 write!(f, "FailedToPrepareEnvironment: {}", msg)
-            }
+            },
+            TaskError::TaskAlreadyStopped => write!(f, "TaskAlreadyStopped"),
+            TaskError::FailedToManageRun => write!(f, "FailedToManageRun"),
         }
     }
 }

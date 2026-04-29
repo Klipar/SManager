@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use sqlx::Type;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
 #[sqlx(type_name = "restart_policy", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum RestartPolicy {

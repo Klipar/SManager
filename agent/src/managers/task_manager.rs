@@ -12,7 +12,7 @@ use log::{error};
 
 pub struct TaskManager {
     pool: Arc<PgPool>,
-    tasks: Arc<DashMap<i64, ManagedTask>>,
+    tasks: Arc<DashMap<i64, ManagedTask>>, // i64 -> run id
     token_manager: Arc<Mutex<TokenManager>>,
     endpoint: Arc<Endpoint>
 }
@@ -91,6 +91,43 @@ impl TaskManager {
         if let Err(e) = res { error!("[MANAGER STDOUT DB ERROR] {}", e) }
     }
 
+    pub async fn stop_task(self: Arc<Self>, task_id: i64) -> Result<(), TaskError> {
+        let rask_repository = TaskRepository::new(self.pool.clone());
+
+        let mut task = rask_repository.get_by_id(task_id).await?;
+        if matches!( task.status, TaskStatus::Stopped | TaskStatus::Executed | TaskStatus::Failed ) {
+            return Err(TaskError::TaskAlreadyStopped);
+        }
+
+        let last_run_id = sqlx::query_scalar!(
+            r#"
+            SELECT id
+            FROM runs
+            WHERE task_id = $1
+            ORDER BY id DESC
+            LIMIT 1
+            "#,
+            task_id as i32
+        )
+        .fetch_optional(&*self.pool)
+        .await;
+
+        let run_id = last_run_id
+            .map_err(|_| TaskError::FailedToManageRun)?
+            .ok_or(TaskError::FailedToManageRun)?;
+
+        let run = self
+            .tasks
+            .get(&run_id)
+            .ok_or(TaskError::TaskAlreadyStopped)?;
+
+        run.kill().await;
+
+        task.status = TaskStatus::Stopped;
+        rask_repository.update_task(task).await?;
+
+        Ok(())
+    }
 
     pub async fn handle_exit(&self, run_id: i64, code: i32) {
         // TODO: notice if need that task is finished
