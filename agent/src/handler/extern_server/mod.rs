@@ -6,3 +6,5 @@ pub mod remove_core_handler;
 pub mod get_all_tasks_handler;
 pub mod update_task_handler;
 pub mod remove_task_handler;
+pub mod run_task_handler;
+pub mod stop_task_handler;

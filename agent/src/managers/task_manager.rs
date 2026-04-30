@@ -1,5 +1,5 @@
-use crate::{enums::{script_types::ScriptType, task_errors::TaskError}, managers::{managed_task::ManagedTask, token_manager::{TokenManager}}, repository::task_repository::TaskRepository};
-use shared::{db::models::{Task, TaskStatus}, server::endpoint::Endpoint};
+use crate::{enums::{task_errors::TaskError}, managers::{managed_task::ManagedTask, token_manager::{TokenManager}}, repository::task_repository::TaskRepository};
+use shared::{db::models::{Task, TaskStatus}, enums::script_types::ScriptType, server::endpoint::Endpoint};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use tokio::fs;
@@ -8,11 +8,11 @@ use tokio::sync::Mutex;
 
 use dashmap::DashMap;
 
-use log::error;
+use log::{error};
 
 pub struct TaskManager {
     pool: Arc<PgPool>,
-    tasks: Arc<DashMap<i64, ManagedTask>>,
+    tasks: Arc<DashMap<i64, ManagedTask>>, // i64 -> run_id
     token_manager: Arc<Mutex<TokenManager>>,
     endpoint: Arc<Endpoint>
 }
@@ -91,6 +91,41 @@ impl TaskManager {
         if let Err(e) = res { error!("[MANAGER STDOUT DB ERROR] {}", e) }
     }
 
+    pub async fn stop_task(self: Arc<Self>, task_id: i64) -> Result<(), TaskError> {
+        let task_repository = TaskRepository::new(self.pool.clone());
+
+        let mut task = task_repository.get_by_id(task_id).await?;
+        if matches!(task.status, TaskStatus::Stopped | TaskStatus::Executed | TaskStatus::Failed) {
+            return Err(TaskError::TaskAlreadyStopped);
+        }
+
+        let run_id = sqlx::query_scalar!(
+            r#"
+            SELECT id FROM runs
+            WHERE task_id = $1
+            ORDER BY id DESC
+            LIMIT 1
+            "#,
+            task_id as i32
+        )
+        .fetch_optional(&*self.pool)
+        .await
+        .map_err(|_| TaskError::FailedToManageRun)?
+        .ok_or(TaskError::FailedToManageRun)?;
+
+        let managed_task_pgid = self.tasks.remove(&run_id)
+            .ok_or(TaskError::TaskAlreadyStopped)?.1.pgid;
+
+        nix::sys::signal::killpg(
+            nix::unistd::Pid::from_raw(managed_task_pgid),
+            nix::sys::signal::Signal::SIGTERM
+        ).ok();
+
+        task.status = TaskStatus::Stopped;
+        task_repository.update_task(task).await?;
+
+        Ok(())
+    }
 
     pub async fn handle_exit(&self, run_id: i64, code: i32) {
         // TODO: notice if need that task is finished
@@ -102,14 +137,39 @@ impl TaskManager {
             SET end_time = NOW(),
                 return_code = $1
             WHERE id = $2
+            RETURNING task_id
             "#,
             code,
             run_id
         )
-        .execute(&*self.pool)
+        .fetch_one(&*self.pool)
         .await;
 
-        if let Err(e) = res { error!("[MANAGER EXIT DB ERROR] {}", e) }
+        match res { // updating task status after finishing
+            Ok(row) => {
+                let task_repository = TaskRepository::new(self.pool.clone());
+                let task = task_repository.get_by_id(row.task_id as i64).await;
+                match task {
+                    Ok(mut task) => {
+                        if matches!(task.status, TaskStatus::Stopped) {
+                            return;
+                        }
+
+                        task.status = match code {
+                            0 => TaskStatus::Executed,
+                            _ => TaskStatus::Failed,
+                        };
+                        let task = task_repository.update_task(task).await;
+                        match task {
+                            Ok(..) => {},
+                            Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }
+                        }
+                    },
+                    Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }
+                }
+            },
+            Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }
+        }
     }
 
     async fn create_run_record(

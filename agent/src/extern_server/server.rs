@@ -8,7 +8,7 @@ use futures::{StreamExt, SinkExt};
 use anyhow::Result;
 use log::{info, error};
 
-use shared::{db::models::Core, server::{ connection_context::ConnectionContext, endpoint::Endpoint, get_hash::get_hash, handler_trait::HandlerTrait, message::Message }};
+use shared::{db::models::Core, server::{ connection_context::ConnectionContext, endpoint::Endpoint, get_hash::get_hash, handler_trait::HandlerTrait, message::{Message, Status} }};
 
 use tokio_rustls::rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 
@@ -220,11 +220,22 @@ impl Server {
                                 }
                             }
                             Message::Response { .. } => {
-                                info!("{:?}", msg); //TODO: process responses
+                                info!("{:?}", msg); //TODO: process responses to me
                             }
                         }
                     } else {
                         error!("Failed to parse from {}", addr);
+                        let mut response = Message::new_response ( //TODO: fix structure for server and refactor it...
+                            Status::Error,
+                            None,
+                            400,
+                            format!("Failed to parse your json")
+                        );
+                        response.set_id(0);
+                        if let Err(e) = framed.send(serde_json::to_string(&response).unwrap()).await {
+                            error!("Write error {}: {}", addr, e);
+                            return;
+                        }
                     }
                 }
                 Err(e) => {
