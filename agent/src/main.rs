@@ -5,47 +5,19 @@ use sqlx::postgres::PgPool;
 use log::error;
 use dotenvy::dotenv;
 use std::sync::Arc;
+use agent_lib::config::Config;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
     env_logger::init();
 
-    // connecting to db, and extracting shared_pool
-    let shared_pool = Arc::new(
-        PgPool::connect(&std::env::var("AGENT_DATABASE_URL")?).await?
-    );
+    let cfg = Config::from_env();
 
-    let intern_port: u16 = std::env::var("AGENT_INTERN_SERVER_PORT")
-        .unwrap_or_else(|e| {
-            eprintln!("Env error: {}", e);
-            "6767".to_string()
-        })
-        .parse()
-        .unwrap_or_else(|e| {
-            eprintln!("Parse error: {}", e);
-            6767
-        });
+    let shared_pool = Arc::new(PgPool::connect(&cfg.database_url).await?);
 
-    let extern_ip = std::env::var("AGENT_EXTERN_SERVER_IP")
-        .unwrap_or_else(|e| {
-            eprintln!("Env error: {}", e);
-            "127.0.0.1".to_string()
-        });
-
-    let extern_port: u16 = std::env::var("AGENT_EXTERN_SERVER_PORT")
-        .unwrap_or_else(|e| {
-            eprintln!("Env error: {}", e);
-            "6969".to_string()
-        })
-        .parse()
-        .unwrap_or_else(|e| {
-            eprintln!("Parse error: {}", e);
-            6969
-        });
-
-    let intern_endpoint = Arc::new(Endpoint::new("127.0.0.1", intern_port));
-    let extern_endpoint = Arc::new(Endpoint::new(extern_ip, extern_port));
+    let intern_endpoint = Arc::new(Endpoint::new("127.0.0.1", cfg.intern_port));
+    let extern_endpoint = Arc::new(Endpoint::new(cfg.extern_ip, cfg.extern_port));
 
     let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone()));
 
