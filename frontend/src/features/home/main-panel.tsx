@@ -25,7 +25,7 @@ function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog, show
       />
 
       <div className="relative w-full flex-1">
-        <div className="mx-auto w-full max-w-6xl px-6 sm:px-8">
+        <div className="mx-auto w-full max-w-7xl px-8">
           {showCreateTask ? (
             <div className="pt-2 md:pt-4">
               <CreateTaskPanel agent={createTaskAgent ?? null} onClose={onCloseCreateTask ?? (() => {})} />

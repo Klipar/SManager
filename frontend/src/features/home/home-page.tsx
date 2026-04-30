@@ -3,6 +3,7 @@ import { useState } from "react"
 import { agents, currentUser, tasksByAgentId } from "./mock-data"
 import { MainPanel } from "./main-panel"
 import { Sidebar } from "./sidebar"
+import { AdminPanel } from "../admin/admin-panel"
 
 function HomePage() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
@@ -14,6 +15,7 @@ function HomePage() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [sidebarWidth, setSidebarWidth] = useState(228)
   const [showSettings, setShowSettings] = useState(false)
+  const [showAdminPanel, setShowAdminPanel] = useState(false)
 
   const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null
   const selectedAgentTasks = selectedAgent ? (tasksByAgentId[selectedAgent.id] ?? []) : []
@@ -33,6 +35,8 @@ function HomePage() {
     setSelectedTaskId(taskId)
     setSelectedLogId(null)
     setShowCreateTask(false)
+    setShowSettings(false)
+    setShowAdminPanel(false)
   }
 
   const handleAddTask = (agentId: string) => {
@@ -45,38 +49,116 @@ function HomePage() {
 
   return (
     <main className="min-h-screen w-full bg-[#070b10] text-white">
-      <div className="flex min-h-screen w-full flex-col md:flex-row">
-        <Sidebar
-          agents={agents}
-          selectedAgentId={selectedAgentId}
-          expandedAgentId={expandedAgentId}
-          selectedTaskId={selectedTaskId}
-          tasksByAgentId={tasksByAgentId}
-          onSelectAgent={handleSelectAgent}
-          onSelectTask={handleSelectTask}
-          onAddTask={handleAddTask}
-          isCollapsed={isSidebarCollapsed}
-          onToggleCollapse={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
-          width={sidebarWidth}
-          onResizeWidth={setSidebarWidth}
-          user={currentUser}
-          onOpenSettings={() => {
-            setShowSettings(true)
-            setShowCreateTask(false)
-          }}
-        />
-        <MainPanel
-          selectedAgent={selectedAgent}
-          selectedTask={selectedTask}
-          selectedLog={selectedLog ?? null}
-          onSelectLog={setSelectedLogId}
-          showCreateTask={showCreateTask}
-          createTaskAgent={agents.find((a) => a.id === createTaskAgentId) ?? null}
-          onCloseCreateTask={() => setShowCreateTask(false)}
-          showSettings={showSettings}
-          onCloseSettings={() => setShowSettings(false)}
-        />
-      </div>
+      {showCreateTask || showSettings ? (
+        <div className="flex min-h-screen w-full flex-col md:flex-row">
+          <Sidebar
+            agents={agents}
+            selectedAgentId={selectedAgentId}
+            expandedAgentId={expandedAgentId}
+            selectedTaskId={selectedTaskId}
+            tasksByAgentId={tasksByAgentId}
+            onSelectAgent={handleSelectAgent}
+            onSelectTask={handleSelectTask}
+            onAddTask={handleAddTask}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
+            width={sidebarWidth}
+            onResizeWidth={setSidebarWidth}
+            user={currentUser}
+            onOpenSettings={() => {
+              setShowSettings(true)
+              setShowCreateTask(false)
+              setShowAdminPanel(false)
+            }}
+            onOpenAdminPanel={() => {
+              setShowAdminPanel(true)
+              setShowSettings(false)
+              setShowCreateTask(false)
+            }}
+          />
+          <MainPanel
+            selectedAgent={selectedAgent}
+            selectedTask={selectedTask}
+            selectedLog={selectedLog ?? null}
+            onSelectLog={setSelectedLogId}
+            showCreateTask={showCreateTask}
+            createTaskAgent={agents.find((a) => a.id === createTaskAgentId) ?? null}
+            onCloseCreateTask={() => setShowCreateTask(false)}
+            showSettings={showSettings}
+            onCloseSettings={() => setShowSettings(false)}
+          />
+        </div>
+      ) : showAdminPanel ? (
+        <div className="flex min-h-screen w-full flex-col md:flex-row">
+          <Sidebar
+            agents={agents}
+            selectedAgentId={selectedAgentId}
+            expandedAgentId={expandedAgentId}
+            selectedTaskId={selectedTaskId}
+            tasksByAgentId={tasksByAgentId}
+            onSelectAgent={handleSelectAgent}
+            onSelectTask={handleSelectTask}
+            onAddTask={handleAddTask}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
+            width={sidebarWidth}
+            onResizeWidth={setSidebarWidth}
+            user={currentUser}
+            onOpenSettings={() => {
+              setShowSettings(true)
+              setShowCreateTask(false)
+              setShowAdminPanel(false)
+            }}
+            onOpenAdminPanel={() => {
+              setShowAdminPanel(true)
+              setShowSettings(false)
+              setShowCreateTask(false)
+            }}
+          />
+          <div className="flex-1">
+            <AdminPanel />
+          </div>
+        </div>
+      ) : (
+        <div className="flex min-h-screen w-full flex-col md:flex-row">
+          <Sidebar
+            agents={agents}
+            selectedAgentId={selectedAgentId}
+            expandedAgentId={expandedAgentId}
+            selectedTaskId={selectedTaskId}
+            tasksByAgentId={tasksByAgentId}
+            onSelectAgent={handleSelectAgent}
+            onSelectTask={handleSelectTask}
+            onAddTask={handleAddTask}
+            isCollapsed={isSidebarCollapsed}
+            onToggleCollapse={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
+            width={sidebarWidth}
+            onResizeWidth={setSidebarWidth}
+            user={currentUser}
+            onOpenSettings={() => {
+              setShowSettings(true)
+              setShowCreateTask(false)
+              setShowAdminPanel(false)
+            }}
+            onOpenAdminPanel={() => {
+              setShowAdminPanel(true)
+              setShowSettings(false)
+              setShowCreateTask(false)
+            }}
+          />
+          <MainPanel
+            selectedAgent={selectedAgent}
+            selectedTask={selectedTask}
+            selectedLog={selectedLog ?? null}
+            onSelectLog={setSelectedLogId}
+            showCreateTask={showCreateTask}
+            createTaskAgent={agents.find((a) => a.id === createTaskAgentId) ?? null}
+            onCloseCreateTask={() => setShowCreateTask(false)}
+            showSettings={showSettings}
+            onCloseSettings={() => setShowSettings(false)}
+          />
+        </div>
+      )}
     </main>
   )
 }

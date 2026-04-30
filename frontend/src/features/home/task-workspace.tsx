@@ -34,7 +34,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog }: TaskWo
 
   if (!selectedTask) {
     return (
-      <div className="flex h-full min-h-[34rem] items-center justify-center p-8 text-center">
+      <div className="flex min-h-[calc(100vh-16rem)] items-center justify-center px-8 pb-8 pt-40 text-center md:pt-56">
         <div>
           <h2 className="text-5xl font-semibold tracking-tight text-white/92">Select Task</h2>
           <p className="mt-4 text-base text-white/50">
@@ -94,7 +94,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog }: TaskWo
 
       <div className="min-h-[34rem]">
         {!selectedLog ? (
-          <div className="flex h-full items-center justify-center p-8 text-center">
+          <div className="flex min-h-[calc(100vh-18rem)] items-center justify-center px-8 pb-8 pt-40 text-center md:pt-56">
             <div>
               <h2 className="text-5xl font-semibold tracking-tight text-white/92">Select Log</h2>
               <p className="mt-4 text-base text-white/50">

@@ -22,6 +22,7 @@ type SidebarProps = {
   onResizeWidth: (width: number) => void
   user: CurrentUser
   onOpenSettings?: () => void
+  onOpenAdminPanel?: () => void
 }
 
 function Sidebar({
@@ -39,6 +40,7 @@ function Sidebar({
   onResizeWidth,
   user,
   onOpenSettings,
+  onOpenAdminPanel,
 }: SidebarProps) {
   return (
     <aside
@@ -78,7 +80,7 @@ function Sidebar({
         </div>
 
         {!isCollapsed ? <Separator className="bg-white/[0.04]" /> : null}
-        <UserFooter user={user} isCollapsed={isCollapsed} onOpenSettings={onOpenSettings} />
+        <UserFooter user={user} isCollapsed={isCollapsed} onOpenSettings={onOpenSettings} onOpenAdminPanel={onOpenAdminPanel} />
       </div>
 
       {!isCollapsed ? (

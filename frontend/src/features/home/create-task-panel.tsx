@@ -23,9 +23,9 @@ export function CreateTaskPanel({ agent, onClose }: Props) {
   }
 
   return (
-    <div className="p-3 pt-2">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-3xl font-medium">Create task{agent ? ` — ${agent.name}` : ""}</h2>
+    <div className="w-full pt-2 pb-8">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h2 className="text-3xl font-medium tracking-tight text-white">Create task{agent ? ` — ${agent.name}` : ""}</h2>
         <button onClick={onClose} aria-label="close" className="text-muted-foreground">✕</button>
       </div>
       <div className="mb-6">

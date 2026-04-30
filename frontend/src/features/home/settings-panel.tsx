@@ -42,25 +42,25 @@ export default function SettingsPanel({ onClose }: Props) {
   }
 
   return (
-    <div className="w-full px-8 pt-0 pb-8">
-      <div className="mb-20 flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-medium text-white">Edit account</h1>
+    <div className="w-full pt-2 pb-8">
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <h1 className="text-3xl font-medium tracking-tight text-white">Edit account</h1>
         <button onClick={onClose} aria-label="close" className="text-muted-foreground">✕</button>
       </div>
 
-      <div className="mx-auto max-w-3xl mt-6">
+      <div className="mx-auto mt-0 max-w-3xl">
         <div className="mb-8">
-          <label className="block mb-3 text-lg">Your nickname:</label>
+          <label className="mb-3 block text-base font-medium text-white/85">Your nickname:</label>
           <Input placeholder="Your nickname" value={nickname} onChange={(e) => setNickname(e.target.value)} />
         </div>
 
         <div className="mb-8">
-          <label className="block mb-3 text-lg">Your password:</label>
+          <label className="mb-3 block text-base font-medium text-white/85">Your password:</label>
           <Input placeholder="Your password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
 
         <div className="mb-8">
-          <label className="block mb-3 text-lg">Your email:</label>
+          <label className="mb-3 block text-base font-medium text-white/85">Your email:</label>
           <Input placeholder="Your@email.here" value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
 
