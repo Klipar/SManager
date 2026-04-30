@@ -1,104 +1,32 @@
-use std::{collections::HashMap, sync::Arc, fs::File, io::BufReader, path::{Path, PathBuf}};
+use std::{collections::HashMap, sync::Arc, time::Duration, net::SocketAddr};
 use sqlx::PgPool;
-use tokio::net::TcpListener;
-use tokio_rustls::{TlsAcceptor, rustls};
+use tokio::net::{TcpListener, TcpStream};
+use tokio_rustls::{TlsAcceptor, server::TlsStream};
 use tokio_util::codec::{Framed, LinesCodec};
 use futures::{StreamExt, SinkExt};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use log::{info, error};
 
-use shared::{db::models::Core, server::{ connection_context::ConnectionContext, endpoint::Endpoint, get_hash::get_hash, handler_trait::HandlerTrait, message::{Message, Status} }};
+use shared::{db::models::Core, server::{
+    connection_context::ConnectionContext,
+    endpoint::Endpoint,
+    get_hash::get_hash,
+    handler_trait::HandlerTrait,
+    message::{Message, Status},
+}};
 
-use tokio_rustls::rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+use crate::extern_server::tls_helpers::build_tls_config;
 
-// ---------------- TLS CONFIG ----------------
+const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
+const READ_TIMEOUT: Duration = Duration::from_secs(60);
+const MAX_LINE_LENGTH: usize = 65536;
 
-fn load_certs(path: &Path) -> Vec<rustls::pki_types::CertificateDer<'static>> {
-    let certfile = File::open(path).unwrap_or_else(|_| panic!("Failed to load cert: {}", path.display()));
-    let mut reader = BufReader::new(certfile);
-
-    rustls_pemfile::certs(&mut reader)
-        .map(|c| c.unwrap())
-        .collect()
-}
-
-fn load_key(path: &Path) -> PrivateKeyDer<'static> {
-    let keyfile = File::open(path).unwrap_or_else(|_| panic!("Failed to load key: {}", path.display()));
-    let mut reader = BufReader::new(keyfile);
-
-    let key: PrivatePkcs8KeyDer<'static> = rustls_pemfile::pkcs8_private_keys(&mut reader)
-        .map(|k| k.unwrap())
-        .next()
-        .expect("No private key found");
-
-    PrivateKeyDer::Pkcs8(key)
-}
-
-fn build_tls_config() -> Arc<rustls::ServerConfig> {
-    let configured_dir = match std::env::var("CERTIFICATES_LOCATION") {
-        Ok(val) => val,
-        Err(_) => {
-            log::warn!("CERTIFICATES_LOCATION not set, using default: certs/dev");
-            "certs/dev".to_string()
-        }
-    };
-
-    let certs_dir = resolve_certificates_dir(&configured_dir).unwrap_or_else(|| {
-        panic!(
-            "Certificates directory not found. Checked CERTIFICATES_LOCATION='{}' relative to current dir and crate paths.",
-            configured_dir
-        )
-    });
-
-    let certs = load_certs(&certs_dir.join("server.crt"));
-    let key = load_key(&certs_dir.join("server.key"));
-
-    let client_ca = load_certs(&certs_dir.join("ca.crt"));
-
-    let mut roots = rustls::RootCertStore::empty();
-    for cert in client_ca {
-        roots.add(cert).unwrap();
-    }
-
-    let client_auth = rustls::server::WebPkiClientVerifier::builder(roots.into())
-        .build()
-        .unwrap();
-
-    let config = rustls::ServerConfig::builder()
-        .with_client_cert_verifier(client_auth)
-        .with_single_cert(certs, key)
-        .unwrap();
-
-    Arc::new(config)
-}
-
-fn resolve_certificates_dir(configured: &str) -> Option<PathBuf> {
-    let configured_path = PathBuf::from(configured);
-
-    if configured_path.is_absolute() && configured_path.is_dir() {
-        return Some(configured_path);
-    }
-
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let workspace_root = manifest_dir.join("..");
-
-    let candidates = [
-        configured_path.clone(),
-        manifest_dir.join(&configured_path),
-        workspace_root.join(&configured_path),
-        workspace_root.join("certs/dev"),
-    ];
-
-    candidates.into_iter().find(|p| p.is_dir())
-}
-
-// ---------------- SERVER ----------------
 
 pub struct Server {
     endpoint: Arc<Endpoint>,
     pub is_active: bool,
-    pub handlers: HashMap<String, Arc<dyn HandlerTrait>>,
+    pub handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
     pool: Arc<PgPool>,
 }
 
@@ -107,144 +35,201 @@ impl Server {
         Self {
             endpoint,
             is_active: false,
-            handlers: HashMap::new(),
+            handlers: Arc::new(HashMap::new()),
             pool,
         }
     }
 
     pub fn add_handler(&mut self, name: &str, handler: Arc<dyn HandlerTrait>) {
-        self.handlers.insert(name.to_string(), handler);
+        Arc::make_mut(&mut self.handlers).insert(name.to_string(), handler);
     }
 
     pub async fn start_server(mut self) -> Result<()> {
-        let listener = TcpListener::bind(format!("{}:{}", self.endpoint.ip, self.endpoint.port)).await?;
-        let tls_config = build_tls_config();
+        let listener = TcpListener::bind(format!("{}:{}", self.endpoint.ip, self.endpoint.port))
+            .await
+            .with_context(|| format!("Failed to bind to {}", self.endpoint))?;
+
+        let tls_config = build_tls_config()?;
         let acceptor = TlsAcceptor::from(tls_config);
 
         self.is_active = true;
-
         info!("mTLS Server listening on {}", self.endpoint);
 
         loop {
-            let (socket, addr) = listener.accept().await?;
-            tokio::spawn(Self::handle_connection(socket, addr, acceptor.clone(), self.handlers.clone(), self.pool.clone()));
+            let (socket, addr) = match listener.accept().await {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to accept connection: {e}");
+                    continue;
+                }
+            };
+
+            tokio::spawn(Self::handle_connection(
+                socket,
+                addr,
+                acceptor.clone(),
+                Arc::clone(&self.handlers),
+                Arc::clone(&self.pool),
+            ));
         }
     }
 
     pub async fn handle_connection(
-        socket: tokio::net::TcpStream,
-        addr: std::net::SocketAddr,
+        socket: TcpStream,
+        addr: SocketAddr,
         acceptor: TlsAcceptor,
-        handlers: HashMap<String, Arc<dyn HandlerTrait>>,
+        handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
         pool: Arc<PgPool>,
     ) {
-        let mut ctx = ConnectionContext::new( addr.ip().to_string() );
-            // ---- TLS HANDSHAKE ----
-        let tls_stream = match acceptor.accept(socket).await {
-            Ok(stream) => {
-                // ---- Extract client certificate ----
-                let client_certs = stream.get_ref().1.peer_certificates();
+        let tls_stream = match perform_tls_handshake(socket, addr, &acceptor).await {
+            Some(stream) => stream,
+            None => return,
+        };
 
-                if let Some(certs) = client_certs {
-                    if let Some(cert_der) = certs.get(0) {
-                        // parse X.509 certificate
-                        if let Ok((_rem, parsed_cert)) = x509_parser::parse_x509_certificate(cert_der.as_ref()) {
-                            let cn = parsed_cert
-                                .tbs_certificate
-                                .subject
-                                .iter_common_name()
-                                .next()
-                                .map(|cn| cn.as_str().unwrap_or_default())
-                                .unwrap_or_default();
-
-                            let core = sqlx::query_as::<_, Core>(
-                                "SELECT * FROM cores WHERE client_hash = $1 AND ip = $2"
-                            )
-                            .bind(get_hash(&cn))
-                            .bind(addr.ip().to_string())
-                            .fetch_one(&*pool)
-                            .await;
-
-                            match core {
-                                Ok(core) => {
-                                    info!("Successful authentication for: `{}`", core.name);
-                                    ctx.id = Some(core.id);
-                                }
-                                Err(_e) => {
-                                    error!("Unauthorized client: {}", cn);
-                                    return;
-                                }
-                            }
-                        }
-                    } else {
-                        error!("Client did not send a certificate: {}", addr);
-                        return;
-                    }
-                } else {
-                    error!("No client certificates: {}", addr);
-                    return;
-                }
-
-                stream // ok
-            },
-            Err(e) => {
-                error!("TLS error from {}: {}", addr, e);
-                return;
-            }
+        let ctx = match authenticate_client(&tls_stream, addr, &pool).await {
+            Some(ctx) => ctx,
+            None => return,
         };
 
         info!("TLS connection established: {}", addr);
+        run_message_loop(tls_stream, addr, handlers, ctx).await;
+        info!("Disconnected: {}", addr);
+    }
+}
 
-        let mut framed = Framed::new(
-            tls_stream,
-            LinesCodec::new_with_max_length(65536),
-        );
+async fn perform_tls_handshake(
+    socket: TcpStream,
+    addr: SocketAddr,
+    acceptor: &TlsAcceptor,
+) -> Option<tokio_rustls::server::TlsStream<TcpStream>> {
+    match tokio::time::timeout(TLS_HANDSHAKE_TIMEOUT, acceptor.accept(socket)).await {
+        Ok(Ok(stream)) => Some(stream),
+        Ok(Err(e)) => {
+            error!("TLS handshake failed for {addr}: {e}");
+            None
+        }
+        Err(_) => {
+            error!("TLS handshake timed out for {addr}");
+            None
+        }
+    }
+}
 
-        while let Some(result) = framed.next().await {
-            match result {
-                Ok(line) => {
-                    if let Ok(msg) = serde_json::from_str::<Message>(&line) {
-                        match msg {
-                            Message::Request { id, action, data } => {
-                                if let Some(handler) = handlers.get(&action) {
-                                    let mut response = handler.handle(data, &mut ctx).await;
-                                    response.set_id(id);
+async fn authenticate_client(
+    stream: &tokio_rustls::server::TlsStream<TcpStream>,
+    addr: SocketAddr,
+    pool: &PgPool,
+) -> Option<ConnectionContext> {
+    let client_certs = stream.get_ref().1.peer_certificates()?;
+    let cert_der = client_certs.first().or_else(|| {
+        error!("Client sent no certificate: {addr}");
+        None
+    })?;
 
-                                    let json = serde_json::to_string(&response).unwrap();
-                                    if let Err(e) = framed.send(json).await {
-                                        error!("Write error {}: {}", addr, e);
-                                        return;
-                                    }
-                                } else {
-                                    error!("Unknown request: {}", action);
-                                }
-                            }
-                            Message::Response { .. } => {
-                                info!("{:?}", msg); //TODO: process responses to me
-                            }
-                        }
-                    } else {
-                        error!("Failed to parse from {}", addr);
-                        let mut response = Message::new_response ( //TODO: fix structure for server and refactor it...
-                            Status::Error,
-                            None,
-                            400,
-                            format!("Failed to parse your json")
-                        );
-                        response.set_id(0);
-                        if let Err(e) = framed.send(serde_json::to_string(&response).unwrap()).await {
-                            error!("Write error {}: {}", addr, e);
-                            return;
-                        }
+    let (_, parsed_cert) = x509_parser::parse_x509_certificate(cert_der.as_ref())
+        .ok()
+        .or_else(|| {
+            error!("Failed to parse client certificate from {addr}");
+            None
+        })?;
+
+    let cn = parsed_cert
+        .tbs_certificate
+        .subject
+        .iter_common_name()
+        .next()
+        .and_then(|cn| cn.as_str().ok())
+        .unwrap_or_default();
+
+    let core = sqlx::query_as::<_, Core>(
+        "SELECT * FROM cores WHERE client_hash = $1 AND ip = $2"
+    )
+    .bind(get_hash(cn))
+    .bind(addr.ip().to_string())
+    .fetch_one(pool)
+    .await;
+
+    match core {
+        Ok(core) => {
+            info!("Authenticated: `{}`", core.name);
+            let mut ctx = ConnectionContext::new(addr.ip().to_string());
+            ctx.id = Some(core.id);
+            Some(ctx)
+        }
+        Err(_) => {
+            error!("Unauthorized client CN=`{cn}` from {addr}");
+            None
+        }
+    }
+}
+
+async fn run_message_loop(
+    tls_stream: TlsStream<TcpStream>,
+    addr: SocketAddr,
+    handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
+    mut ctx: ConnectionContext,
+) {
+    let mut framed = Framed::new(tls_stream, LinesCodec::new_with_max_length(MAX_LINE_LENGTH));
+
+    loop {
+        let result = match tokio::time::timeout(READ_TIMEOUT, framed.next()).await {
+            Ok(Some(r)) => r,
+            Ok(None) => break,
+            Err(_) => {
+                error!("Read timeout for {addr}");
+                break;
+            }
+        };
+
+        let line = match result {
+            Ok(l) => l,
+            Err(e) => {
+                error!("Read error from {addr}: {e}");
+                break;
+            }
+        };
+
+        let Ok(msg) = serde_json::from_str::<Message>(&line) else {
+            if let Err(e) = send_error(&mut framed, 0, "Failed to parse JSON").await {
+                error!("Write error to {addr}: {e}");
+                break;
+            }
+            continue;
+        };
+
+        match msg {
+            Message::Request { id, action, data } => {
+                let Some(handler) = handlers.get(&action) else {
+                    error!("Unknown action `{action}` from {addr}");
+                    if let Err(e) = send_error(&mut framed, id, &format!("Unknown action: {action}")).await {
+                        error!("Write error to {addr}: {e}");
+                        break;
                     }
-                }
-                Err(e) => {
-                    error!("Read error {}: {}", addr, e);
-                    return;
+                    continue;
+                };
+
+                let mut response = handler.handle(data, &mut ctx).await;
+                response.set_id(id);
+
+                let json = serde_json::to_string(&response).expect("Response serialization failed");
+                if let Err(e) = framed.send(json).await {
+                    error!("Write error to {addr}: {e}");
+                    break;
                 }
             }
+            Message::Response { .. } => {
+                info!("Received response from {addr}: {:?}", msg); //TODO: process response to my request
+            }
         }
-
-        info!("Disconnected {}", addr);
     }
+}
+
+async fn send_error(
+    framed: &mut Framed<TlsStream<TcpStream>, LinesCodec>,
+    id: u64,
+    message: &str,
+) -> Result<(), impl std::error::Error> {
+    let mut response = Message::new_response(Status::Error, None, 400, message.to_string());
+    response.set_id(id);
+    framed.send(serde_json::to_string(&response).unwrap()).await
 }
