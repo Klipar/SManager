@@ -16,7 +16,7 @@ function SidebarHeader({ isCollapsed, onToggleCollapse }: SidebarHeaderProps) {
           variant="ghost"
           size="icon"
           onClick={onToggleCollapse}
-          className="group relative size-10 rounded-2xl border border-white/5 bg-white/[0.03] p-0 text-cyan-200 hover:bg-white/[0.05] hover:text-white"
+          className="group relative size-9 rounded-2xl border border-white/5 bg-white/[0.03] p-0 text-cyan-200 hover:bg-white/[0.05] hover:text-white"
           aria-label="Expand sidebar"
         >
           <Orbit className="size-5 transition-opacity duration-200 group-hover:opacity-0" aria-hidden="true" />

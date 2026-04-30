@@ -81,8 +81,14 @@ function Sidebar({
           />
         </div>
 
-        {!isCollapsed ? <Separator className="bg-white/[0.04]" /> : null}
-        <UserFooter user={user} isCollapsed={isCollapsed} onOpenSettings={onOpenSettings} onOpenAdminPanel={onOpenAdminPanel} />
+        {!isCollapsed ? (
+          <div className="absolute inset-x-0 bottom-0 flex w-full flex-col px-3 py-4">
+            <Separator className="bg-white/[0.04]" />
+            <UserFooter user={user} isCollapsed={isCollapsed} onOpenSettings={onOpenSettings} onOpenAdminPanel={onOpenAdminPanel} />
+          </div>
+        ) : (
+          <UserFooter user={user} isCollapsed={isCollapsed} onOpenSettings={onOpenSettings} onOpenAdminPanel={onOpenAdminPanel} />
+        )}
       </div>
 
       {!isCollapsed ? (

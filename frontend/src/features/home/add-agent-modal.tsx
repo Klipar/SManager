@@ -2,7 +2,6 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-// Use native textarea to avoid missing UI primitive
 
 type AddAgentModalProps = {
   open: boolean
