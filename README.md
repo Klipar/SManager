@@ -50,9 +50,20 @@ The root `.env` contains **all application configuration except database setting
 docker compose up -d
 ```
 
+Run migrations from the service directory.
+
+For `agent`:
+
 ```bash
-sqlx migrate run --source agent/migrations
-sqlx migrate run --source core/migrations
+cd agent
+sqlx migrate run --source migrations
+```
+
+For `core`:
+
+```bash
+cd agent
+sqlx migrate run --source migrations
 ```
 
 ```bash
