@@ -43,15 +43,8 @@ export function EditUserModal({ open, user, onClose, onSave }: EditUserModalProp
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative z-10 w-[600px] border border-white/[0.04] bg-[#0b0f13] p-8 text-white shadow-lg rounded-xl">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6">
           <h2 className="text-3xl font-medium">{user ? "Edit User" : "Add User"}</h2>
-          <button
-            onClick={onClose}
-            aria-label="close"
-            className="text-white/60 hover:text-white transition-colors"
-          >
-            ✕
-          </button>
         </div>
 
         {user && (

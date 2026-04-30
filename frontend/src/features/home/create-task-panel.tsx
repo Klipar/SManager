@@ -7,10 +7,9 @@ import type { Agent } from "./types"
 
 type Props = {
   agent: Agent | null
-  onClose: () => void
 }
 
-export function CreateTaskPanel({ agent, onClose }: Props) {
+export function CreateTaskPanel({ agent }: Props) {
   const [name, setName] = React.useState("")
   const [description, setDescription] = React.useState("")
   const [restartPolicy, setRestartPolicy] = React.useState("no")
@@ -24,9 +23,8 @@ export function CreateTaskPanel({ agent, onClose }: Props) {
 
   return (
     <div className="w-full pt-2 pb-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6">
         <h2 className="text-3xl font-medium tracking-tight text-white">Create task{agent ? ` — ${agent.name}` : ""}</h2>
-        <button onClick={onClose} aria-label="close" className="text-muted-foreground">✕</button>
       </div>
       <div className="mb-6">
         <label className="mb-2 block font-medium">Enter task name:</label>

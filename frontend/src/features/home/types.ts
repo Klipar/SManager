@@ -4,6 +4,9 @@ type Agent = {
   id: string
   name: string
   status: AgentStatus
+  ip?: string
+  description?: string
+  sin?: string
 }
 
 type RestartPolicy = "no" | "always" | "on-failure"

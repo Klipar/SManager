@@ -43,9 +43,8 @@ export default function SettingsPanel({ onClose }: Props) {
 
   return (
     <div className="w-full pt-2 pb-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
+      <div className="mb-6">
         <h1 className="text-3xl font-medium tracking-tight text-white">Edit account</h1>
-        <button onClick={onClose} aria-label="close" className="text-muted-foreground">✕</button>
       </div>
 
       <div className="mx-auto mt-0 max-w-3xl">

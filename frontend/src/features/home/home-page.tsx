@@ -4,6 +4,7 @@ import { agents, currentUser, tasksByAgentId } from "./mock-data"
 import { MainPanel } from "./main-panel"
 import { Sidebar } from "./sidebar"
 import { AdminPanel } from "../admin/admin-panel"
+import { AddAgentModal } from "./add-agent-modal"
 
 function HomePage() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
@@ -16,8 +17,10 @@ function HomePage() {
   const [sidebarWidth, setSidebarWidth] = useState(228)
   const [showSettings, setShowSettings] = useState(false)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [showAddAgent, setShowAddAgent] = useState(false)
+  const [agentsState, setAgentsState] = useState(agents)
 
-  const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null
+  const selectedAgent = agentsState.find((agent) => agent.id === selectedAgentId) ?? null
   const selectedAgentTasks = selectedAgent ? (tasksByAgentId[selectedAgent.id] ?? []) : []
   const selectedTask = selectedAgentTasks.find((task) => task.id === selectedTaskId) ?? null
   const selectedLog = selectedTask?.logs.find((log) => log.id === selectedLogId) ?? null
@@ -47,12 +50,31 @@ function HomePage() {
     setSelectedLogId(null)
   }
 
+  const handleOpenAddAgent = () => {
+    // Open Add Agent modal without changing the current main view
+    setShowAddAgent(true)
+  }
+
+  const handleSaveAgent = (payload: { name: string; ip?: string; description?: string; sin?: string }) => {
+    const newAgent = {
+      id: `${Date.now()}`,
+      name: payload.name,
+      status: "offline" as const,
+      ip: payload.ip,
+      description: payload.description,
+      sin: payload.sin,
+    }
+    setAgentsState((prev) => [newAgent, ...prev])
+    setShowAddAgent(false)
+    setSelectedAgentId(newAgent.id)
+  }
+
   return (
     <main className="min-h-screen w-full bg-[#070b10] text-white">
       {showCreateTask || showSettings ? (
         <div className="flex min-h-screen w-full flex-col md:flex-row">
           <Sidebar
-            agents={agents}
+            agents={agentsState}
             selectedAgentId={selectedAgentId}
             expandedAgentId={expandedAgentId}
             selectedTaskId={selectedTaskId}
@@ -75,15 +97,15 @@ function HomePage() {
               setShowSettings(false)
               setShowCreateTask(false)
             }}
+            onOpenAddAgent={handleOpenAddAgent}
           />
-          <MainPanel
+            <MainPanel
             selectedAgent={selectedAgent}
             selectedTask={selectedTask}
             selectedLog={selectedLog ?? null}
             onSelectLog={setSelectedLogId}
             showCreateTask={showCreateTask}
-            createTaskAgent={agents.find((a) => a.id === createTaskAgentId) ?? null}
-            onCloseCreateTask={() => setShowCreateTask(false)}
+            createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
             showSettings={showSettings}
             onCloseSettings={() => setShowSettings(false)}
           />
@@ -91,7 +113,7 @@ function HomePage() {
       ) : showAdminPanel ? (
         <div className="flex min-h-screen w-full flex-col md:flex-row">
           <Sidebar
-            agents={agents}
+            agents={agentsState}
             selectedAgentId={selectedAgentId}
             expandedAgentId={expandedAgentId}
             selectedTaskId={selectedTaskId}
@@ -114,6 +136,7 @@ function HomePage() {
               setShowSettings(false)
               setShowCreateTask(false)
             }}
+            onOpenAddAgent={handleOpenAddAgent}
           />
           <div className="flex-1">
             <AdminPanel />
@@ -122,7 +145,7 @@ function HomePage() {
       ) : (
         <div className="flex min-h-screen w-full flex-col md:flex-row">
           <Sidebar
-            agents={agents}
+            agents={agentsState}
             selectedAgentId={selectedAgentId}
             expandedAgentId={expandedAgentId}
             selectedTaskId={selectedTaskId}
@@ -145,6 +168,7 @@ function HomePage() {
               setShowSettings(false)
               setShowCreateTask(false)
             }}
+            onOpenAddAgent={handleOpenAddAgent}
           />
           <MainPanel
             selectedAgent={selectedAgent}
@@ -152,13 +176,14 @@ function HomePage() {
             selectedLog={selectedLog ?? null}
             onSelectLog={setSelectedLogId}
             showCreateTask={showCreateTask}
-            createTaskAgent={agents.find((a) => a.id === createTaskAgentId) ?? null}
-            onCloseCreateTask={() => setShowCreateTask(false)}
+            createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
             showSettings={showSettings}
             onCloseSettings={() => setShowSettings(false)}
           />
         </div>
       )}
+
+      <AddAgentModal open={showAddAgent} onClose={() => setShowAddAgent(false)} onSave={handleSaveAgent} />
     </main>
   )
 }

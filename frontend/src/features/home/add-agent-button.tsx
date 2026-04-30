@@ -4,12 +4,14 @@ import { Button } from "@/components/ui/button"
 
 type AddAgentButtonProps = {
   isCollapsed: boolean
+  onOpen?: () => void
 }
 
-function AddAgentButton({ isCollapsed }: AddAgentButtonProps) {
+function AddAgentButton({ isCollapsed, onOpen }: AddAgentButtonProps) {
   return (
     <Button
       type="button"
+      onClick={() => onOpen?.()}
       className={isCollapsed ? "h-10 w-10 justify-center rounded-xl border border-white/5 bg-white/[0.03] p-0 text-white shadow-none hover:bg-white/[0.05]" : "h-10 w-full justify-start gap-3 rounded-xl border border-white/5 bg-white/[0.03] px-3 text-sm font-medium text-white shadow-none hover:bg-white/[0.05]"}
       variant="secondary"
       aria-label="Add Agent"

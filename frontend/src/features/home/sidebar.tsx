@@ -23,6 +23,7 @@ type SidebarProps = {
   user: CurrentUser
   onOpenSettings?: () => void
   onOpenAdminPanel?: () => void
+  onOpenAddAgent?: () => void
 }
 
 function Sidebar({
@@ -41,6 +42,7 @@ function Sidebar({
   user,
   onOpenSettings,
   onOpenAdminPanel,
+  onOpenAddAgent,
 }: SidebarProps) {
   return (
     <aside
@@ -58,7 +60,7 @@ function Sidebar({
       >
         <SidebarHeader isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} />
 
-        <AddAgentButton isCollapsed={isCollapsed} />
+        <AddAgentButton isCollapsed={isCollapsed} onOpen={onOpenAddAgent} />
 
         <div className="flex min-h-0 flex-1 flex-col gap-2">
           {!isCollapsed ? (

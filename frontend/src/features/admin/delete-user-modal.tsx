@@ -38,17 +38,17 @@ export function DeleteUserModal({ open, user, onClose, onConfirm }: DeleteUserMo
           </p>
         </div>
 
-        <div className="flex justify-end gap-3">
+        <div className="flex items-center justify-between">
           <Button
             variant="outline"
             onClick={onClose}
-            className="border-white/10 bg-white/[0.02] text-white/70 hover:bg-white/[0.05] hover:text-white"
+            className="border-white/[0.06] text-white/70 hover:text-white"
           >
             Cancel
           </Button>
           <Button
             onClick={onConfirm}
-            className="bg-red-600 text-white hover:bg-red-700"
+            className="bg-rose-600 shadow-md transition-all hover:scale-105 hover:bg-rose-700 hover:shadow-md"
           >
             Delete User
           </Button>
