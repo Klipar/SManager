@@ -1,5 +1,6 @@
-use crate::{enums::{task_errors::TaskError}, managers::{managed_task::ManagedTask, token_manager::{TokenManager}}, repository::task_repository::TaskRepository};
-use shared::{db::models::{Task, TaskStatus}, enums::script_types::ScriptType, server::endpoint::Endpoint};
+use crate::{enums::task_errors::TaskError, extern_server::connection_registry::ConnectionRegistry, managers::{managed_task::ManagedTask, token_manager::TokenManager}, repository::task_repository::TaskRepository};
+use chrono::Utc;
+use shared::{db::models::{Task, TaskStatus}, enums::{execution_stream_event::ExecutionStreamEvent, script_types::ScriptType}, server::endpoint::Endpoint};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use tokio::fs;
@@ -14,16 +15,18 @@ pub struct TaskManager {
     pool: Arc<PgPool>,
     tasks: Arc<DashMap<i64, ManagedTask>>, // i64 -> run_id
     token_manager: Arc<Mutex<TokenManager>>,
-    endpoint: Arc<Endpoint>
+    endpoint: Arc<Endpoint>,
+    connection_registry: ConnectionRegistry
 }
 
 impl TaskManager {
-    pub fn new(pool: Arc<PgPool>, endpoint: Arc<Endpoint>) -> Self {
+    pub fn new(pool: Arc<PgPool>, endpoint: Arc<Endpoint>, connection_registry: ConnectionRegistry) -> Self {
         Self {
             pool: pool,
             tasks: Arc::new(DashMap::new()),
             token_manager: Arc::new(Mutex::new(TokenManager::new())),
-            endpoint
+            endpoint,
+            connection_registry
         }
     }
 
@@ -66,12 +69,30 @@ impl TaskManager {
     }
 
     pub async fn handle_stdout(&self, run_id: i64, line: &str) {
-        // TODO: notice if need that task is finished
+        let event = ExecutionStreamEvent::Stdout { //TODO: Process in paralel 2 tasks
+            run_id,
+            new_output: line.to_string(),
+        };
+
+        let payload = serde_json::to_value(vec![event]).ok();
+
+        self.connection_registry
+            .broadcast_to_group("execution_stream", payload)
+            .await;
         TaskManager::write_std_to_db(&self, run_id, line, "STDOUT").await;
     }
 
     pub async fn handle_stderr(&self, run_id: i64, line: &str) {
-        // TODO: notice if need that task is finished
+        let event = ExecutionStreamEvent::Stdout { //TODO: Process in paralel 2 tasks
+            run_id,
+            new_output: line.to_string(),
+        };
+
+        let payload = serde_json::to_value(vec![event]).ok();
+
+        self.connection_registry
+            .broadcast_to_group("execution_stream", payload)
+            .await;
         TaskManager::write_std_to_db(&self, run_id, line, "STDERR").await;
     }
 
@@ -128,7 +149,19 @@ impl TaskManager {
     }
 
     pub async fn handle_exit(&self, run_id: i64, code: i32) {
-        // TODO: notice if need that task is finished
+        self.tasks.remove(&run_id); //TODO: Process in paralel 2 tasks
+
+        let event = ExecutionStreamEvent::Exit {
+            run_id,
+            return_code: code,
+            end_time: Utc::now(),
+        };
+
+        let payload = serde_json::to_value(vec![event]).ok();
+
+        self.connection_registry
+            .broadcast_to_group("execution_stream", payload)
+            .await;
         self.tasks.remove(&run_id);
 
         let res = sqlx::query!(

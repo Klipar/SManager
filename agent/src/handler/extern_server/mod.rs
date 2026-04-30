@@ -9,3 +9,4 @@ pub mod remove_task_handler;
 pub mod run_task_handler;
 pub mod stop_task_handler;
 pub mod ping_handler;
+pub mod start_stream_handler;
