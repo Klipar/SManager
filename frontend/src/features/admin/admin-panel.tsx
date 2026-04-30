@@ -1,0 +1,116 @@
+import React from "react"
+import { UsersTable } from "./users-table"
+import { EditUserModal } from "./edit-user-modal"
+import { DeleteUserModal } from "./delete-user-modal"
+import { mockUsers } from "./mock-data"
+import type { AdminUser, EditUserForm } from "./types"
+
+export function AdminPanel() {
+  const [users, setUsers] = React.useState<AdminUser[]>(mockUsers)
+  const [editingUser, setEditingUser] = React.useState<AdminUser | null>(null)
+  const [isModalOpen, setIsModalOpen] = React.useState(false)
+  const [deletingUser, setDeletingUser] = React.useState<AdminUser | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false)
+
+  const handleEditUser = (user: AdminUser) => {
+    setEditingUser(user)
+    setIsModalOpen(true)
+  }
+
+  const handleAddUser = () => {
+    setEditingUser(null)
+    setIsModalOpen(true)
+  }
+
+  const handleDeleteUser = (user: AdminUser) => {
+    setDeletingUser(user)
+    setIsDeleteModalOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (deletingUser) {
+      setUsers((prev) => prev.filter((user) => user.id !== deletingUser.id))
+      setIsDeleteModalOpen(false)
+      setDeletingUser(null)
+    }
+  }
+
+  const handleSaveUser = (data: EditUserForm) => {
+    if (editingUser) {
+      // Update user
+      setUsers((prev) =>
+        prev.map((user) =>
+          user.id === editingUser.id
+            ? {
+                ...user,
+                name: data.name,
+                email: data.email,
+                role: data.role,
+              }
+            : user,
+        ),
+      )
+    } else {
+      // Add new user
+      const newUser: AdminUser = {
+        id: Math.max(...users.map((u) => u.id), 0) + 1,
+        name: data.name,
+        email: data.email,
+        role: data.role,
+        lastLogin: null,
+        lastUpdate: new Date().toLocaleDateString(),
+        createdAt: new Date().toLocaleDateString(),
+      }
+      setUsers((prev) => [...prev, newUser])
+    }
+  }
+
+  return (
+    <main className="relative flex min-h-[calc(100vh-4rem)] w-full flex-1 flex-col bg-[#070b10] py-5 pl-0 pr-5 text-white sm:pl-1 sm:pr-6 md:py-8 md:pl-2 md:pr-10">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.08),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.02),transparent_40%)]"
+      />
+
+      <div className="relative flex-1">
+        <div className="mx-auto w-full max-w-7xl px-8 pt-2 md:pt-4">
+          <div className="mb-8">
+            <h1 className="text-3xl font-medium tracking-tight text-white">Admin Panel</h1>
+            <p className="mt-3 text-sm text-white/50">Manage users, agents, and system settings</p>
+          </div>
+
+          <div className="space-y-8">
+            <UsersTable
+              users={users}
+              onEditUser={handleEditUser}
+              onAddUser={handleAddUser}
+              onDeleteUser={handleDeleteUser}
+            />
+          </div>
+        </div>
+      </div>
+
+      <EditUserModal
+        open={isModalOpen}
+        user={editingUser}
+        onClose={() => {
+          setIsModalOpen(false)
+          setEditingUser(null)
+        }}
+        onSave={handleSaveUser}
+      />
+
+      <DeleteUserModal
+        open={isDeleteModalOpen}
+        user={deletingUser}
+        onClose={() => {
+          setIsDeleteModalOpen(false)
+          setDeletingUser(null)
+        }}
+        onConfirm={handleConfirmDelete}
+      />
+    </main>
+  )
+}
+
+export default AdminPanel
