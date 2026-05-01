@@ -83,7 +83,7 @@ impl TaskManager {
     }
 
     pub async fn handle_stderr(&self, run_id: i64, line: &str) {
-        let event = ExecutionStreamEvent::Stdout { //stdout becouse its only field in struct
+        let event = ExecutionStreamEvent::Stdout { //stdout because its only field in struct
             run_id,
             new_output: line.to_string(),
         };
