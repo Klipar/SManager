@@ -2,7 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 import { LoginForm } from "./login-form"
 
-function LoginPage() {
+type LoginPageProps = {
+  onLogin: (token: string, user: any) => void
+}
+
+function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#0b0f14] text-white">
       <div
@@ -28,7 +32,7 @@ function LoginPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <LoginForm />
+              <LoginForm onSuccess={(token, user) => onLogin(token, user)} />
             </CardContent>
           </Card>
         </div>
