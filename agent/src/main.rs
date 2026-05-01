@@ -1,53 +1,26 @@
-use agent_lib::{extern_server::server::Server, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, ping_handler::PingHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, run_task_handler::RunTaskHandler, stop_task_handler::StopTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
+use agent_lib::{extern_server::{connection_registry::ConnectionRegistry, server::Server}, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, ping_handler::PingHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, run_task_handler::RunTaskHandler, start_stream_handler::StartStreamHandler, stop_stream_handler::StopStreamHandler, stop_task_handler::StopTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
 use shared::server::endpoint::Endpoint;
 use sqlx::postgres::PgPool;
 
 use log::error;
 use dotenvy::dotenv;
 use std::sync::Arc;
+use agent_lib::config::Config;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
     env_logger::init();
 
-    // connecting to db, and extracting shared_pool
-    let shared_pool = Arc::new(
-        PgPool::connect(&std::env::var("AGENT_DATABASE_URL")?).await?
-    );
+    let cfg = Config::from_env();
 
-    let intern_port: u16 = std::env::var("AGENT_INTERN_SERVER_PORT")
-        .unwrap_or_else(|e| {
-            eprintln!("Env error: {}", e);
-            "6767".to_string()
-        })
-        .parse()
-        .unwrap_or_else(|e| {
-            eprintln!("Parse error: {}", e);
-            6767
-        });
+    let shared_pool = Arc::new(PgPool::connect(&cfg.database_url).await?);
 
-    let extern_ip = std::env::var("AGENT_EXTERN_SERVER_IP")
-        .unwrap_or_else(|e| {
-            eprintln!("Env error: {}", e);
-            "127.0.0.1".to_string()
-        });
+    let intern_endpoint = Arc::new(Endpoint::new("127.0.0.1", cfg.intern_port));
+    let extern_endpoint = Arc::new(Endpoint::new(cfg.extern_ip, cfg.extern_port));
+    let connection_registry = ConnectionRegistry::default();
 
-    let extern_port: u16 = std::env::var("AGENT_EXTERN_SERVER_PORT")
-        .unwrap_or_else(|e| {
-            eprintln!("Env error: {}", e);
-            "6969".to_string()
-        })
-        .parse()
-        .unwrap_or_else(|e| {
-            eprintln!("Parse error: {}", e);
-            6969
-        });
-
-    let intern_endpoint = Arc::new(Endpoint::new("127.0.0.1", intern_port));
-    let extern_endpoint = Arc::new(Endpoint::new(extern_ip, extern_port));
-
-    let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone()));
+    let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone(), connection_registry.clone()));
 
     let mut intern_server = agent_lib::intern_server::server::Server::new(intern_endpoint.clone());
 
@@ -59,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
-    let mut extern_server = Server::new(extern_endpoint.clone(), shared_pool.clone());
+    let mut extern_server = Server::new(extern_endpoint.clone(), shared_pool.clone(), connection_registry.clone());
 
     // CRUD for Cores
     extern_server.add_handler("new-core", Arc::new(NewCoreHandler::new(shared_pool.clone())));
@@ -79,6 +52,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Ping - Pong
     extern_server.add_handler("ping", Arc::new(PingHandler::new()));
+
+    // register connection
+    extern_server.add_handler("start-stream", Arc::new(StartStreamHandler::new(connection_registry.clone())));
+    extern_server.add_handler("stop-stream", Arc::new(StopStreamHandler::new(connection_registry.clone())));
 
     let extern_handle = tokio::spawn(async move {
         if let Err(e) = extern_server.start_server().await {

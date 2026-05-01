@@ -1,9 +1,10 @@
-use std::{collections::HashMap, sync::Arc, time::Duration, net::SocketAddr};
+use std::{collections::HashMap, sync::Arc, time::{Duration, Instant}, net::SocketAddr};
 use sqlx::PgPool;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
 use tokio_util::codec::{Framed, LinesCodec};
 use futures::{StreamExt, SinkExt};
+use tokio::sync::oneshot;
 
 use anyhow::{Context, Result};
 use log::{info, error};
@@ -16,7 +17,7 @@ use shared::{db::models::Core, server::{
     message::{Message, Status},
 }};
 
-use crate::extern_server::tls_helpers::build_tls_config;
+use crate::extern_server::{connection_registry::{ConnectionRegistry, OutboundRequest}, tls_helpers::build_tls_config};
 
 const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const READ_TIMEOUT: Duration = Duration::from_secs(60);
@@ -28,15 +29,17 @@ pub struct Server {
     pub is_active: bool,
     pub handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
     pool: Arc<PgPool>,
+    registry: ConnectionRegistry,
 }
 
 impl Server {
-    pub fn new(endpoint: Arc<Endpoint>, pool: Arc<PgPool>) -> Self {
+    pub fn new(endpoint: Arc<Endpoint>, pool: Arc<PgPool>, registry: ConnectionRegistry) -> Self {
         Self {
             endpoint,
             is_active: false,
             handlers: Arc::new(HashMap::new()),
             pool,
+            registry,
         }
     }
 
@@ -70,6 +73,7 @@ impl Server {
                 acceptor.clone(),
                 Arc::clone(&self.handlers),
                 Arc::clone(&self.pool),
+                self.registry.clone(),
             ));
         }
     }
@@ -80,6 +84,7 @@ impl Server {
         acceptor: TlsAcceptor,
         handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
         pool: Arc<PgPool>,
+        registry: ConnectionRegistry,
     ) {
         let tls_stream = match perform_tls_handshake(socket, addr, &acceptor).await {
             Some(stream) => stream,
@@ -91,8 +96,24 @@ impl Server {
             None => return,
         };
 
+        let (tx, rx) = tokio::sync::mpsc::channel::<OutboundRequest>(100);
+
+        let core_id = match ctx.id {
+            Some(id) => id,
+            None => {
+                error!("No core id found...");
+                return;
+            }
+        };
+
+        if !registry.register(core_id, tx).await {
+            error!("Core {} already connected, rejecting new session", core_id);
+            return;
+        }
+
         info!("TLS connection established: {}", addr);
-        run_message_loop(tls_stream, addr, handlers, ctx).await;
+        run_message_loop( tls_stream, addr, handlers, ctx, rx ).await;
+        registry.unregister(core_id).await;
         info!("Disconnected: {}", addr);
     }
 }
@@ -168,57 +189,105 @@ async fn run_message_loop(
     addr: SocketAddr,
     handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
     mut ctx: ConnectionContext,
+    mut outbound_rx: tokio::sync::mpsc::Receiver<OutboundRequest>,
 ) {
-    let mut framed = Framed::new(tls_stream, LinesCodec::new_with_max_length(MAX_LINE_LENGTH));
+    let mut framed = Framed::new(
+        tls_stream,
+        LinesCodec::new_with_max_length(MAX_LINE_LENGTH),
+    );
+
+    let mut pending: HashMap<u64, oneshot::Sender<Message>> = HashMap::new();
+
+    let mut last_activity = Instant::now();
 
     loop {
-        let result = match tokio::time::timeout(READ_TIMEOUT, framed.next()).await {
-            Ok(Some(r)) => r,
-            Ok(None) => break,
-            Err(_) => {
-                error!("Read timeout for {addr}");
-                break;
-            }
-        };
+        tokio::select! {
+            incoming = framed.next() => {
+                let result = match incoming {
+                    Some(r) => r,
+                    None => break,
+                };
 
-        let line = match result {
-            Ok(l) => l,
-            Err(e) => {
-                error!("Read error from {addr}: {e}");
-                break;
-            }
-        };
-
-        let Ok(msg) = serde_json::from_str::<Message>(&line) else {
-            if let Err(e) = send_error(&mut framed, 0, "Failed to parse JSON").await {
-                error!("Write error to {addr}: {e}");
-                break;
-            }
-            continue;
-        };
-
-        match msg {
-            Message::Request { id, action, data } => {
-                let Some(handler) = handlers.get(&action) else {
-                    error!("Unknown action `{action}` from {addr}");
-                    if let Err(e) = send_error(&mut framed, id, &format!("Unknown action: {action}")).await {
-                        error!("Write error to {addr}: {e}");
+                let line = match result {
+                    Ok(l) => l,
+                    Err(e) => {
+                        error!("Read error from {addr}: {e}");
                         break;
                     }
+                };
+
+                last_activity = Instant::now();
+
+                let Ok(msg) = serde_json::from_str::<Message>(&line) else {
+                    let _ = send_error(&mut framed, 0, "Failed to parse JSON").await;
                     continue;
                 };
 
-                let mut response = handler.handle(data, &mut ctx).await;
-                response.set_id(id);
+                match msg {
 
-                let json = serde_json::to_string(&response).expect("Response serialization failed");
+                    Message::Request { id, action, data } => {
+                        let Some(handler) = handlers.get(&action) else {
+                            error!("Unknown action `{action}` from {addr}");
+                            let _ = send_error(
+                                &mut framed,
+                                id,
+                                &format!("Unknown action: {action}")
+                            ).await;
+                            continue;
+                        };
+
+                        let mut response = handler.handle(data, &mut ctx).await;
+                        response.set_id(id);
+
+                        let json = serde_json::to_string(&response)
+                            .expect("Response serialization failed");
+
+                        if let Err(e) = framed.send(json).await {
+                            error!("Write error to {addr}: {e}");
+                            break;
+                        }
+
+                        last_activity = Instant::now();
+                    }
+
+                    Message::Response { id, .. } => {
+                        if let Some(tx) = pending.remove(&id) {
+                            let _ = tx.send(msg);
+                        }
+
+                        last_activity = Instant::now();
+                    }
+                }
+            }
+
+            outbound = outbound_rx.recv() => {
+                let Some(outbound) = outbound else {
+                    break;
+                };
+
+                let id = match &outbound.message {
+                    Message::Request { id, .. } => *id,
+                    _ => continue,
+                };
+
+                pending.insert(id, outbound.response_tx);
+
+                let json = serde_json::to_string(&outbound.message)
+                    .expect("Outbound serialization failed");
+
                 if let Err(e) = framed.send(json).await {
                     error!("Write error to {addr}: {e}");
                     break;
                 }
+
+                last_activity = Instant::now();
             }
-            Message::Response { .. } => {
-                info!("Received response from {addr}: {:?}", msg); //TODO: process response to my request
+
+            _ = tokio::time::sleep(Duration::from_secs(1)) => {
+                if last_activity.elapsed() > READ_TIMEOUT {
+                    error!("Idle timeout for {addr}");
+                    break;
+                }
             }
         }
     }

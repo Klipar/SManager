@@ -4,3 +4,4 @@ pub mod intern_server;
 pub mod managers;
 pub mod enums;
 pub mod repository;
+pub mod config;

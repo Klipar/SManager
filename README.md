@@ -70,3 +70,21 @@ sqlx migrate run --source migrations
 cargo run -p agent
 cargo run -p core
 ```
+
+### Commands for running connections to agents
+First cert
+```bash
+openssl s_client \
+        -connect 127.0.0.1:6969 \
+        -cert certs/dev/client.crt \
+        -key certs/dev/client.key \
+        -CAfile certs/dev/ca.crt
+```
+Second cert
+```bash
+openssl s_client \
+		-connect 127.0.0.1:6969 \
+		-CAfile certs/dev/ca.crt \
+		-cert certs/dev/client2.crt \
+		-key certs/dev/client2.key
+```
