@@ -160,40 +160,31 @@ export function AdminPanel() {
   }
 
   return (
-    <main className="relative flex min-h-[calc(100vh-4rem)] w-full flex-1 flex-col bg-[#070b10] py-5 pl-0 pr-5 text-white sm:pl-1 sm:pr-6 md:py-8 md:pl-2 md:pr-10">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.08),transparent_30%),linear-gradient(135deg,rgba(255,255,255,0.02),transparent_40%)]"
-      />
+    <>
+      <div className="mb-8">
+        <h1 className="text-3xl font-medium tracking-tight text-white">Admin Panel</h1>
+        <p className="mt-3 text-sm text-white/50">Manage users, agents, and system settings</p>
+      </div>
 
-      <div className="relative flex-1">
-        <div className="mx-auto w-full max-w-7xl px-8 pt-2 md:pt-4">
-          <div className="mb-8">
-            <h1 className="text-3xl font-medium tracking-tight text-white">Admin Panel</h1>
-            <p className="mt-3 text-sm text-white/50">Manage users, agents, and system settings</p>
+      <div className="space-y-8">
+        {error && (
+          <div className="rounded-lg bg-red-900/20 border border-red-500/30 p-4 text-red-300 text-sm">
+            {error}
           </div>
+        )}
 
-          <div className="space-y-8">
-            {error && (
-              <div className="rounded-lg bg-red-900/20 border border-red-500/30 p-4 text-red-300 text-sm">
-                {error}
-              </div>
-            )}
-
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-white/50">Loading users...</div>
-              </div>
-            ) : (
-              <UsersTable
-                users={users}
-                onEditUser={handleEditUser}
-                onAddUser={handleAddUser}
-                onDeleteUser={handleDeleteUser}
-              />
-            )}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-white/50">Loading users...</div>
           </div>
-        </div>
+        ) : (
+          <UsersTable
+            users={users}
+            onEditUser={handleEditUser}
+            onAddUser={handleAddUser}
+            onDeleteUser={handleDeleteUser}
+          />
+        )}
       </div>
 
       <EditUserModal
@@ -217,7 +208,7 @@ export function AdminPanel() {
         onConfirm={handleConfirmDelete}
         isDeleting={isSaving}
       />
-    </main>
+    </>
   )
 }
 

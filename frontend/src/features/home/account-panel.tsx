@@ -69,8 +69,7 @@ export default function AccountPanel() {
     }
   }, [user])
 
-  function handleDeleteConfirm(pw: string) {
-    console.log("delete confirmed with", pw)
+  function handleDeleteConfirm(_pw: string) {
     setModalOpen(false)
     if (!userId) return
     sendCoreRequest('remove-user', { id: userId })
@@ -126,7 +125,7 @@ export default function AccountPanel() {
   }
 
   return (
-    <div className="w-full pt-2 pb-8">
+    <>
       <div className="mb-6">
         <h1 className="text-3xl font-medium tracking-tight text-white">Edit account</h1>
       </div>
@@ -160,6 +159,6 @@ export default function AccountPanel() {
       </div>
 
       <DeleteAccountModal open={modalOpen} onClose={() => setModalOpen(false)} onConfirm={handleDeleteConfirm} />
-    </div>
+    </>
   )
 }

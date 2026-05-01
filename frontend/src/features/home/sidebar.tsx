@@ -1,122 +1,105 @@
-import type { CSSProperties } from "react"
-
-import { AddAgentButton } from "./add-agent-button"
-import { AgentList } from "./agent-list"
-import { SidebarHeader } from "./sidebar-header"
-import { UserFooter } from "./user-footer"
-import { Separator } from "@/components/ui/separator"
-import type { Agent, CurrentUser, Task } from "./types"
+import { useNavigate } from "react-router-dom";
+import { AddAgentButton } from "./add-agent-button";
+import { AgentList } from "./agent-list";
+import { SidebarHeader } from "./sidebar-header";
+import { UserFooter } from "./user-footer";
+import { Separator } from "@/components/ui/separator";
+import { useApp } from "@/contexts/AppContext";
+import { useUser } from "@/contexts/UserContext";
+import { currentUser } from "./mock-data";
 
 type SidebarProps = {
-  agents: Agent[]
-  selectedAgentId: string | null
-  expandedAgentId: string | null
-  selectedTaskId: string | null
-  tasksByAgentId: Record<string, Task[]>
-  onSelectAgent: (agentId: string) => void
-  onSelectTask: (taskId: string) => void
-  onAddTask?: (agentId: string) => void
-  isCollapsed: boolean
-  onToggleCollapse: () => void
-  width: number
-  onResizeWidth: (width: number) => void
-  user: CurrentUser
-  onOpenAccount?: () => void
-  onOpenAdminPanel?: () => void
-  onOpenAddAgent?: () => void
-}
+  onOpenAddAgent?: () => void;
+};
 
-function Sidebar({
-  agents,
-  selectedAgentId,
-  expandedAgentId,
-  selectedTaskId,
-  tasksByAgentId,
-  onSelectAgent,
-  onSelectTask,
-  onAddTask,
-  isCollapsed,
-  onToggleCollapse,
-  width,
-  onResizeWidth,
-  user,
-  onOpenAccount,
-  onOpenAdminPanel,
-  onOpenAddAgent,
-}: SidebarProps) {
+function Sidebar({ onOpenAddAgent }: SidebarProps) {
+  const {
+    agents,
+    selectedAgentId,
+    expandedAgentId,
+    selectedTaskId,
+    tasksByAgentId,
+    setSelectedAgentId,
+    setSelectedTaskId,
+    setExpandedAgentId,
+    setCreateTaskAgentId,
+    isSidebarCollapsed,
+    toggleSidebar,
+    sidebarWidth,
+    setSidebarWidth,
+  } = useApp();
+
+  const { user } = useUser();
+  const displayUser = user?.name ? { ...currentUser, username: user.name } : currentUser;
+  const navigate = useNavigate();
+
+  const handleSelectAgent = (agentId: string) => {
+    setSelectedAgentId(agentId);
+    setSelectedTaskId(null);
+    const newExpanded = expandedAgentId === agentId ? null : agentId;
+    setExpandedAgentId(newExpanded);
+  };
+
+  const handleSelectTask = (taskId: string) => {
+    setSelectedTaskId(taskId);
+  };
+
+  const handleAddTask = (agentId: string) => {
+    setCreateTaskAgentId(agentId);
+    navigate(`/task/new/${agentId}`);
+  };
+
   return (
     <aside
       className="relative flex h-auto w-full shrink-0 flex-col border-b border-white/5 bg-white/[0.018] backdrop-blur-xl md:sticky md:top-0 md:h-screen md:border-b-0 md:border-r md:flex-none md:[width:var(--sidebar-width)]"
-      style={{
-        ["--sidebar-width" as string]: `${isCollapsed ? 68 : width}px`,
-      } as CSSProperties}
+      style={{ ["--sidebar-width" as string]: `${isSidebarCollapsed ? 68 : sidebarWidth}px` } as React.CSSProperties}
     >
-      <div
-        className={
-          isCollapsed
-            ? "flex h-full min-h-0 flex-col items-center gap-4 px-2 py-4"
-            : "flex h-full min-h-0 flex-col gap-4 px-3 py-4"
-        }
-      >
-        <SidebarHeader isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} />
-
-        <AddAgentButton isCollapsed={isCollapsed} onOpen={onOpenAddAgent} />
-
+      <div className={isSidebarCollapsed ? "flex h-full min-h-0 flex-col items-center gap-4 px-2 py-4" : "flex h-full min-h-0 flex-col gap-4 px-3 py-4"}>
+        <SidebarHeader isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebar} />
+        <AddAgentButton isCollapsed={isSidebarCollapsed} onOpen={onOpenAddAgent} />
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-          {!isCollapsed ? (
-            <p className="px-1 text-[11px] font-medium uppercase tracking-[0.16em] text-white/30">
-              Agents
-            </p>
-          ) : null}
+          {!isSidebarCollapsed && <p className="px-1 text-[11px] font-medium uppercase tracking-[0.16em] text-white/30">Agents</p>}
           <AgentList
             agents={agents}
             selectedAgentId={selectedAgentId}
             expandedAgentId={expandedAgentId}
-            isCollapsed={isCollapsed}
+            isCollapsed={isSidebarCollapsed}
             selectedTaskId={selectedTaskId}
             tasksByAgentId={tasksByAgentId}
-            onSelectAgent={onSelectAgent}
-            onSelectTask={onSelectTask}
-            onAddTask={onAddTask}
+            onSelectAgent={handleSelectAgent}
+            onSelectTask={handleSelectTask}
+            onAddTask={handleAddTask}
           />
         </div>
-
-        {!isCollapsed ? (
+        {!isSidebarCollapsed ? (
           <div className="flex w-full flex-col">
             <Separator className="bg-white/[0.04]" />
-            <UserFooter user={user} isCollapsed={isCollapsed} onOpenAccount={onOpenAccount} onOpenAdminPanel={onOpenAdminPanel} />
+            <UserFooter user={displayUser} isCollapsed={isSidebarCollapsed} onOpenAccount={() => navigate("/account")} onOpenAdminPanel={() => navigate("/admin")} />
           </div>
         ) : (
-          <UserFooter user={user} isCollapsed={isCollapsed} onOpenAccount={onOpenAccount} onOpenAdminPanel={onOpenAdminPanel} />
+          <UserFooter user={displayUser} isCollapsed={isSidebarCollapsed} onOpenAccount={() => navigate("/account")} onOpenAdminPanel={() => navigate("/admin")} />
         )}
       </div>
-
-      {!isCollapsed ? (
+      {!isSidebarCollapsed && (
         <button
           type="button"
-          onPointerDown={(event) => {
-            const startX = event.clientX
-            const startWidth = width
-
-            const handlePointerMove = (moveEvent: PointerEvent) => {
-              const nextWidth = Math.min(320, Math.max(220, startWidth + (moveEvent.clientX - startX)))
-              onResizeWidth(nextWidth)
-            }
-
-            const handlePointerUp = () => {
-              window.removeEventListener("pointermove", handlePointerMove)
-              window.removeEventListener("pointerup", handlePointerUp)
-            }
-
-            window.addEventListener("pointermove", handlePointerMove)
-            window.addEventListener("pointerup", handlePointerUp)
+          onPointerDown={(e) => {
+            const startX = e.clientX;
+            const startWidth = sidebarWidth;
+            const onMove = (me: PointerEvent) => setSidebarWidth(Math.min(320, Math.max(220, startWidth + (me.clientX - startX))));
+            const onUp = () => {
+              window.removeEventListener("pointermove", onMove);
+              window.removeEventListener("pointerup", onUp);
+            };
+            window.addEventListener("pointermove", onMove);
+            window.addEventListener("pointerup", onUp);
           }}
           className="absolute top-0 -right-2 h-full w-4 cursor-col-resize border-l border-transparent hover:border-cyan-400/20"
           aria-label="Resize sidebar"
         />
-      ) : null}
+      )}
     </aside>
-  )
+  );
 }
 
 export { Sidebar }
