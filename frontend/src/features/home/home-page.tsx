@@ -18,7 +18,7 @@ type HomeViewState = {
   createTaskAgentId: string | null
   isSidebarCollapsed: boolean
   sidebarWidth: number
-  showSettings: boolean
+  showAccount: boolean
   showAdminPanel: boolean
 }
 
@@ -33,7 +33,7 @@ const defaultHomeViewState: HomeViewState = {
   createTaskAgentId: null,
   isSidebarCollapsed: false,
   sidebarWidth: 228,
-  showSettings: false,
+  showAccount: false,
   showAdminPanel: false,
 }
 
@@ -45,7 +45,9 @@ function readHomeViewState(): HomeViewState {
     const parsed = JSON.parse(rawState) as Partial<HomeViewState>
     return {
       ...defaultHomeViewState,
+      // support migration from older shape where key was `showSettings`
       ...parsed,
+      showAccount: (parsed as any).showAccount ?? (parsed as any).showSettings ?? defaultHomeViewState.showAccount,
     }
   } catch {
     return defaultHomeViewState
@@ -68,7 +70,7 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
   const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(() => readHomeViewState().createTaskAgentId)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => readHomeViewState().isSidebarCollapsed)
   const [sidebarWidth, setSidebarWidth] = useState(() => readHomeViewState().sidebarWidth)
-  const [showSettings, setShowSettings] = useState(() => readHomeViewState().showSettings)
+  const [showAccount, setShowAccount] = useState(() => readHomeViewState().showAccount)
   const [showAdminPanel, setShowAdminPanel] = useState(() => readHomeViewState().showAdminPanel)
   const [showAddAgent, setShowAddAgent] = useState(false)
   const [agentsState, setAgentsState] = useState<any[]>([])
@@ -92,14 +94,14 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
     setSelectedTaskId(taskId)
     setSelectedLogId(null)
     setShowCreateTask(false)
-    setShowSettings(false)
+    setShowAccount(false)
     setShowAdminPanel(false)
   }
 
   const handleAddTask = (agentId: string) => {
     setCreateTaskAgentId(agentId)
     setShowCreateTask(true)
-    setShowSettings(false)
+    setShowAccount(false)
     setSelectedTaskId(null)
     setSelectedLogId(null)
   }
@@ -191,7 +193,7 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
       createTaskAgentId,
       isSidebarCollapsed,
       sidebarWidth,
-      showSettings,
+      showAccount,
       showAdminPanel,
     }
 
@@ -209,7 +211,7 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
     createTaskAgentId,
     isSidebarCollapsed,
     sidebarWidth,
-    showSettings,
+    showAccount,
     showAdminPanel,
   ])
 
@@ -236,7 +238,7 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
         <div className="flex min-h-screen items-center justify-center">
           <div className="text-lg text-white/60">Loading agents...</div>
         </div>
-      ) : showCreateTask || showSettings ? (
+      ) : showCreateTask || showAccount ? (
         <div className="flex min-h-screen w-full flex-col md:flex-row">
           <Sidebar
             agents={agentsState}
@@ -252,14 +254,14 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             width={sidebarWidth}
             onResizeWidth={setSidebarWidth}
             user={displayUser}
-            onOpenSettings={() => {
-              setShowSettings(true)
+            onOpenAccount={() => {
+              setShowAccount(true)
               setShowCreateTask(false)
               setShowAdminPanel(false)
             }}
             onOpenAdminPanel={() => {
               setShowAdminPanel(true)
-              setShowSettings(false)
+              setShowAccount(false)
               setShowCreateTask(false)
             }}
             onOpenAddAgent={handleOpenAddAgent}
@@ -271,7 +273,7 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             onSelectLog={setSelectedLogId}
             showCreateTask={showCreateTask}
             createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
-            showSettings={showSettings}
+            showAccount={showAccount}
             userData={userData}
             onUpdateUser={onUpdateUser}
           />
@@ -292,14 +294,14 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             width={sidebarWidth}
             onResizeWidth={setSidebarWidth}
             user={displayUser}
-            onOpenSettings={() => {
-              setShowSettings(true)
+            onOpenAccount={() => {
+              setShowAccount(true)
               setShowCreateTask(false)
               setShowAdminPanel(false)
             }}
             onOpenAdminPanel={() => {
               setShowAdminPanel(true)
-              setShowSettings(false)
+              setShowAccount(false)
               setShowCreateTask(false)
             }}
             onOpenAddAgent={handleOpenAddAgent}
@@ -324,14 +326,14 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             width={sidebarWidth}
             onResizeWidth={setSidebarWidth}
             user={displayUser}
-            onOpenSettings={() => {
-              setShowSettings(true)
+            onOpenAccount={() => {
+              setShowAccount(true)
               setShowCreateTask(false)
               setShowAdminPanel(false)
             }}
             onOpenAdminPanel={() => {
               setShowAdminPanel(true)
-              setShowSettings(false)
+                setShowAccount(false)
               setShowCreateTask(false)
             }}
             onOpenAddAgent={handleOpenAddAgent}
@@ -343,7 +345,7 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             onSelectLog={setSelectedLogId}
             showCreateTask={showCreateTask}
             createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
-            showSettings={showSettings}
+            showAccount={showAccount}
             userData={userData}
           />
         </div>

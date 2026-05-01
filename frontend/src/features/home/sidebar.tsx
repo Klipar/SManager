@@ -21,7 +21,7 @@ type SidebarProps = {
   width: number
   onResizeWidth: (width: number) => void
   user: CurrentUser
-  onOpenSettings?: () => void
+  onOpenAccount?: () => void
   onOpenAdminPanel?: () => void
   onOpenAddAgent?: () => void
 }
@@ -40,7 +40,7 @@ function Sidebar({
   width,
   onResizeWidth,
   user,
-  onOpenSettings,
+  onOpenAccount,
   onOpenAdminPanel,
   onOpenAddAgent,
 }: SidebarProps) {
@@ -84,10 +84,10 @@ function Sidebar({
         {!isCollapsed ? (
           <div className="flex w-full flex-col">
             <Separator className="bg-white/[0.04]" />
-            <UserFooter user={user} isCollapsed={isCollapsed} onOpenSettings={onOpenSettings} onOpenAdminPanel={onOpenAdminPanel} />
+            <UserFooter user={user} isCollapsed={isCollapsed} onOpenAccount={onOpenAccount} onOpenAdminPanel={onOpenAdminPanel} />
           </div>
         ) : (
-          <UserFooter user={user} isCollapsed={isCollapsed} onOpenSettings={onOpenSettings} onOpenAdminPanel={onOpenAdminPanel} />
+          <UserFooter user={user} isCollapsed={isCollapsed} onOpenAccount={onOpenAccount} onOpenAdminPanel={onOpenAdminPanel} />
         )}
       </div>
 

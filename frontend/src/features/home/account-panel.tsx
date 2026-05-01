@@ -33,7 +33,7 @@ function DeleteAccountModal({ open, onClose, onConfirm }: { open: boolean; onClo
   )
 }
 
-export default function SettingsPanel({ userData, onUpdateUser }: Props) {
+export default function AccountPanel({ userData, onUpdateUser }: Props) {
   const [nickname, setNickname] = React.useState(userData?.name || "")
   const [password, setPassword] = React.useState("")
   const [email, setEmail] = React.useState(userData?.email || "")
