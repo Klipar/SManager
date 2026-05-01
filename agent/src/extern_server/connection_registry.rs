@@ -119,7 +119,7 @@ impl ConnectionRegistry {
         &self,
         group: &str,
         data: Option<Value>,
-    ) -> HashMap<i32, Option<Message>> {
+    ) -> HashMap<i32, Option<Message>> { //TODO: Not fully implemented waiting for response and resending if problem appears. But, tpc must handle it.
         let members: Vec<i32> = {
             let inner = self.inner.lock().await;
             inner.groups.get(group)

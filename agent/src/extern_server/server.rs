@@ -198,15 +198,10 @@ async fn run_message_loop(
 
     let mut pending: HashMap<u64, oneshot::Sender<Message>> = HashMap::new();
 
-    // idle timeout tracking
     let mut last_activity = Instant::now();
 
     loop {
         tokio::select! {
-
-            // -------------------------
-            // TCP incoming messages
-            // -------------------------
             incoming = framed.next() => {
                 let result = match incoming {
                     Some(r) => r,
@@ -265,9 +260,6 @@ async fn run_message_loop(
                 }
             }
 
-            // -------------------------
-            // outbound RPC messages
-            // -------------------------
             outbound = outbound_rx.recv() => {
                 let Some(outbound) = outbound else {
                     break;
@@ -291,9 +283,6 @@ async fn run_message_loop(
                 last_activity = Instant::now();
             }
 
-            // -------------------------
-            // idle timeout
-            // -------------------------
             _ = tokio::time::sleep(Duration::from_secs(1)) => {
                 if last_activity.elapsed() > READ_TIMEOUT {
                     error!("Idle timeout for {addr}");
