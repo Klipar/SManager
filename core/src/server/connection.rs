@@ -1,6 +1,6 @@
-use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::{Instant, Duration}};
 use futures_util::{SinkExt, StreamExt};
-use log::{info, error};
+use log::{info, error, debug};
 use tokio_tungstenite::accept_async;
 use shared::server::message::{Message, Status};
 use crate::{
@@ -34,53 +34,76 @@ pub async fn run_message_loop(
     handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
     mut ctx: ConnectionContext,
 ) {
-    while let Some(result) = ws_stream.next().await {
-        let msg = match result {
-            Ok(msg) => msg,
-            Err(e) => {
-                error!("WebSocket read error from {}: {}", addr, e);
-                break;
-            }
-        };
+    const TIMEOUT_DURATION: Duration = Duration::from_secs(60);
+    let mut last_message_time = Instant::now();
 
-        let raw_text = match parse_message_from_ws(msg).await {
-            Some(text) => text,
-            None => {
-                let error_response = Message::new_response(
-                    Status::Error,
-                    None,
-                    400,
-                    "Invalid message payload",
-                );
-                if let Err(e) = ws_stream.send(response_to_ws(error_response)).await {
-                    error!("Failed to send error response to {}: {}", addr, e);
+    loop {
+        tokio::select! {
+            _ = tokio::time::sleep(TIMEOUT_DURATION) => {
+                if last_message_time.elapsed() > TIMEOUT_DURATION {
+                    debug!("Connection timeout for {}: no data for 60 seconds", addr);
+                    break;
                 }
-                continue;
             }
-        };
 
-        let message = match serde_json::from_str::<Message>(&raw_text) {
-            Ok(msg) => msg,
-            Err(e) => {
-                error!("Failed to parse JSON from {}: {}", addr, e);
-                let error_response = Message::new_response(
-                    Status::Error,
-                    None,
-                    400,
-                    "Invalid JSON format",
-                );
-                if let Err(e) = ws_stream.send(response_to_ws(error_response)).await {
-                    error!("Failed to send error response to {}: {}", addr, e);
+            result = ws_stream.next() => {
+                let Some(result) = result else {
+                    debug!("WebSocket stream ended for {}", addr);
+                    break;
+                };
+
+                let msg = match result {
+                    Ok(msg) => msg,
+                    Err(e) => {
+                        error!("WebSocket read error from {}: {}", addr, e);
+                        break;
+                    }
+                };
+
+                last_message_time = Instant::now();
+
+                let raw_text = match parse_message_from_ws(msg).await {
+                    Some(text) => text,
+                    None => {
+                        let error_response = Message::new_response(
+                            Status::Error,
+                            None,
+                            400,
+                            "Invalid message payload",
+                        );
+                        if let Err(e) = ws_stream.send(response_to_ws(error_response)).await {
+                            error!("Failed to send error response to {}: {}", addr, e);
+                            break;
+                        }
+                        continue;
+                    }
+                };
+
+                let message = match serde_json::from_str::<Message>(&raw_text) {
+                    Ok(msg) => msg,
+                    Err(e) => {
+                        error!("Failed to parse JSON from {}: {}", addr, e);
+                        let error_response = Message::new_response(
+                            Status::Error,
+                            None,
+                            400,
+                            "Invalid JSON format",
+                        );
+                        if let Err(e) = ws_stream.send(response_to_ws(error_response)).await {
+                            error!("Failed to send error response to {}: {}", addr, e);
+                            break;
+                        }
+                        continue;
+                    }
+                };
+
+                let response = process_message(message, &handlers, &mut ctx, addr).await;
+
+                if let Err(e) = ws_stream.send(response_to_ws(response)).await {
+                    error!("WebSocket send error to {}: {}", addr, e);
+                    break;
                 }
-                continue;
             }
-        };
-
-        let response = process_message(message, &handlers, &mut ctx, addr).await;
-
-        if let Err(e) = ws_stream.send(response_to_ws(response)).await {
-            error!("WebSocket send error to {}: {}", addr, e);
-            break;
         }
     }
 }
