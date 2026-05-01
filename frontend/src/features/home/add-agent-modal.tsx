@@ -6,24 +6,29 @@ import { Label } from "@/components/ui/label"
 type AddAgentModalProps = {
   open: boolean
   onClose: () => void
-  onSave: (payload: { name: string; ip?: string; description?: string; sin?: string }) => void
+  onSave: (payload: { name: string; ip?: string; description?: string; port?: number }) => void
 }
 
 function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
   const [name, setName] = useState("")
   const [ip, setIp] = useState("")
   const [description, setDescription] = useState("")
-  const [sin, setSin] = useState("")
+  const [port, setPort] = useState("")
 
   if (!open) return null
 
   const handleSave = () => {
     if (!name.trim()) return
-    onSave({ name: name.trim(), ip: ip.trim() || undefined, description: description.trim() || undefined, sin: sin.trim() || undefined })
+    onSave({
+      name: name.trim(),
+      ip: ip.trim() || undefined,
+      description: description.trim() || undefined,
+      port: port.trim() ? parseInt(port.trim(), 10) : undefined,
+    })
     setName("")
     setIp("")
     setDescription("")
-    setSin("")
+    setPort("")
   }
 
   return (
@@ -57,9 +62,8 @@ function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
           </div>
 
           <div>
-            <Label className="mb-1 block text-sm text-white/80">SIN (TLS name)</Label>
-            <Input value={sin} onChange={(e) => setSin(e.target.value)} placeholder="Common Name from TLS cert" />
-            <p className="mt-1 text-xs text-white/50">This should match the name issued in TLS certificates.</p>
+            <Label className="mb-1 block text-sm text-white/80">Port</Label>
+            <Input value={port} onChange={(e) => setPort(e.target.value)} placeholder="6767" />
           </div>
         </div>
 

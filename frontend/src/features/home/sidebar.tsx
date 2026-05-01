@@ -62,7 +62,7 @@ function Sidebar({
 
         <AddAgentButton isCollapsed={isCollapsed} onOpen={onOpenAddAgent} />
 
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
           {!isCollapsed ? (
             <p className="px-1 text-[11px] font-medium uppercase tracking-[0.16em] text-white/30">
               Agents
@@ -82,7 +82,7 @@ function Sidebar({
         </div>
 
         {!isCollapsed ? (
-          <div className="absolute inset-x-0 bottom-0 flex w-full flex-col px-3 py-4">
+          <div className="flex w-full flex-col">
             <Separator className="bg-white/[0.04]" />
             <UserFooter user={user} isCollapsed={isCollapsed} onOpenSettings={onOpenSettings} onOpenAdminPanel={onOpenAdminPanel} />
           </div>
