@@ -3,8 +3,11 @@ import { HomePage } from "./features/home/home-page"
 import { LoginPage } from "./features/auth/login-page"
 import { connectCore, sendCoreRequest } from "./lib/ws"
 
+type UserData = { id?: number; name?: string; email?: string; is_admin?: boolean; last_update?: string | null }
+
 function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null)
+  const [userData, setUserData] = useState<UserData | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -13,6 +16,16 @@ function App() {
       try { return localStorage.getItem("sm_token") }
       catch { return null }
     })()
+
+    const savedUserData = (() => {
+      try {
+        const data = localStorage.getItem("sm_userData")
+        return data ? JSON.parse(data) : null
+      } catch { return null }
+    })()
+    if (savedUserData && isMounted) {
+      setUserData(savedUserData)
+    }
 
     if (token) {
       connectCore()
@@ -24,6 +37,7 @@ function App() {
           } else {
             setAuthenticated(false)
             localStorage.removeItem("sm_token")
+            localStorage.removeItem("sm_userData")
           }
         })
         .catch((err) => {
@@ -31,6 +45,7 @@ function App() {
           console.error("[App] Auth error:", err)
           setAuthenticated(false)
           localStorage.removeItem("sm_token")
+          localStorage.removeItem("sm_userData")
         })
     } else {
       setAuthenticated(false)
@@ -47,6 +62,17 @@ function App() {
       <LoginPage
         onLogin={(token, _user) => {
           try { localStorage.setItem('sm_token', token) } catch {}
+          if (_user && typeof _user === 'object') {
+            const newUserData = {
+              id: (_user as any).id,
+              name: (_user as any).name,
+              email: (_user as any).email,
+              is_admin: (_user as any).is_admin,
+              last_update: (_user as any).last_update,
+            }
+            setUserData(newUserData)
+            try { localStorage.setItem('sm_userData', JSON.stringify(newUserData)) } catch {}
+          }
           connectCore()
           sendCoreRequest('authenticate', { token })
             .then((res) => {
@@ -56,19 +82,21 @@ function App() {
               } else {
                 setAuthenticated(false)
                 localStorage.removeItem('sm_token')
+                localStorage.removeItem('sm_userData')
               }
             })
             .catch((e) => {
               console.error('[App] authenticate after login failed', e)
               setAuthenticated(false)
               localStorage.removeItem('sm_token')
+              localStorage.removeItem('sm_userData')
             })
         }}
       />
     )
   }
 
-  return <HomePage />
+  return <HomePage userData={userData} onUpdateUser={setUserData} />
 }
 
 export default App

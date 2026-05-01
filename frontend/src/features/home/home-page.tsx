@@ -7,7 +7,15 @@ import { Sidebar } from "./sidebar"
 import { AdminPanel } from "../admin/admin-panel"
 import { AddAgentModal } from "./add-agent-modal"
 
-function HomePage() {
+type UserData = { id?: number; name?: string; email?: string; is_admin?: boolean; last_update?: string | null }
+
+type HomePageProps = {
+  userData?: UserData | null
+  onUpdateUser?: (userData: UserData) => void
+}
+
+function HomePage({ userData, onUpdateUser }: HomePageProps) {
+  const displayUser = userData?.name ? { ...currentUser, username: userData.name } : currentUser
   console.log('[HomePage] mount — initial states', { isLoading: true })
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null)
@@ -151,7 +159,7 @@ function HomePage() {
             onToggleCollapse={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
             width={sidebarWidth}
             onResizeWidth={setSidebarWidth}
-            user={currentUser}
+            user={displayUser}
             onOpenSettings={() => {
               setShowSettings(true)
               setShowCreateTask(false)
@@ -173,6 +181,8 @@ function HomePage() {
             createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
             showSettings={showSettings}
             onCloseSettings={() => setShowSettings(false)}
+            userData={userData}
+            onUpdateUser={onUpdateUser}
           />
         </div>
       ) : showAdminPanel ? (
@@ -190,7 +200,7 @@ function HomePage() {
             onToggleCollapse={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
             width={sidebarWidth}
             onResizeWidth={setSidebarWidth}
-            user={currentUser}
+            user={displayUser}
             onOpenSettings={() => {
               setShowSettings(true)
               setShowCreateTask(false)
@@ -222,7 +232,7 @@ function HomePage() {
             onToggleCollapse={() => setIsSidebarCollapsed((currentValue) => !currentValue)}
             width={sidebarWidth}
             onResizeWidth={setSidebarWidth}
-            user={currentUser}
+            user={displayUser}
             onOpenSettings={() => {
               setShowSettings(true)
               setShowCreateTask(false)
@@ -244,6 +254,7 @@ function HomePage() {
             createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
             showSettings={showSettings}
             onCloseSettings={() => setShowSettings(false)}
+            userData={userData}
           />
         </div>
       )}
