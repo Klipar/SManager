@@ -1,13 +1,11 @@
 import { useEffect, useState } from "react"
-
 import { sendCoreRequest } from "@/lib/ws"
+import { useUser } from "@/contexts/UserContext"
 import { currentUser, tasksByAgentId } from "./mock-data"
 import { MainPanel } from "./main-panel"
 import { Sidebar } from "./sidebar"
 import { AdminPanel } from "../admin/admin-panel"
 import { AddAgentModal } from "./add-agent-modal"
-
-type UserData = { id?: number; name?: string; email?: string; is_admin?: boolean; last_update?: string | null }
 
 type HomeViewState = {
   selectedAgentId: string | null
@@ -45,7 +43,6 @@ function readHomeViewState(): HomeViewState {
     const parsed = JSON.parse(rawState) as Partial<HomeViewState>
     return {
       ...defaultHomeViewState,
-      // support migration from older shape where key was `showSettings`
       ...parsed,
       showAccount: (parsed as any).showAccount ?? (parsed as any).showSettings ?? defaultHomeViewState.showAccount,
     }
@@ -54,14 +51,10 @@ function readHomeViewState(): HomeViewState {
   }
 }
 
-type HomePageProps = {
-  userData?: UserData | null
-  onUpdateUser?: (userData: UserData) => void
-}
+function HomePage() {
+  const { user } = useUser()
+  const displayUser = user?.name ? { ...currentUser, username: user.name } : currentUser
 
-function HomePage({ userData, onUpdateUser }: HomePageProps) {
-  const displayUser = userData?.name ? { ...currentUser, username: userData.name } : currentUser
-  console.log('[HomePage] mount — initial states', { isLoading: true })
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(() => readHomeViewState().selectedAgentId)
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(() => readHomeViewState().expandedAgentId)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => readHomeViewState().selectedTaskId)
@@ -155,7 +148,6 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
     setIsLoading(true)
     sendCoreRequest("get-all-agents", null)
       .then((res) => {
-        console.log('[HomePage] get-all-agents response:', res)
         if (res.status === "ok") {
           const rawAgents = res.data && res.data.agents ? res.data.agents : []
           const agents = rawAgents.map((a: any, idx: number) => ({
@@ -166,7 +158,6 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             description: a && a.description ? a.description : undefined,
             port: a && (a.port ?? a.sin) ? (a.port ?? a.sin) : undefined,
           }))
-          console.log('[HomePage] normalized agents:', agents)
           setAgentsState(agents)
         } else {
           console.error("Failed to fetch agents", res)
@@ -178,7 +169,6 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
         setAgentsState([])
       })
       .finally(() => {
-        console.log('[HomePage] finished loading agents')
         setIsLoading(false)
       })
   }, [])
@@ -274,8 +264,6 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             showCreateTask={showCreateTask}
             createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
             showAccount={showAccount}
-            userData={userData}
-            onUpdateUser={onUpdateUser}
           />
         </div>
       ) : showAdminPanel ? (
@@ -346,7 +334,6 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             showCreateTask={showCreateTask}
             createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
             showAccount={showAccount}
-            userData={userData}
           />
         </div>
       )}

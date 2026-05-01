@@ -5,7 +5,8 @@
     { "path": "./tsconfig.node.json" }
   ],
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": ".", //TODO: fix after changing version of TypeScript
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["src/*"]
     }

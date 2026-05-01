@@ -3,6 +3,7 @@ import { sendCoreRequest } from "@/lib/ws"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import type { UserData } from "@/contexts/UserContext"
 
 type LoginFormState = {
   username: string
@@ -15,7 +16,7 @@ const initialFormState: LoginFormState = {
 }
 
 type LoginFormProps = {
-  onSuccess?: (token: string, user: unknown) => void
+  onSuccess?: (token: string, user: UserData) => void
 }
 
 function LoginForm({ onSuccess }: LoginFormProps) {
@@ -39,7 +40,7 @@ function LoginForm({ onSuccess }: LoginFormProps) {
 
       if (res?.status === "ok" && token) {
         try { localStorage.setItem("sm_token", token) } catch {}
-        onSuccess?.(token, user)
+        onSuccess?.(token, user as UserData)
       } else {
         setError(res?.message ?? "Login failed")
       }

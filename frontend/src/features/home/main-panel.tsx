@@ -4,8 +4,6 @@ import CreateTaskPanel from "./create-task-panel"
 import AccountPanel from "./account-panel"
 import type { Agent, Task, TaskLog } from "./types"
 
-type UserData = { id?: number; name?: string; email?: string; is_admin?: boolean; last_update?: string | null }
-
 type MainPanelProps = {
   selectedAgent: Agent | null
   selectedTask: Task | null
@@ -14,11 +12,9 @@ type MainPanelProps = {
   showCreateTask?: boolean
   createTaskAgent?: Agent | null
   showAccount?: boolean
-  userData?: UserData | null
-  onUpdateUser?: (userData: UserData) => void
 }
 
-function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog, showCreateTask, createTaskAgent, showAccount, userData, onUpdateUser }: MainPanelProps) {
+function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog, showCreateTask, createTaskAgent, showAccount }: MainPanelProps) {
   return (
     <section className="relative flex min-h-[calc(100vh-4rem)] w-full flex-1 flex-col py-5 pl-0 pr-5 sm:pl-1 sm:pr-6 md:py-8 md:pl-2 md:pr-10">
       <div
@@ -34,7 +30,7 @@ function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog, show
             </div>
           ) : showAccount ? (
             <div className="pt-2 md:pt-4">
-              <AccountPanel userData={userData} onUpdateUser={onUpdateUser} />
+              <AccountPanel />
             </div>
           ) : (
             <div className="flex h-full flex-col justify-center">
