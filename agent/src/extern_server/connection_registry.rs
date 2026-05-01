@@ -61,17 +61,31 @@ impl ConnectionRegistry {
         }
     }
 
-    pub async fn join_group(&self, core_id: i32, group: &str) {
-        self.inner.lock().await
-            .groups
+    pub async fn join_group(&self, core_id: i32, group: &str) -> Result<(), &'static str> {
+        let mut inner = self.inner.lock().await;
+
+        let group_members = inner.groups
             .entry(group.to_string())
-            .or_default()
-            .insert(core_id);
+            .or_default();
+
+        if group_members.insert(core_id) {
+            Ok(())
+        } else {
+            Err("Core already in group")
+        }
     }
 
-    pub async fn leave_group(&self, core_id: i32, group: &str) {
-        if let Some(members) = self.inner.lock().await.groups.get_mut(group) {
-            members.remove(&core_id);
+    pub async fn leave_group(&self, core_id: i32, group: &str) -> Result<(), &'static str> {
+        let mut inner = self.inner.lock().await;
+
+        if let Some(members) = inner.groups.get_mut(group) {
+            if members.remove(&core_id) {
+                Ok(())
+            } else {
+                Err("Core not in group")
+            }
+        } else {
+            Err("Group not found")
         }
     }
 

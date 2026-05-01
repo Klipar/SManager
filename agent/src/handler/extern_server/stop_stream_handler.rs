@@ -10,24 +10,23 @@ use log::info;
 use crate::extern_server::connection_registry::ConnectionRegistry;
 
 
-pub struct StartStreamHandler {
+pub struct StopStreamHandler {
     registry: ConnectionRegistry,
 }
 
-impl StartStreamHandler {
+impl StopStreamHandler {
     pub fn new(registry: ConnectionRegistry) -> Self {
         Self { registry }
     }
 }
 
 #[async_trait]
-impl HandlerTrait for StartStreamHandler {
+impl HandlerTrait for StopStreamHandler {
     async fn handle(
         &self,
         _data: Option<Value>,
         ctx: &mut ConnectionContext,
     ) -> Message {
-        info!("Client joined execution_stream");
 
         let core_id =
         match ctx.id {
@@ -42,21 +41,22 @@ impl HandlerTrait for StartStreamHandler {
             }
         };
 
-        match self.registry.join_group(core_id, "execution_stream").await {
+        match self.registry.leave_group(core_id, "execution_stream").await{
             Ok(..) => {
+                info!("Client left execution_stream");
                 Message::new_response(
                     Status::Ok,
                     None,
                     200,
-                    "Joined execution_stream",
+                    "Left execution_stream",
                 )
             },
             Err(..) => {
                 Message::new_response(
                     Status::Error,
                     None,
-                    208,
-                    "Already joined execution_stream",
+                    409,
+                    "Client already left execution_stream",
                 )
             }
         }

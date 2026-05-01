@@ -1,4 +1,4 @@
-use agent_lib::{extern_server::{connection_registry::ConnectionRegistry, server::Server}, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, ping_handler::PingHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, run_task_handler::RunTaskHandler, start_stream_handler::StartStreamHandler, stop_task_handler::StopTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
+use agent_lib::{extern_server::{connection_registry::ConnectionRegistry, server::Server}, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, ping_handler::PingHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, run_task_handler::RunTaskHandler, start_stream_handler::StartStreamHandler, stop_stream_handler::StopStreamHandler, stop_task_handler::StopTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
 use shared::server::endpoint::Endpoint;
 use sqlx::postgres::PgPool;
 
@@ -55,6 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // register connection
     extern_server.add_handler("start-stream", Arc::new(StartStreamHandler::new(connection_registry.clone())));
+    extern_server.add_handler("stop-stream", Arc::new(StopStreamHandler::new(connection_registry.clone())));
 
     let extern_handle = tokio::spawn(async move {
         if let Err(e) = extern_server.start_server().await {
