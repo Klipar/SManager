@@ -6,7 +6,6 @@ import { UserFooter } from "./user-footer";
 import { Separator } from "@/components/ui/separator";
 import { useApp } from "@/contexts/AppContext";
 import { useUser } from "@/contexts/UserContext";
-import { currentUser } from "./mock-data";
 
 type SidebarProps = {
   onOpenAddAgent?: () => void;
@@ -30,8 +29,12 @@ function Sidebar({ onOpenAddAgent }: SidebarProps) {
   } = useApp();
 
   const { user } = useUser();
-  const displayUser = user?.name ? { ...currentUser, username: user.name } : currentUser;
   const navigate = useNavigate();
+
+  const displayUser = {
+    username: user?.name ?? 'User',
+    role: (user?.is_admin ? 'admin' : 'user') as 'admin' | 'user',
+  };
 
   const handleSelectAgent = (agentId: string) => {
     setSelectedAgentId(agentId);

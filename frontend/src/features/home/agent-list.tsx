@@ -1,5 +1,4 @@
 import { ScrollArea } from "@/components/ui/scroll-area"
-
 import { AgentRow } from "./agent-row"
 import type { Agent, Task } from "@/types"
 
