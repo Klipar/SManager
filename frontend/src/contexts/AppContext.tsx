@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { sendCoreRequest } from "@/lib/ws";
-import type { Agent, Task } from "@/features/home/types";
+import type { Agent, Task } from "@/types";
 
 type AppContextType = {
   agents: Agent[];

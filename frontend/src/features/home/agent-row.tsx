@@ -1,10 +1,9 @@
 import { ChevronDown, Circle } from "lucide-react"
-
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
 import { AgentTasks } from "./agent-tasks"
-import type { Agent, Task } from "./types"
+import type { Agent, Task } from "@/types"
 
 type AgentRowProps = {
   agent: Agent

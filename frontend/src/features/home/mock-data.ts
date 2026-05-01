@@ -1,4 +1,4 @@
-import type { Agent, CurrentUser, Task } from "./types"
+import type { Agent, CurrentUser, Task } from "@/types"
 
 const agents: Agent[] = [
   { id: "agent-main", name: "Agent main", status: "online" },

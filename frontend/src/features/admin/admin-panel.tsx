@@ -3,7 +3,7 @@ import { sendCoreRequest } from "@/lib/ws"
 import { UsersTable } from "./users-table"
 import { EditUserModal } from "./edit-user-modal"
 import { DeleteUserModal } from "./delete-user-modal"
-import type { AdminUser, EditUserForm } from "./types"
+import type { AdminUser, EditUserForm } from "@/types"
 
 export function AdminPanel() {
   const [users, setUsers] = React.useState<AdminUser[]>([])

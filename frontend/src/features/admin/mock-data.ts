@@ -1,4 +1,4 @@
-import type { AdminUser } from "./types"
+import type { AdminUser } from "@/types"
 
 export const mockUsers: AdminUser[] = [
   {

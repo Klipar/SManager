@@ -3,7 +3,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Download, Play, Trash2 } from "lucide-react"
-import type { Agent } from "./types"
+
+import type { Agent } from "@/types"
 
 type Props = {
   agent: Agent | null
