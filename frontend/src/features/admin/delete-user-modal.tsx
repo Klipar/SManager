@@ -7,9 +7,10 @@ interface DeleteUserModalProps {
   user: AdminUser | null
   onClose: () => void
   onConfirm: () => void
+  isDeleting?: boolean
 }
 
-export function DeleteUserModal({ open, user, onClose, onConfirm }: DeleteUserModalProps) {
+export function DeleteUserModal({ open, user, onClose, onConfirm, isDeleting = false }: DeleteUserModalProps) {
   if (!open || !user) return null
 
   return (
@@ -42,15 +43,17 @@ export function DeleteUserModal({ open, user, onClose, onConfirm }: DeleteUserMo
           <Button
             variant="outline"
             onClick={onClose}
-            className="border-white/[0.06] text-white/70 hover:text-white"
+            disabled={isDeleting}
+            className="border-white/[0.06] text-white/70 hover:text-white disabled:opacity-50"
           >
             Cancel
           </Button>
           <Button
             onClick={onConfirm}
-            className="bg-rose-600 shadow-md transition-all hover:scale-105 hover:bg-rose-700 hover:shadow-md"
+            disabled={isDeleting}
+            className="bg-rose-600 shadow-md transition-all hover:scale-105 hover:bg-rose-700 hover:shadow-md disabled:opacity-50 disabled:hover:scale-100"
           >
-            Delete User
+            {isDeleting ? "Deleting..." : "Delete User"}
           </Button>
         </div>
       </div>

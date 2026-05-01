@@ -17,6 +17,7 @@ function App() {
       catch { return null }
     })()
 
+    // Restore userData from localStorage on mount
     const savedUserData = (() => {
       try {
         const data = localStorage.getItem("sm_userData")
@@ -71,6 +72,7 @@ function App() {
               last_update: (_user as any).last_update,
             }
             setUserData(newUserData)
+            // Save userData to localStorage for recovery on page reload
             try { localStorage.setItem('sm_userData', JSON.stringify(newUserData)) } catch {}
           }
           connectCore()
