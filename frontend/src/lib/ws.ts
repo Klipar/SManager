@@ -126,6 +126,31 @@ class WSClient {
     });
   }
 
+  disconnect() {
+    try {
+      this.stopPingInterval();
+      if (this.ws) {
+        try {
+          this.ws.close();
+        } catch (e) {
+          // ignore
+        }
+        this.ws = undefined;
+      }
+
+      this.pending.forEach((resolver, id) => {
+        try {
+          resolver({ type: "response", id, status: "error", code: 0, message: "Disconnected", data: null });
+        } catch (e) {
+          // ignore
+        }
+      });
+      this.pending.clear();
+    } catch (e) {
+      console.error('[WS] disconnect error', e);
+    }
+  }
+
   setUrl(url: string) {
     this.url = url;
     this.ws?.close();
@@ -143,4 +168,22 @@ export function connectCore(url?: string) {
 
 export function sendCoreRequest(action: string, data: any) {
   return defaultClient.sendRequest(action, data);
+}
+
+export function disconnectCore() {
+  defaultClient.disconnect();
+}
+
+export function logout() {
+  try {
+    localStorage.removeItem('sm_token');
+  } catch (e) {
+    console.warn('[WS] logout: failed clearing token', e);
+  }
+  try {
+    defaultClient.disconnect();
+  } catch (e) {
+    console.warn('[WS] logout: disconnect failed', e);
+  }
+  window.location.reload();
 }

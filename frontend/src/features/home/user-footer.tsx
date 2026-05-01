@@ -3,6 +3,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { ShieldCheck, LogOut, Settings } from "lucide-react"
 
 import type { CurrentUser } from "./types"
+import { logout } from "@/lib/ws"
 
 type UserFooterProps = {
   user: CurrentUser
@@ -83,8 +84,10 @@ function UserFooter({ user, isCollapsed, onOpenSettings, onOpenAdminPanel }: Use
           ) : null}
 
           <DropdownMenuItem
-            className="flex cursor-default items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white"
-            onSelect={() => undefined}
+            className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white"
+            onSelect={() => {
+              logout()
+            }}
           >
             <LogOut className="size-4 text-white/55" />
             <span>Log Out</span>
