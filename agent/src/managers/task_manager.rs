@@ -69,31 +69,31 @@ impl TaskManager {
     }
 
     pub async fn handle_stdout(&self, run_id: i64, line: &str) {
-        let event = ExecutionStreamEvent::Stdout { //TODO: Process in paralel 2 tasks
+        let event = ExecutionStreamEvent::Stdout {
             run_id,
             new_output: line.to_string(),
         };
 
         let payload = serde_json::to_value(vec![event]).ok();
 
-        self.connection_registry
-            .broadcast_to_group("execution_stream", payload)
-            .await;
-        TaskManager::write_std_to_db(&self, run_id, line, "STDOUT").await;
+        tokio::join!(
+            self.connection_registry.broadcast_to_group("execution_stream", payload),
+            TaskManager::write_std_to_db(&self, run_id, line, "STDOUT")
+        );
     }
 
     pub async fn handle_stderr(&self, run_id: i64, line: &str) {
-        let event = ExecutionStreamEvent::Stdout { //TODO: Process in paralel 2 tasks
+        let event = ExecutionStreamEvent::Stdout { //stdout becouse its only field in struct
             run_id,
             new_output: line.to_string(),
         };
 
         let payload = serde_json::to_value(vec![event]).ok();
 
-        self.connection_registry
-            .broadcast_to_group("execution_stream", payload)
-            .await;
-        TaskManager::write_std_to_db(&self, run_id, line, "STDERR").await;
+        tokio::join!(
+            self.connection_registry.broadcast_to_group("execution_stream", payload),
+            TaskManager::write_std_to_db(&self, run_id, line, "STDERR")
+        );
     }
 
     async fn write_std_to_db(&self, run_id: i64, line: &str, test_type: &str) {
