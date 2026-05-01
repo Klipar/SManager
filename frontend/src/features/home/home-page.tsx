@@ -72,6 +72,22 @@ function HomePage() {
           }
           setAgentsState((prev) => [created, ...prev])
           setSelectedAgentId(created.id)
+          sendCoreRequest("get-all-agents", null)
+            .then((r) => {
+              if (r && r.status === "ok") {
+                const rawAgents = r.data && r.data.agents ? r.data.agents : []
+                const normalized = rawAgents.map((a: any, idx: number) => ({
+                  id: a && (a.id ?? a._id ?? a.uuid) ? String(a.id ?? a._id ?? a.uuid) : `agent-${idx}`,
+                  name: a && a.name ? a.name : `Unnamed ${idx + 1}`,
+                  status: a && a.status ? a.status : "offline",
+                  ip: a && a.ip ? a.ip : undefined,
+                  description: a && a.description ? a.description : undefined,
+                  port: a && (a.port ?? a.sin) ? (a.port ?? a.sin) : undefined,
+                }))
+                setAgentsState(normalized)
+              }
+            })
+            .catch(() => {})
         } else {
           console.error("Failed to create agent", res)
         }
