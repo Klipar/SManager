@@ -9,6 +9,49 @@ import { AddAgentModal } from "./add-agent-modal"
 
 type UserData = { id?: number; name?: string; email?: string; is_admin?: boolean; last_update?: string | null }
 
+type HomeViewState = {
+  selectedAgentId: string | null
+  expandedAgentId: string | null
+  selectedTaskId: string | null
+  selectedLogId: string | null
+  showCreateTask: boolean
+  createTaskAgentId: string | null
+  isSidebarCollapsed: boolean
+  sidebarWidth: number
+  showSettings: boolean
+  showAdminPanel: boolean
+}
+
+const HOME_VIEW_STATE_KEY = "sm_homeViewState"
+
+const defaultHomeViewState: HomeViewState = {
+  selectedAgentId: null,
+  expandedAgentId: null,
+  selectedTaskId: null,
+  selectedLogId: null,
+  showCreateTask: false,
+  createTaskAgentId: null,
+  isSidebarCollapsed: false,
+  sidebarWidth: 228,
+  showSettings: false,
+  showAdminPanel: false,
+}
+
+function readHomeViewState(): HomeViewState {
+  try {
+    const rawState = localStorage.getItem(HOME_VIEW_STATE_KEY)
+    if (!rawState) return defaultHomeViewState
+
+    const parsed = JSON.parse(rawState) as Partial<HomeViewState>
+    return {
+      ...defaultHomeViewState,
+      ...parsed,
+    }
+  } catch {
+    return defaultHomeViewState
+  }
+}
+
 type HomePageProps = {
   userData?: UserData | null
   onUpdateUser?: (userData: UserData) => void
@@ -17,16 +60,16 @@ type HomePageProps = {
 function HomePage({ userData, onUpdateUser }: HomePageProps) {
   const displayUser = userData?.name ? { ...currentUser, username: userData.name } : currentUser
   console.log('[HomePage] mount — initial states', { isLoading: true })
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
-  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null)
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [selectedLogId, setSelectedLogId] = useState<string | null>(null)
-  const [showCreateTask, setShowCreateTask] = useState(false)
-  const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(null)
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
-  const [sidebarWidth, setSidebarWidth] = useState(228)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showAdminPanel, setShowAdminPanel] = useState(false)
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(() => readHomeViewState().selectedAgentId)
+  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(() => readHomeViewState().expandedAgentId)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(() => readHomeViewState().selectedTaskId)
+  const [selectedLogId, setSelectedLogId] = useState<string | null>(() => readHomeViewState().selectedLogId)
+  const [showCreateTask, setShowCreateTask] = useState(() => readHomeViewState().showCreateTask)
+  const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(() => readHomeViewState().createTaskAgentId)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => readHomeViewState().isSidebarCollapsed)
+  const [sidebarWidth, setSidebarWidth] = useState(() => readHomeViewState().sidebarWidth)
+  const [showSettings, setShowSettings] = useState(() => readHomeViewState().showSettings)
+  const [showAdminPanel, setShowAdminPanel] = useState(() => readHomeViewState().showAdminPanel)
   const [showAddAgent, setShowAddAgent] = useState(false)
   const [agentsState, setAgentsState] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -138,6 +181,55 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
       })
   }, [])
 
+  useEffect(() => {
+    const nextState: HomeViewState = {
+      selectedAgentId,
+      expandedAgentId,
+      selectedTaskId,
+      selectedLogId,
+      showCreateTask,
+      createTaskAgentId,
+      isSidebarCollapsed,
+      sidebarWidth,
+      showSettings,
+      showAdminPanel,
+    }
+
+    try {
+      localStorage.setItem(HOME_VIEW_STATE_KEY, JSON.stringify(nextState))
+    } catch {
+      // ignore storage failures
+    }
+  }, [
+    selectedAgentId,
+    expandedAgentId,
+    selectedTaskId,
+    selectedLogId,
+    showCreateTask,
+    createTaskAgentId,
+    isSidebarCollapsed,
+    sidebarWidth,
+    showSettings,
+    showAdminPanel,
+  ])
+
+  useEffect(() => {
+    if (!isLoading && selectedAgentId && !agentsState.some((agent) => agent.id === selectedAgentId)) {
+      setSelectedAgentId(null)
+      setExpandedAgentId(null)
+      setSelectedTaskId(null)
+      setSelectedLogId(null)
+      setCreateTaskAgentId(null)
+      setShowCreateTask(false)
+    }
+  }, [agentsState, isLoading, selectedAgentId])
+
+  useEffect(() => {
+    if (showCreateTask && !createTaskAgentId && selectedAgentId) {
+      setCreateTaskAgentId(selectedAgentId)
+    }
+  }, [createTaskAgentId, selectedAgentId, showCreateTask])
+
   return (
     <main className="min-h-screen w-full bg-[#070b10] text-white">
       {isLoading ? (
@@ -180,7 +272,6 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             showCreateTask={showCreateTask}
             createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
             showSettings={showSettings}
-            onCloseSettings={() => setShowSettings(false)}
             userData={userData}
             onUpdateUser={onUpdateUser}
           />
@@ -253,7 +344,6 @@ function HomePage({ userData, onUpdateUser }: HomePageProps) {
             showCreateTask={showCreateTask}
             createTaskAgent={agentsState.find((a) => a.id === createTaskAgentId) ?? null}
             showSettings={showSettings}
-            onCloseSettings={() => setShowSettings(false)}
             userData={userData}
           />
         </div>

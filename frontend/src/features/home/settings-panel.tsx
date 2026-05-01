@@ -7,7 +7,6 @@ import { sendCoreRequest, logout } from "@/lib/ws"
 type UserData = { id?: number; name?: string; email?: string; is_admin?: boolean; last_update?: string | null }
 
 type Props = {
-  onClose: () => void
   userData?: UserData | null
   onUpdateUser?: (userData: UserData) => void
 }
@@ -34,7 +33,7 @@ function DeleteAccountModal({ open, onClose, onConfirm }: { open: boolean; onClo
   )
 }
 
-export default function SettingsPanel({ onClose, userData, onUpdateUser }: Props) {
+export default function SettingsPanel({ userData, onUpdateUser }: Props) {
   const [nickname, setNickname] = React.useState(userData?.name || "")
   const [password, setPassword] = React.useState("")
   const [email, setEmail] = React.useState(userData?.email || "")
@@ -145,7 +144,6 @@ export default function SettingsPanel({ onClose, userData, onUpdateUser }: Props
           setLastChanged(updatedUserData.last_update ? `Last changed ${formatDate(updatedUserData.last_update)}` : 'Never changed')
           setSuccess('Saved')
           setPassword('')
-          onClose()
         } else {
           setError(res?.message ?? 'Failed to save')
         }

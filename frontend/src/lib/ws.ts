@@ -181,6 +181,12 @@ export function logout() {
     console.warn('[WS] logout: failed clearing token', e);
   }
   try {
+    localStorage.removeItem('sm_userData');
+    localStorage.removeItem('sm_homeViewState');
+  } catch (e) {
+    console.warn('[WS] logout: failed clearing persisted UI state', e);
+  }
+  try {
     defaultClient.disconnect();
   } catch (e) {
     console.warn('[WS] logout: disconnect failed', e);
