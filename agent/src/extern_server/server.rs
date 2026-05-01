@@ -98,17 +98,22 @@ impl Server {
 
         let (tx, rx) = tokio::sync::mpsc::channel::<OutboundRequest>(100);
 
-        if let Some(core_id) = ctx.id {
-            let ok = registry.register(core_id, tx).await;
-
-            if !ok {
-                error!("Core {} already connected, rejecting new session", core_id);
+        let core_id = match ctx.id {
+            Some(id) => id,
+            None => {
+                error!("No core id found...");
                 return;
             }
+        };
+
+        if !registry.register(core_id, tx).await {
+            error!("Core {} already connected, rejecting new session", core_id);
+            return;
         }
 
         info!("TLS connection established: {}", addr);
         run_message_loop( tls_stream, addr, handlers, ctx, rx ).await;
+        registry.unregister(core_id).await;
         info!("Disconnected: {}", addr);
     }
 }
