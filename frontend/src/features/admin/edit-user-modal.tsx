@@ -9,9 +9,10 @@ interface EditUserModalProps {
   user: AdminUser | null
   onClose: () => void
   onSave: (data: EditUserForm) => void
+  isSaving?: boolean
 }
 
-export function EditUserModal({ open, user, onClose, onSave }: EditUserModalProps) {
+export function EditUserModal({ open, user, onClose, onSave, isSaving = false }: EditUserModalProps) {
   const [form, setForm] = React.useState<EditUserForm>({
     name: "",
     email: "",
@@ -133,18 +134,20 @@ export function EditUserModal({ open, user, onClose, onSave }: EditUserModalProp
           <Button
             variant="outline"
             onClick={onClose}
-            className="border-white/10 text-white/70 hover:text-white"
+            disabled={isSaving}
+            className="border-white/10 text-white/70 hover:text-white disabled:opacity-50"
           >
             Cancel
           </Button>
           <Button
-            className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700"
+            disabled={isSaving || !form.name || !form.email}
+            className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:scale-100"
             onClick={() => {
               onSave(form)
               onClose()
             }}
           >
-            Save
+            {isSaving ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>

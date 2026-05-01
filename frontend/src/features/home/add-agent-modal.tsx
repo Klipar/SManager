@@ -6,24 +6,67 @@ import { Label } from "@/components/ui/label"
 type AddAgentModalProps = {
   open: boolean
   onClose: () => void
-  onSave: (payload: { name: string; ip?: string; description?: string; sin?: string }) => void
+  onSave: (payload: { name: string; ip: string; description?: string; port: number }) => void
 }
 
 function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
   const [name, setName] = useState("")
   const [ip, setIp] = useState("")
   const [description, setDescription] = useState("")
-  const [sin, setSin] = useState("")
+  const [port, setPort] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   if (!open) return null
 
+  const isValidIpOrHost = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return false
+    const ipv4Pattern = /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/
+    const ipv6Pattern = /^(([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,7}:|([0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,5}(:[0-9A-Fa-f]{1,4}){1,2}|([0-9A-Fa-f]{1,4}:){1,4}(:[0-9A-Fa-f]{1,4}){1,3}|([0-9A-Fa-f]{1,4}:){1,3}(:[0-9A-Fa-f]{1,4}){1,4}|([0-9A-Fa-f]{1,4}:){1,2}(:[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:((:[0-9A-Fa-f]{1,4}){1,6})|:((:[0-9A-Fa-f]{1,4}){1,7}|:))(%.+)?$/
+    // require either 'localhost' or at least one dot (FQDN) to avoid accepting single-word tokens like 'asido'
+    const hostnamePattern = /^(?=.{1,253}$)(localhost|((?!-)[A-Za-z0-9-]{1,63}(?<!-))(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))+)$/
+
+    return ipv4Pattern.test(trimmed) || ipv6Pattern.test(trimmed) || hostnamePattern.test(trimmed)
+  }
+
+  const validate = () => {
+    const trimmedName = name.trim()
+    const trimmedIp = ip.trim()
+    const trimmedPort = port.trim()
+
+    if (!trimmedName) return "Name is required"
+    if (!trimmedIp) return "IP is required"
+    if (!isValidIpOrHost(trimmedIp)) return "IP must be a valid IPv4, IPv6 address or hostname (e.g. example.com or localhost)"
+
+    if (!trimmedPort) return "Port is required"
+
+    const parsedPort = Number(trimmedPort)
+    if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+      return "Port must be a number between 1 and 65535"
+    }
+
+    return null
+  }
+
   const handleSave = () => {
-    if (!name.trim()) return
-    onSave({ name: name.trim(), ip: ip.trim() || undefined, description: description.trim() || undefined, sin: sin.trim() || undefined })
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      return false
+    }
+
+    setError(null)
+    onSave({
+      name: name.trim(),
+      ip: ip.trim(),
+      description: description.trim() || undefined,
+      port: parseInt(port.trim(), 10),
+    })
     setName("")
     setIp("")
     setDescription("")
-    setSin("")
+    setPort("")
+    return true
   }
 
   return (
@@ -36,14 +79,22 @@ function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
         </div>
 
         <div className="grid grid-cols-1 gap-3">
-          <div>
-            <Label className="mb-1 block text-sm text-white/80">Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Agent display name" />
-          </div>
+          {error ? (
+            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+              {error}
+            </div>
+          ) : null}
 
           <div>
-            <Label className="mb-1 block text-sm text-white/80">IP</Label>
-            <Input value={ip} onChange={(e) => setIp(e.target.value)} placeholder="192.0.2.1 or host.example.com" />
+            <Label className="mb-1 block text-sm text-white/80">Name</Label>
+            <Input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value)
+                if (error) setError(null)
+              }}
+              placeholder="Agent display name"
+            />
           </div>
 
           <div>
@@ -57,9 +108,28 @@ function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
           </div>
 
           <div>
-            <Label className="mb-1 block text-sm text-white/80">SIN (TLS name)</Label>
-            <Input value={sin} onChange={(e) => setSin(e.target.value)} placeholder="Common Name from TLS cert" />
-            <p className="mt-1 text-xs text-white/50">This should match the name issued in TLS certificates.</p>
+            <Label className="mb-1 block text-sm text-white/80">IP</Label>
+            <Input
+              value={ip}
+              onChange={(e) => {
+                setIp(e.target.value)
+                if (error) setError(null)
+              }}
+              placeholder="192.0.2.1 or host.example.com"
+            />
+          </div>
+
+          <div>
+            <Label className="mb-1 block text-sm text-white/80">Port</Label>
+            <Input
+              value={port}
+              onChange={(e) => {
+                setPort(e.target.value)
+                if (error) setError(null)
+              }}
+              placeholder="6767"
+              inputMode="numeric"
+            />
           </div>
         </div>
 
@@ -74,8 +144,8 @@ function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
           <Button
             className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700"
             onClick={() => {
-              handleSave()
-              onClose()
+              const saved = handleSave()
+              if (saved) onClose()
             }}
           >
             Save

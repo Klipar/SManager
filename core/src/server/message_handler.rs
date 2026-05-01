@@ -17,6 +17,7 @@ pub async fn process_message(
     match message {
         Message::Request { id, action, data } => {
             let response = match action.as_str() {
+                "ping" => handle_ping_request(id).await,
                 "authenticate" => handle_authenticate_request(id, &data, ctx).await,
                 "login" => handle_login_request(id, action, data, handlers, ctx).await,
                 _ => handle_regular_request(id, action, data, handlers, ctx).await,
@@ -33,6 +34,18 @@ pub async fn process_message(
             )
         }
     }
+}
+
+async fn handle_ping_request(id: u64) -> Message {
+    log::debug!("Received ping from client");
+    let mut response = Message::new_response(
+        Status::Ok,
+        None,
+        200,
+        "pong",
+    );
+    response.set_id(id);
+    response
 }
 
 async fn handle_authenticate_request(

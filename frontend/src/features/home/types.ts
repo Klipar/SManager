@@ -6,7 +6,7 @@ type Agent = {
   status: AgentStatus
   ip?: string
   description?: string
-  sin?: string
+  port?: number
 }
 
 type RestartPolicy = "no" | "always" | "on-failure"

@@ -1,8 +1,10 @@
 import { EmptyState } from "./empty-state"
 import { TaskWorkspace } from "./task-workspace"
 import CreateTaskPanel from "./create-task-panel"
-import SettingsPanel from "./settings-panel"
+import AccountPanel from "./account-panel"
 import type { Agent, Task, TaskLog } from "./types"
+
+type UserData = { id?: number; name?: string; email?: string; is_admin?: boolean; last_update?: string | null }
 
 type MainPanelProps = {
   selectedAgent: Agent | null
@@ -11,11 +13,12 @@ type MainPanelProps = {
   onSelectLog: (logId: string | null) => void
   showCreateTask?: boolean
   createTaskAgent?: Agent | null
-  showSettings?: boolean
-  onCloseSettings?: () => void
+  showAccount?: boolean
+  userData?: UserData | null
+  onUpdateUser?: (userData: UserData) => void
 }
 
-function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog, showCreateTask, createTaskAgent, showSettings, onCloseSettings }: MainPanelProps) {
+function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog, showCreateTask, createTaskAgent, showAccount, userData, onUpdateUser }: MainPanelProps) {
   return (
     <section className="relative flex min-h-[calc(100vh-4rem)] w-full flex-1 flex-col py-5 pl-0 pr-5 sm:pl-1 sm:pr-6 md:py-8 md:pl-2 md:pr-10">
       <div
@@ -29,9 +32,9 @@ function MainPanel({ selectedAgent, selectedTask, selectedLog, onSelectLog, show
             <div className="pt-2 md:pt-4">
               <CreateTaskPanel agent={createTaskAgent ?? null} />
             </div>
-          ) : showSettings ? (
+          ) : showAccount ? (
             <div className="pt-2 md:pt-4">
-              <SettingsPanel onClose={onCloseSettings ?? (() => {})} />
+              <AccountPanel userData={userData} onUpdateUser={onUpdateUser} />
             </div>
           ) : (
             <div className="flex h-full flex-col justify-center">
