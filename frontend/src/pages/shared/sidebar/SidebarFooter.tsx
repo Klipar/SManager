@@ -1,5 +1,5 @@
-import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/DropdownMenu"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ShieldCheck, LogOut, User } from "lucide-react"
 import type { CurrentUser } from "@/types"
 import { useUser } from "@/contexts/UserContext"

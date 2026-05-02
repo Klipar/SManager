@@ -1,5 +1,5 @@
 import { ChevronDown, Circle } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { AgentTasks } from "./AgentTasks"
 import type { Agent, Task } from "@/types"

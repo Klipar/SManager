@@ -3,7 +3,7 @@ import { AddAgentButton } from "./AddAgentButton";
 import { AgentList } from "./AgentList";
 import { SidebarHeader } from "./SidebarHeader";
 import { UserFooter } from "./SidebarFooter";
-import { Separator } from "@/components/ui/Separator";
+import { Separator } from "@/components/ui/separator";
 import { useApp } from "@/contexts/AppContext";
 import { useUser } from "@/contexts/UserContext";
 

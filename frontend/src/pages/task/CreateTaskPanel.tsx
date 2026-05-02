@@ -1,7 +1,7 @@
 import React from "react"
-import { Input } from "@/components/ui/Input"
-import { Button } from "@/components/ui/Button"
-import { Card } from "@/components/ui/Card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
 import { Download, Play, Trash2 } from "lucide-react"
 import type { Agent } from "@/types"
 

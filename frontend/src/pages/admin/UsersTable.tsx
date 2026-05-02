@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/Button"
+import { Button } from "@/components/ui/button"
 import { Edit2, Plus, Trash2 } from "lucide-react"
 import type { AdminUser } from "@/types"
 

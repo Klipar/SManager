@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Orbit } from "lucide-react"
-import { Button } from "@/components/ui/Button"
+import { Button } from "@/components/ui/button"
 
 type SidebarHeaderProps = {
   isCollapsed: boolean
