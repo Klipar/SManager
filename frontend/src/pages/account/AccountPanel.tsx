@@ -1,15 +1,10 @@
 import React from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { sendCoreRequest, logout } from "@/lib/ws"
-
-type UserData = { id?: number; name?: string; email?: string; is_admin?: boolean; last_update?: string | null }
-
-type Props = {
-  userData?: UserData | null
-  onUpdateUser?: (userData: UserData) => void
-}
+import { Input } from "@/components/ui/Input"
+import { Button } from "@/components/ui/Button"
+import { Card } from "@/components/ui/Card"
+import { sendCoreRequest } from "@/lib/ws"
+import { useUser } from "@/contexts/UserContext"
+import type { UserData } from "@/types"
 
 function DeleteAccountModal({ open, onClose, onConfirm }: { open: boolean; onClose: () => void; onConfirm: (password: string) => void }) {
   const [password, setPassword] = React.useState("")
@@ -33,11 +28,13 @@ function DeleteAccountModal({ open, onClose, onConfirm }: { open: boolean; onClo
   )
 }
 
-export default function AccountPanel({ userData, onUpdateUser }: Props) {
-  const [nickname, setNickname] = React.useState(userData?.name || "")
+export default function AccountPanel() {
+  const { user, logout: contextLogout, updateUser } = useUser()
+
+  const [nickname, setNickname] = React.useState(user?.name || "")
   const [password, setPassword] = React.useState("")
-  const [email, setEmail] = React.useState(userData?.email || "")
-  const [userId, setUserId] = React.useState<number | null>(userData?.id ?? null)
+  const [email, setEmail] = React.useState(user?.email || "")
+  const [userId, setUserId] = React.useState<number | null>(user?.id ?? null)
   const [lastChanged, setLastChanged] = React.useState("Never changed")
   const [modalOpen, setModalOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
@@ -64,40 +61,21 @@ export default function AccountPanel({ userData, onUpdateUser }: Props) {
   }
 
   React.useEffect(() => {
-    if (userData?.last_update) {
-      setLastChanged(`Last changed ${formatDate(userData.last_update)}`)
+    if (user) {
+      setNickname(user.name || "")
+      setEmail(user.email || "")
+      setUserId(user.id ?? null)
+      setLastChanged(user.last_update ? `Last changed ${formatDate(user.last_update)}` : "Never changed")
     }
-  }, [userData?.last_update])
+  }, [user])
 
-  React.useEffect(() => {
-    setNickname(userData?.name ?? "")
-    setEmail(userData?.email ?? "")
-    setUserId(userData?.id ?? null)
-    setLastChanged(userData?.last_update ? `Last changed ${formatDate(userData.last_update)}` : "Never changed")
-  }, [userData?.id, userData?.name, userData?.email, userData?.last_update])
-
-  React.useEffect(() => {
-    const token = (() => { try { return localStorage.getItem('sm_token') } catch { return null } })()
-    if (!token || userId) return
-    sendCoreRequest('authenticate', { token })
-      .then((res) => {
-        if (res && res.status === 'ok' && res.data) {
-          const id = res.data.user_id
-          if (typeof id === 'number') setUserId(id)
-        }
-      })
-      .catch(() => {})
-  }, [])
-
-  function handleDeleteConfirm(pw: string) {
-    console.log("delete confirmed with", pw)
+  function handleDeleteConfirm(_pw: string) {
     setModalOpen(false)
     if (!userId) return
     sendCoreRequest('remove-user', { id: userId })
       .then((res) => {
         if (res && res.status === 'ok') {
-          // logout after account removal
-          logout()
+          contextLogout()
         } else {
           console.error('Failed to remove user', res)
         }
@@ -124,20 +102,14 @@ export default function AccountPanel({ userData, onUpdateUser }: Props) {
       .then((res) => {
         if (res && res.status === 'ok') {
           const updatedUserData: UserData = {
-            id: res.data?.user?.id ?? userId ?? undefined,
+            id: res.data?.user?.id ?? userId,
             name: res.data?.user?.name ?? nickname,
             email: res.data?.user?.email ?? email,
-            is_admin: res.data?.user?.is_admin ?? userData?.is_admin,
+            is_admin: res.data?.user?.is_admin ?? user?.is_admin,
             last_update: res.data?.user?.last_update ?? new Date().toISOString(),
           }
 
-          if (onUpdateUser) {
-            onUpdateUser(updatedUserData)
-          }
-
-          try {
-            localStorage.setItem('sm_userData', JSON.stringify(updatedUserData))
-          } catch {}
+          updateUser(updatedUserData)
 
           setNickname(updatedUserData.name || '')
           setEmail(updatedUserData.email || '')
@@ -153,7 +125,7 @@ export default function AccountPanel({ userData, onUpdateUser }: Props) {
   }
 
   return (
-    <div className="w-full pt-2 pb-8">
+    <>
       <div className="mb-6">
         <h1 className="text-3xl font-medium tracking-tight text-white">Edit account</h1>
       </div>
@@ -187,6 +159,6 @@ export default function AccountPanel({ userData, onUpdateUser }: Props) {
       </div>
 
       <DeleteAccountModal open={modalOpen} onClose={() => setModalOpen(false)} onConfirm={handleDeleteConfirm} />
-    </div>
+    </>
   )
 }

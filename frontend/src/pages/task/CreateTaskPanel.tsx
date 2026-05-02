@@ -1,9 +1,9 @@
 import React from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/Input"
+import { Button } from "@/components/ui/Button"
+import { Card } from "@/components/ui/Card"
 import { Download, Play, Trash2 } from "lucide-react"
-import type { Agent } from "./types"
+import type { Agent } from "@/types"
 
 type Props = {
   agent: Agent | null
@@ -22,7 +22,7 @@ export function CreateTaskPanel({ agent }: Props) {
   }
 
   return (
-    <div className="w-full pt-2 pb-8">
+    <>
       <div className="mb-6">
         <h2 className="text-3xl font-medium tracking-tight text-white">Create task{agent ? ` — ${agent.name}` : ""}</h2>
       </div>
@@ -96,7 +96,7 @@ export function CreateTaskPanel({ agent }: Props) {
           </Card>
         </div>
       ) : null}
-    </div>
+    </>
   )
 }
 

@@ -1,9 +1,8 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Avatar, AvatarFallback } from "@/components/ui/Avatar"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/DropdownMenu"
 import { ShieldCheck, LogOut, User } from "lucide-react"
-
-import type { CurrentUser } from "./types"
-import { logout } from "@/lib/ws"
+import type { CurrentUser } from "@/types"
+import { useUser } from "@/contexts/UserContext"
 
 type UserFooterProps = {
   user: CurrentUser
@@ -13,6 +12,8 @@ type UserFooterProps = {
 }
 
 function UserFooter({ user, isCollapsed, onOpenAccount, onOpenAdminPanel }: UserFooterProps) {
+  const { logout } = useUser();
+
   const initials = user.username
     .split("_")
     .map((part) => part[0])
@@ -85,9 +86,7 @@ function UserFooter({ user, isCollapsed, onOpenAccount, onOpenAdminPanel }: User
 
           <DropdownMenuItem
             className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white"
-            onSelect={() => {
-              logout()
-            }}
+            onSelect={() => logout()}
           >
             <LogOut className="size-4 text-white/55" />
             <span>Log Out</span>

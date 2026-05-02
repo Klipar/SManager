@@ -1,6 +1,6 @@
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/Button"
 import { Edit2, Plus, Trash2 } from "lucide-react"
-import type { AdminUser } from "./types"
+import type { AdminUser } from "@/types"
 
 interface UsersTableProps {
   users: AdminUser[]

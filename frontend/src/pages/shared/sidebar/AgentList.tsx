@@ -1,7 +1,6 @@
-import { ScrollArea } from "@/components/ui/scroll-area"
-
-import { AgentRow } from "./agent-row"
-import type { Agent, Task } from "./types"
+import { ScrollArea } from "@/components/ui/ScrollArea"
+import { AgentRow } from "./AgentRow"
+import type { Agent, Task } from "@/types"
 
 type AgentListProps = {
   agents: Agent[]

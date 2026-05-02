@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react"
+import { useState } from "react"
 import { sendCoreRequest } from "@/lib/ws"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/Button"
+import { Input } from "@/components/ui/Input"
+import { Label } from "@/components/ui/Label"
+import type { UserData } from "@/types"
 
 type LoginFormState = {
   username: string
@@ -15,7 +16,7 @@ const initialFormState: LoginFormState = {
 }
 
 type LoginFormProps = {
-  onSuccess?: (token: string, user: unknown) => void
+  onSuccess?: (token: string, user: UserData) => void
 }
 
 function LoginForm({ onSuccess }: LoginFormProps) {
@@ -23,7 +24,7 @@ function LoginForm({ onSuccess }: LoginFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault()
     setIsSubmitting(true)
     setError(null)
@@ -39,7 +40,7 @@ function LoginForm({ onSuccess }: LoginFormProps) {
 
       if (res?.status === "ok" && token) {
         try { localStorage.setItem("sm_token", token) } catch {}
-        onSuccess?.(token, user)
+        onSuccess?.(token, user as UserData)
       } else {
         setError(res?.message ?? "Login failed")
       }

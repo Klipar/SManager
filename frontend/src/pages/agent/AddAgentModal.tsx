@@ -1,7 +1,7 @@
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/ui/Button"
+import { Input } from "@/components/ui/Input"
+import { Label } from "@/components/ui/Label"
 
 type AddAgentModalProps = {
   open: boolean
@@ -23,7 +23,6 @@ function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
     if (!trimmed) return false
     const ipv4Pattern = /^(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)){3}$/
     const ipv6Pattern = /^(([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,7}:|([0-9A-Fa-f]{1,4}:){1,6}:[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){1,5}(:[0-9A-Fa-f]{1,4}){1,2}|([0-9A-Fa-f]{1,4}:){1,4}(:[0-9A-Fa-f]{1,4}){1,3}|([0-9A-Fa-f]{1,4}:){1,3}(:[0-9A-Fa-f]{1,4}){1,4}|([0-9A-Fa-f]{1,4}:){1,2}(:[0-9A-Fa-f]{1,4}){1,5}|[0-9A-Fa-f]{1,4}:((:[0-9A-Fa-f]{1,4}){1,6})|:((:[0-9A-Fa-f]{1,4}){1,7}|:))(%.+)?$/
-    // require either 'localhost' or at least one dot (FQDN) to avoid accepting single-word tokens like 'asido'
     const hostnamePattern = /^(?=.{1,253}$)(localhost|((?!-)[A-Za-z0-9-]{1,63}(?<!-))(\.(?!-)[A-Za-z0-9-]{1,63}(?<!-))+)$/
 
     return ipv4Pattern.test(trimmed) || ipv6Pattern.test(trimmed) || hostnamePattern.test(trimmed)
