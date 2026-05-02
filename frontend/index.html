@@ -4,7 +4,26 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <title>SManager</title>
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background-color: #070b10;
+      }
+
+      #root:empty::before {
+        content: "Loading…";
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1.125rem;
+        font-family: system-ui, -apple-system, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

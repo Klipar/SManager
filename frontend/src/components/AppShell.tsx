@@ -1,30 +1,28 @@
-import { useUser } from "@/contexts/UserContext"
-import { AppProvider } from "@/contexts/AppContext"
-import { HomePage } from "@/pages/home/HomePage"
-import { LoginPage } from "@/pages/auth/LoginPage"
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useUser } from "@/contexts/UserContext";
+import { AppProvider } from "@/contexts/AppContext";
+import { HomePage } from "@/pages/home/HomePage";
+import { LoginPage } from "@/pages/auth/LoginPage";
 
 function AppShell() {
-  const { isAuthenticated, isLoggingOut, login } = useUser()
+  const { isAuthenticated, isLoggingOut, login } = useUser();
+  const navigate = useNavigate();
 
-  if (isAuthenticated === null || isLoggingOut) {
-    return (
-      <div className="min-h-screen w-full bg-[#070b10] flex items-center justify-center">
-        <div className="text-white/70 text-lg">
-          {isLoggingOut ? "Logging out..." : "Loading..."}
-        </div>
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (isAuthenticated === false) {
+      navigate("/", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={login} />
-  }
+  if (isAuthenticated === null || isLoggingOut) return null;
+  if (!isAuthenticated) return <LoginPage onLogin={login} />;
 
   return (
     <AppProvider>
       <HomePage />
     </AppProvider>
-  )
+  );
 }
 
 export default AppShell
