@@ -1,10 +1,10 @@
 import React from "react"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/Input"
+import { Button } from "@/components/ui/Button"
+import { Card } from "@/components/ui/Card"
 import { sendCoreRequest } from "@/lib/ws"
 import { useUser } from "@/contexts/UserContext"
-import type { UserData } from "@/contexts/UserContext"
+import type { UserData } from "@/types"
 
 function DeleteAccountModal({ open, onClose, onConfirm }: { open: boolean; onClose: () => void; onConfirm: (password: string) => void }) {
   const [password, setPassword] = React.useState("")

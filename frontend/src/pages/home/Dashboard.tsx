@@ -1,6 +1,6 @@
 import { useApp } from "@/contexts/AppContext";
-import { TaskWorkspace } from "./task-workspace";
-import { EmptyState } from "./empty-state";
+import { TaskWorkspace } from "../agent/TaskWorkspace";
+import { EmptyState } from "../agent/EmptyState";
 
 function Dashboard() {
   const { selectedAgentId, agents, selectedTaskId, selectedLogId, setSelectedLogId, tasksByAgentId } = useApp();

@@ -1,6 +1,6 @@
 import { Circle, FileText, Plus } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/Button"
+import { Separator } from "@/components/ui/Separator"
 import { cn } from "@/lib/utils"
 import type { Task } from "@/types"
 

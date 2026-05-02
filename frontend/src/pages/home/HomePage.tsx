@@ -1,9 +1,9 @@
 import { Routes, Route, useParams } from "react-router-dom";
-import { Layout } from "./layout";
-import { Dashboard } from "./dashboard";
-import CreateTaskPanel from "./create-task-panel";
-import AccountPanel from "./account-panel";
-import AdminPanel from "../admin/admin-panel";
+import { Layout } from "./Layout";
+import { Dashboard } from "./Dashboard";
+import CreateTaskPanel from "../task/CreateTaskPanel";
+import AccountPanel from "../account/AccountPanel";
+import AdminPanel from "../admin/AdminPanel";
 import { useApp } from "@/contexts/AppContext";
 
 function CreateTaskPage() {

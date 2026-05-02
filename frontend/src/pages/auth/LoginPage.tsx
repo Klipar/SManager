@@ -1,6 +1,6 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { LoginForm } from "./login-form"
-import type { UserData } from "@/contexts/UserContext"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card"
+import { LoginForm } from "./LoginForm"
+import type { UserData } from "@/types"
 
 type LoginPageProps = {
   onLogin: (token: string, user: UserData) => void

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Outlet } from "react-router-dom";
-import { Sidebar } from "./sidebar";
-import { AddAgentModal } from "./add-agent-modal";
+import { Sidebar } from "../shared/sidebar/Sidebar";
+import { AddAgentModal } from "../agent/AddAgentModal";
 import { useApp } from "@/contexts/AppContext";
 
 function Layout() {

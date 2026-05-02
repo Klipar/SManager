@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import { AddAgentButton } from "./add-agent-button";
-import { AgentList } from "./agent-list";
-import { SidebarHeader } from "./sidebar-header";
-import { UserFooter } from "./user-footer";
-import { Separator } from "@/components/ui/separator";
+import { AddAgentButton } from "./AddAgentButton";
+import { AgentList } from "./AgentList";
+import { SidebarHeader } from "./SidebarHeader";
+import { UserFooter } from "./SidebarFooter";
+import { Separator } from "@/components/ui/Separator";
 import { useApp } from "@/contexts/AppContext";
 import { useUser } from "@/contexts/UserContext";
 

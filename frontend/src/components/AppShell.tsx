@@ -1,7 +1,7 @@
 import { useUser } from "@/contexts/UserContext"
 import { AppProvider } from "@/contexts/AppContext"
-import { HomePage } from "@/features/home/home-page"
-import { LoginPage } from "@/features/auth/login-page"
+import { HomePage } from "@/pages/home/HomePage"
+import { LoginPage } from "@/pages/auth/LoginPage"
 
 function AppShell() {
   const { isAuthenticated, login } = useUser()

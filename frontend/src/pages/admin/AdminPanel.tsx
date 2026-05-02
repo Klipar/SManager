@@ -1,8 +1,8 @@
 import React from "react"
 import { sendCoreRequest } from "@/lib/ws"
-import { UsersTable } from "./users-table"
-import { EditUserModal } from "./edit-user-modal"
-import { DeleteUserModal } from "./delete-user-modal"
+import { UsersTable } from "./UsersTable"
+import { EditUserModal } from "./EditUserModal"
+import { DeleteUserModal } from "./DeleteUserModal"
 import type { AdminUser, EditUserForm } from "@/types"
 
 export function AdminPanel() {
