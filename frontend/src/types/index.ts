@@ -1,4 +1,15 @@
-// --- User (common) ---
+// --- WebSocket Message ---
+export type WSMessage = {
+  type: "request" | "response";
+  id: number;
+  action?: string;
+  status?: "ok" | "error";
+  code?: number;
+  message?: string;
+  data?: any;
+};
+
+// --- User Data ---
 export type UserData = {
   id?: number;
   name?: string;
@@ -50,7 +61,7 @@ export type CurrentUser = {
   role: "admin" | "user";
 };
 
-// --- Admin/User ---
+// --- Admin ---
 export type UserRole = "admin" | "user";
 
 export type AdminUser = {

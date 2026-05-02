@@ -1,18 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { connectCore, sendCoreRequest, logout as wsLogout } from "@/lib/ws";
-
-export type UserData = {
-  id?: number;
-  name?: string;
-  email?: string;
-  is_admin?: boolean;
-  last_update?: string | null;
-};
+import type { UserData } from "@/types";
 
 type UserContextType = {
   user: UserData | null;
   token: string | null;
   isAuthenticated: boolean | null; // null = loading, true/false
+  isLoggingOut: boolean;
   login: (token: string, user: UserData) => void;
   logout: () => void;
   updateUser: (userData: UserData) => void;
@@ -24,14 +18,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<UserData | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
-
     const storedToken = (() => {
       try { return localStorage.getItem("sm_token"); } catch { return null; }
     })();
-
     const storedUser = (() => {
       try {
         const data = localStorage.getItem("sm_userData");
@@ -42,23 +35,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (storedToken) {
       setToken(storedToken);
       if (storedUser) setUser(storedUser);
-
       connectCore();
       sendCoreRequest("authenticate", { token: storedToken })
         .then((res) => {
           if (!isMounted) return;
           if (res?.status === "ok") {
             setIsAuthenticated(true);
-
             if (res.data?.user) {
-              const updatedUser = {
+              const updatedUser: UserData = {
                 id: res.data.user.id,
                 name: res.data.user.name,
                 email: res.data.user.email,
                 is_admin: res.data.user.is_admin,
                 last_update: res.data.user.last_update,
               };
-
               setUser(updatedUser);
               try { localStorage.setItem("sm_userData", JSON.stringify(updatedUser)); } catch {}
             }
@@ -87,7 +77,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback((newToken: string, newUser: UserData) => {
     try { localStorage.setItem("sm_token", newToken); } catch {}
-    const userToSave = {
+    const userToSave: UserData = {
       id: newUser.id,
       name: newUser.name,
       email: newUser.email,
@@ -118,13 +108,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       });
   }, []);
 
-  const logout = useCallback(() => {
-    wsLogout();
+  const logout = useCallback(async () => {
+    setIsLoggingOut(true);
+    try {
+      await wsLogout();
+    } catch {}
     setToken(null);
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem("sm_token");
-    localStorage.removeItem("sm_userData");
+    setIsLoggingOut(false);
   }, []);
 
   const updateUser = useCallback((updatedUser: UserData) => {
@@ -136,6 +128,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     user,
     token,
     isAuthenticated,
+    isLoggingOut,
     login,
     logout,
     updateUser,
@@ -146,8 +139,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
 export function useUser() {
   const context = useContext(UserContext);
-  if (context === undefined) {
-    throw new Error("useUser must be used within a UserProvider");
-  }
+  if (context === undefined) throw new Error("useUser must be used within a UserProvider");
   return context;
 }

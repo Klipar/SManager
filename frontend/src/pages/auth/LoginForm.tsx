@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useState } from "react"
 import { sendCoreRequest } from "@/lib/ws"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
@@ -24,7 +24,7 @@ function LoginForm({ onSuccess }: LoginFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault()
     setIsSubmitting(true)
     setError(null)

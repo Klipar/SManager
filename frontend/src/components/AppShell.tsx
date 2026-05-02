@@ -4,10 +4,16 @@ import { HomePage } from "@/pages/home/HomePage"
 import { LoginPage } from "@/pages/auth/LoginPage"
 
 function AppShell() {
-  const { isAuthenticated, login } = useUser()
+  const { isAuthenticated, isLoggingOut, login } = useUser()
 
-  if (isAuthenticated === null) {
-    return <div className="min-h-screen w-full bg-[#070b10]" />
+  if (isAuthenticated === null || isLoggingOut) {
+    return (
+      <div className="min-h-screen w-full bg-[#070b10] flex items-center justify-center">
+        <div className="text-white/70 text-lg">
+          {isLoggingOut ? "Logging out..." : "Loading..."}
+        </div>
+      </div>
+    )
   }
 
   if (!isAuthenticated) {

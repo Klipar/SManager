@@ -1,12 +1,4 @@
-type WSMessage = {
-  type: "request" | "response";
-  id: number;
-  action?: string;
-  status?: "ok" | "error";
-  code?: number;
-  message?: string;
-  data?: any;
-}
+import type { WSMessage } from "@/types";
 
 class WSClient {
   private ws?: WebSocket;
@@ -14,6 +6,7 @@ class WSClient {
   private nextId = 1;
   private pending = new Map<number, (msg: WSMessage) => void>();
   private pingInterval?: ReturnType<typeof setInterval>;
+  private autoReconnect = true;
 
   constructor(url?: string) {
     this.url = url ?? (import.meta.env.VITE_CORE_WS as string) ?? "ws://127.0.0.1:6767";
@@ -21,10 +14,8 @@ class WSClient {
 
   connect() {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
-      console.log(`[WS] Already connected or connecting`);
       return;
     }
-    console.log(`[WS] Connecting to ${this.url}`);
     this.ws = new WebSocket(this.url);
 
     this.ws.addEventListener("open", () => {
@@ -35,7 +26,6 @@ class WSClient {
     this.ws.addEventListener("message", (ev) => {
       try {
         const msg = JSON.parse(ev.data) as WSMessage;
-        console.log(`[WS] Received response: id=${msg.id}, status=${msg.status}`);
         if (msg && typeof msg.id === "number") {
           const resolver = this.pending.get(msg.id);
           if (resolver) {
@@ -49,9 +39,14 @@ class WSClient {
     });
 
     this.ws.addEventListener("close", () => {
-      console.log(`[WS] Disconnected, reconnecting in 1s...`);
+      console.log(`[WS] Disconnected`);
       this.stopPingInterval();
-      setTimeout(() => this.connect(), 1000);
+      if (this.autoReconnect) {
+        console.log(`[WS] Reconnecting in 1s...`);
+        setTimeout(() => this.connect(), 1000);
+      } else {
+        console.log(`[WS] Manual disconnect, no reconnect.`);
+      }
     });
 
     this.ws.addEventListener("error", (ev) => {
@@ -70,7 +65,6 @@ class WSClient {
         });
         try {
           this.ws.send(JSON.stringify(pingMsg));
-          console.log(`[WS] Sent ping: id=${id}`);
         } catch (e) {
           console.error(`[WS] Failed to send ping:`, e);
           this.pending.delete(id);
@@ -90,7 +84,6 @@ class WSClient {
     this.connect();
     const id = this.nextId++;
     const payload: WSMessage = { type: "request", id, action, data };
-    console.log(`[WS] Sending request: id=${id}, action=${action}`);
 
     return new Promise<WSMessage>((resolve, reject) => {
       const deadline = Date.now() + 10000;
@@ -107,7 +100,6 @@ class WSClient {
         try {
           this.pending.set(id, resolve);
           this.ws.send(JSON.stringify(payload));
-          console.log(`[WS] Sent request: id=${id}, action=${action}`);
           setTimeout(() => {
             if (this.pending.has(id)) {
               console.error(`[WS] Request timeout: id=${id}, action=${action}`);
@@ -126,29 +118,33 @@ class WSClient {
     });
   }
 
-  disconnect() {
-    try {
+  disconnectAndWait(): Promise<void> {
+    return new Promise((resolve) => {
+      this.autoReconnect = false;
       this.stopPingInterval();
-      if (this.ws) {
-        try {
-          this.ws.close();
-        } catch (e) {
-          // ignore
-        }
-        this.ws = undefined;
-      }
 
       this.pending.forEach((resolver, id) => {
         try {
           resolver({ type: "response", id, status: "error", code: 0, message: "Disconnected", data: null });
-        } catch (e) {
-          // ignore
-        }
+        } catch {}
       });
       this.pending.clear();
-    } catch (e) {
-      console.error('[WS] disconnect error', e);
-    }
+
+      if (!this.ws || this.ws.readyState === WebSocket.CLOSED || this.ws.readyState === WebSocket.CLOSING) {
+        this.ws = undefined;
+        resolve();
+        return;
+      }
+
+      const onClose = () => {
+        this.ws?.removeEventListener("close", onClose);
+        this.ws = undefined;
+        resolve();
+      };
+
+      this.ws.addEventListener("close", onClose);
+      this.ws.close();
+    });
   }
 
   setUrl(url: string) {
@@ -171,25 +167,13 @@ export function sendCoreRequest(action: string, data: any) {
 }
 
 export function disconnectCore() {
-  defaultClient.disconnect();
+  defaultClient.disconnectAndWait();
 }
 
-export function logout() {
-  try {
-    localStorage.removeItem('sm_token');
-  } catch (e) {
-    console.warn('[WS] logout: failed clearing token', e);
-  }
-  try {
-    localStorage.removeItem('sm_userData');
-    localStorage.removeItem('sm_homeViewState');
-  } catch (e) {
-    console.warn('[WS] logout: failed clearing persisted UI state', e);
-  }
-  try {
-    defaultClient.disconnect();
-  } catch (e) {
-    console.warn('[WS] logout: disconnect failed', e);
-  }
-  window.location.reload();
+export async function logout() {
+  try { localStorage.removeItem('sm_token'); } catch {}
+  try { localStorage.removeItem('sm_userData'); } catch {}
+  try { localStorage.removeItem('sm_homeViewState'); } catch {}
+
+  await defaultClient.disconnectAndWait();
 }
