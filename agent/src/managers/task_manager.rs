@@ -1,6 +1,5 @@
 use crate::{enums::task_errors::TaskError, extern_server::connection_registry::ConnectionRegistry, managers::{managed_task::ManagedTask, token_manager::TokenManager}, repository::task_repository::TaskRepository};
-use chrono::Utc;
-use shared::{db::models::{Task, TaskStatus}, enums::{execution_stream_event::ExecutionStreamEvent, script_types::ScriptType}, server::endpoint::Endpoint};
+use shared::{db::models::{Run, Task, TaskStatus}, enums::script_types::ScriptType, server::endpoint::Endpoint};
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
 use tokio::fs;
@@ -9,7 +8,7 @@ use tokio::sync::Mutex;
 
 use dashmap::DashMap;
 
-use log::{error};
+use log::error;
 
 pub struct TaskManager {
     pool: Arc<PgPool>,
@@ -30,7 +29,7 @@ impl TaskManager {
         }
     }
 
-    pub async fn run_task(self: Arc<Self>, task_id: i64, scrypt_type: ScriptType) -> Result<(), TaskError> {
+    pub async fn run_task(self: Arc<Self>, task_id: i64, scrypt_type: ScriptType, core_id: Option<i32>) -> Result<(), TaskError> {
         let rask_repository = TaskRepository::new(self.pool.clone());
 
         let mut task = rask_repository.get_by_id(task_id).await?;
@@ -43,7 +42,7 @@ impl TaskManager {
 
         task = rask_repository.update_task(task).await?;
 
-        let run_id = TaskManager::create_run_record(self.pool.clone(), &task, scrypt_type).await
+        let run_id = TaskManager::create_run_record(self.pool.clone(), &task, scrypt_type, core_id).await
             .map_err(|_| TaskError::DatabaseError)?;
 
         let script_path = self.prepare_dir(&task, scrypt_type)
@@ -69,47 +68,52 @@ impl TaskManager {
     }
 
     pub async fn handle_stdout(&self, run_id: i64, line: &str) {
-        let event = ExecutionStreamEvent::Stdout {
-            run_id,
-            new_output: line.to_string(),
-        };
-
-        let payload = serde_json::to_value(vec![event]).ok();
-
-        tokio::join!(
-            self.connection_registry.broadcast_to_group("execution_stream", payload),
-            TaskManager::write_std_to_db(&self, run_id, line, "STDOUT")
-        );
+        match TaskManager::write_std_to_db(&self, run_id, line, "STDOUT").await{
+            Some(run) => {
+                let payload = serde_json::to_value(vec!(run)).ok();
+                self.connection_registry.broadcast_to_group("execution_stream", payload).await;
+            },
+            None => error!("Failed to update stderr for run {}", run_id)
+        }
     }
 
     pub async fn handle_stderr(&self, run_id: i64, line: &str) {
-        let event = ExecutionStreamEvent::Stdout { //stdout because its only field in struct
-            run_id,
-            new_output: line.to_string(),
-        };
-
-        let payload = serde_json::to_value(vec![event]).ok();
-
-        tokio::join!(
-            self.connection_registry.broadcast_to_group("execution_stream", payload),
-            TaskManager::write_std_to_db(&self, run_id, line, "STDERR")
-        );
+        match TaskManager::write_std_to_db(&self, run_id, line, "STDERR").await{ //stdout because its only field in struct
+            Some(run) => {
+                let payload = serde_json::to_value(vec!(run)).ok();
+                self.connection_registry.broadcast_to_group("execution_stream", payload).await;
+            },
+            None => error!("Failed to update stderr for run {}", run_id)
+        }
     }
 
-    async fn write_std_to_db(&self, run_id: i64, line: &str, test_type: &str) {
-        let res = sqlx::query!(
+   async fn write_std_to_db(&self, run_id: i64, line: &str, test_type: &str) -> Option<Run> {
+        let res = sqlx::query_as::<_, Run>(
             r#"
             UPDATE runs
             SET output = COALESCE(output, '') || $1 || E'\n'
             WHERE id = $2
-            "#,
-            format!("[{}] {}", test_type, line),
-            run_id
+            RETURNING *
+            "#
         )
-        .execute(&*self.pool)
+        .bind(format!("[{}] {}", test_type, line))
+        .bind(run_id)
+        .fetch_optional(&*self.pool)
         .await;
 
-        if let Err(e) = res { error!("[MANAGER STDOUT DB ERROR] {}", e) }
+        match res {
+            Ok(Some(run)) => {
+                Some(run)
+            },
+            Ok(None) => {
+                error!("[MANAGER STDOUT DB ERROR] Run with id {} not found", run_id);
+                None
+            },
+            Err(e) => {
+                error!("[MANAGER STDOUT DB ERROR] {}", e);
+                None
+            }
+        }
     }
 
     pub async fn stop_task(self: Arc<Self>, task_id: i64) -> Result<(), TaskError> {
@@ -149,59 +153,50 @@ impl TaskManager {
     }
 
     pub async fn handle_exit(&self, run_id: i64, code: i32) {
-        self.tasks.remove(&run_id); //TODO: Process in paralel 2 tasks
-
-        let event = ExecutionStreamEvent::Exit {
-            run_id,
-            return_code: code,
-            end_time: Utc::now(),
-        };
-
-        let payload = serde_json::to_value(vec![event]).ok();
-
-        self.connection_registry
-            .broadcast_to_group("execution_stream", payload)
-            .await;
         self.tasks.remove(&run_id);
-
-        let res = sqlx::query!(
+        let res = sqlx::query_as::<_, Run>(
             r#"
             UPDATE runs
             SET end_time = NOW(),
                 return_code = $1
             WHERE id = $2
-            RETURNING task_id
-            "#,
-            code,
-            run_id
+            RETURNING *
+            "#
         )
-        .fetch_one(&*self.pool)
+        .bind(code)
+        .bind(run_id)
+        .fetch_optional(&*self.pool)
         .await;
 
-        match res { // updating task status after finishing
-            Ok(row) => {
+        match res {
+            Ok(Some(run)) => {
                 let task_repository = TaskRepository::new(self.pool.clone());
-                let task = task_repository.get_by_id(row.task_id as i64).await;
+                let task = task_repository.get_by_id(run.task_id as i64).await;
+                let payload = serde_json::to_value(vec![run]).ok();
+
                 match task {
                     Ok(mut task) => {
                         if matches!(task.status, TaskStatus::Stopped) {
-                            return;
-                        }
+                            self.connection_registry.broadcast_to_group("execution_stream", payload).await;
 
-                        task.status = match code {
-                            0 => TaskStatus::Executed,
-                            _ => TaskStatus::Failed,
-                        };
-                        let task = task_repository.update_task(task).await;
-                        match task {
-                            Ok(..) => {},
-                            Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }
+                        } else {
+                            task.status = match code {
+                                0 => TaskStatus::Executed,
+                                _ => TaskStatus::Failed,
+                            };
+
+                            _ = tokio::join!(
+                                task_repository.update_task(task),
+                                self.connection_registry.broadcast_to_group("execution_stream", payload)
+                            );
+
                         }
                     },
                     Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }
                 }
             },
-            Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }
+            Ok(None) => error!("[MANAGER STDOUT DB ERROR] Run with id {} not found", run_id),
+            Err(e) => error!("[MANAGER STDOUT DB ERROR] {}", e)
         }
     }
 
@@ -209,6 +204,7 @@ impl TaskManager {
         pool: Arc<PgPool>,
         task: &Task,
         script_type: ScriptType,
+        core_id: Option<i32>
     ) -> Result<i64, sqlx::Error> {
 
         let rec = sqlx::query!(
@@ -218,7 +214,7 @@ impl TaskManager {
             RETURNING id
             "#,
             task.id,
-            task.core_id,
+            core_id,
             script_type as ScriptType
         )
         .fetch_one(&*pool)
