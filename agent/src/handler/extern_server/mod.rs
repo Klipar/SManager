@@ -13,3 +13,4 @@ pub mod start_stream_handler;
 pub mod stop_stream_handler;
 pub mod get_all_runs_handler;
 pub mod delete_inactive_runs_handler;
+pub mod delete_run_handler;
