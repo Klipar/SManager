@@ -54,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     extern_server.add_handler("ping", Arc::new(PingHandler::new()));
 
     // register connection
-    extern_server.add_handler("start-stream", Arc::new(StartStreamHandler::new(connection_registry.clone())));
+    extern_server.add_handler("start-stream", Arc::new(StartStreamHandler::new(connection_registry.clone(), shared_pool.clone())));
     extern_server.add_handler("stop-stream", Arc::new(StopStreamHandler::new(connection_registry.clone())));
 
     let extern_handle = tokio::spawn(async move {
