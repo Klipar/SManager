@@ -170,10 +170,30 @@ impl TaskManager {
 
         match res {
             Ok(Some(run)) => {
+                let task_repository = TaskRepository::new(self.pool.clone());
+                let task = task_repository.get_by_id(run.task_id as i64).await;
                 let payload = serde_json::to_value(vec![run]).ok();
-                self.connection_registry
-                    .broadcast_to_group("execution_stream", payload)
-                    .await;
+
+                match task {
+                    Ok(mut task) => {
+                        if matches!(task.status, TaskStatus::Stopped) {
+                            self.connection_registry.broadcast_to_group("execution_stream", payload).await;
+
+                        } else {
+                            task.status = match code {
+                                0 => TaskStatus::Executed,
+                                _ => TaskStatus::Failed,
+                            };
+
+                            _ = tokio::join!(
+                                task_repository.update_task(task),
+                                self.connection_registry.broadcast_to_group("execution_stream", payload)
+                            );
+
+                        }
+                    },
+                    Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }
+                }
             },
             Ok(None) => error!("[MANAGER STDOUT DB ERROR] Run with id {} not found", run_id),
             Err(e) => error!("[MANAGER STDOUT DB ERROR] {}", e)
