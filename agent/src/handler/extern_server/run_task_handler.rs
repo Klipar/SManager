@@ -20,7 +20,7 @@ impl RunTaskHandler {
 
 #[async_trait]
 impl HandlerTrait for RunTaskHandler {
-    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, data: Option<Value>, ctx: &mut ConnectionContext)-> Message {
         let data = match data {
             Some(v) => v,
             None => {
@@ -46,7 +46,7 @@ impl HandlerTrait for RunTaskHandler {
             }
         };
 
-        let result = TaskManager::run_task(self.task_manager.clone(), dto.task_id, dto.script_type).await;
+        let result = TaskManager::run_task(self.task_manager.clone(), dto.task_id, dto.script_type, ctx.id).await;
 
         match result{
             Ok(..) =>{

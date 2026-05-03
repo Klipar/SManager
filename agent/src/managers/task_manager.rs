@@ -29,7 +29,7 @@ impl TaskManager {
         }
     }
 
-    pub async fn run_task(self: Arc<Self>, task_id: i64, scrypt_type: ScriptType) -> Result<(), TaskError> {
+    pub async fn run_task(self: Arc<Self>, task_id: i64, scrypt_type: ScriptType, core_id: Option<i32>) -> Result<(), TaskError> {
         let rask_repository = TaskRepository::new(self.pool.clone());
 
         let mut task = rask_repository.get_by_id(task_id).await?;
@@ -42,7 +42,7 @@ impl TaskManager {
 
         task = rask_repository.update_task(task).await?;
 
-        let run_id = TaskManager::create_run_record(self.pool.clone(), &task, scrypt_type).await
+        let run_id = TaskManager::create_run_record(self.pool.clone(), &task, scrypt_type, core_id).await
             .map_err(|_| TaskError::DatabaseError)?;
 
         let script_path = self.prepare_dir(&task, scrypt_type)
@@ -184,6 +184,7 @@ impl TaskManager {
         pool: Arc<PgPool>,
         task: &Task,
         script_type: ScriptType,
+        core_id: Option<i32>
     ) -> Result<i64, sqlx::Error> {
 
         let rec = sqlx::query!(
@@ -193,7 +194,7 @@ impl TaskManager {
             RETURNING id
             "#,
             task.id,
-            task.core_id,
+            core_id,
             script_type as ScriptType
         )
         .fetch_one(&*pool)
