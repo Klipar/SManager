@@ -1,4 +1,4 @@
-use agent_lib::{extern_server::{connection_registry::ConnectionRegistry, server::Server}, handler::{extern_server::{get_all_cores_handler::GetAllCoresHandler, get_all_runs_handler::GetAllRunsHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, ping_handler::PingHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, run_task_handler::RunTaskHandler, start_stream_handler::StartStreamHandler, stop_stream_handler::StopStreamHandler, stop_task_handler::StopTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
+use agent_lib::{extern_server::{connection_registry::ConnectionRegistry, server::Server}, handler::{extern_server::{delete_inactive_runs_handler::DeleteInactiveRunsHandler, get_all_cores_handler::GetAllCoresHandler, get_all_runs_handler::GetAllRunsHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, ping_handler::PingHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, run_task_handler::RunTaskHandler, start_stream_handler::StartStreamHandler, stop_stream_handler::StopStreamHandler, stop_task_handler::StopTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
 use shared::server::endpoint::Endpoint;
 use sqlx::postgres::PgPool;
 
@@ -59,6 +59,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Crud for Runs
     extern_server.add_handler("get-runs", Arc::new(GetAllRunsHandler::new(shared_pool.clone())));
+    extern_server.add_handler("delete-inactive-runs", Arc::new(DeleteInactiveRunsHandler::new(shared_pool.clone())));
 
     let extern_handle = tokio::spawn(async move {
         if let Err(e) = extern_server.start_server().await {
