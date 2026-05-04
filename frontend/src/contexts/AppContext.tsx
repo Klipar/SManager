@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { sendCoreRequest } from "@/lib/ws";
-import type { Agent, CreateTaskPayload, Task, TaskLog } from "@/types";
+import { sendCoreRequest, subscribeCoreOpen, subscribeCoreRequest } from "@/lib/ws";
+import type { Agent, CreateTaskPayload, ScriptType, Task, TaskLog } from "@/types";
 import {
   buildTaskDescription,
   buildTaskName,
@@ -32,6 +32,8 @@ type AppContextType = {
   setSidebarWidth: (width: number) => void;
   addAgent: (payload: any) => Promise<void>;
   createTask: (payload: CreateTaskPayload) => Promise<string | null>;
+  runTask: (taskId: string, scriptType: ScriptType) => Promise<boolean>;
+  stopTask: (taskId: string) => Promise<boolean>;
   refreshAgents: () => void;
   refreshTasks: () => Promise<void>;
 };
@@ -124,7 +126,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const [tasksRes, logsRes] = await Promise.all([
         sendCoreRequest("get-all-tasks", null),
-        sendCoreRequest("get-logs", null),
+        sendCoreRequest("get-runs", null),
       ]);
 
       if (tasksRes?.status !== "ok") {
@@ -133,18 +135,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       const rawTasks = tasksRes.data?.tasks ?? [];
-      const rawLogs = logsRes?.status === "ok" ? (logsRes.data?.logs ?? []) : [];
+      const rawRuns = logsRes?.status === "ok" ? (logsRes.data?.runs ?? []) : [];
 
-      const logsByTaskId = new Map<string, TaskLog[]>();
-      for (const rawLog of rawLogs) {
-        const taskId = rawLog?.task_id;
+      const runsByTaskId = new Map<string, TaskLog[]>();
+      for (const rawRun of rawRuns) {
+        const taskId = rawRun?.task_id;
         if (taskId === null || taskId === undefined) continue;
 
-        const normalizedLog = normalizeLog(rawLog);
+        const normalizedLog = normalizeLog(rawRun);
         const key = String(taskId);
-        const existing = logsByTaskId.get(key) ?? [];
+        const existing = runsByTaskId.get(key) ?? [];
         existing.push(normalizedLog);
-        logsByTaskId.set(key, existing);
+        runsByTaskId.set(key, existing);
       }
 
       const groupedTasks: Record<string, Task[]> = {};
@@ -155,13 +157,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!taskId || !agentId) continue;
 
         const storedTask = taskStoreSnapshot[taskId];
-        const logs = logsByTaskId.get(taskId) ?? [];
+        const logs = runsByTaskId.get(taskId) ?? [];
 
         const task: Task = {
           id: taskId,
           name: buildTaskName(taskId, storedTask),
           scriptType: "run",
-          status: buildTaskStatus(logs, Boolean(storedTask)),
+          status: (rawTask?.status as Task["status"] | undefined) ?? buildTaskStatus(logs, Boolean(storedTask)),
           description: buildTaskDescription(taskId, storedTask),
           createdByCore: storedTask?.createdByCore ?? "Core",
           restartPolicy: storedTask?.restartPolicy ?? "no",
@@ -245,6 +247,74 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return taskRecord.id;
   }, [refreshTasks, taskStore]);
 
+  const runTask = useCallback(async (taskId: string, scriptType: ScriptType) => {
+    const numericTaskId = Number.parseInt(taskId, 10);
+    if (Number.isNaN(numericTaskId)) {
+      return false;
+    }
+
+    try {
+      const res = await sendCoreRequest("run-task", {
+        task_id: numericTaskId,
+        script_type: scriptType,
+      });
+
+      if (res?.status !== "ok") {
+        return false;
+      }
+
+      await refreshTasks();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [refreshTasks]);
+
+  const stopTask = useCallback(async (taskId: string) => {
+    const numericTaskId = Number.parseInt(taskId, 10);
+    if (Number.isNaN(numericTaskId)) {
+      return false;
+    }
+
+    try {
+      const res = await sendCoreRequest("stop-task", {
+        task_id: numericTaskId,
+      });
+
+      if (res?.status !== "ok") {
+        return false;
+      }
+
+      await refreshTasks();
+      return true;
+    } catch {
+      return false;
+    }
+  }, [refreshTasks]);
+
+  useEffect(() => {
+    const unsubscribeOpen = subscribeCoreOpen(() => {
+      void (async () => {
+        try {
+          const streamRes = await sendCoreRequest("start-stream", null);
+          if (streamRes?.status === "ok") {
+            await refreshAgents();
+            await refreshTasks();
+          }
+        } catch {}
+      })();
+    });
+
+    const unsubscribeRuns = subscribeCoreRequest("execution_stream", () => {
+      void refreshTasks();
+    });
+
+    return () => {
+      unsubscribeOpen();
+      unsubscribeRuns();
+    };
+  }, [refreshAgents, refreshTasks]);
+
   useEffect(() => {
     setIsLoading(true);
     Promise.all([refreshAgents(), refreshTasks()]).finally(() => setIsLoading(false));
@@ -293,6 +363,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSidebarWidth,
     addAgent,
     createTask,
+    runTask,
+    stopTask,
     refreshAgents,
     refreshTasks,
   };

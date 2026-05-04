@@ -1,36 +1,42 @@
-import { ArrowUpRight, Download, PencilLine, Play, Trash2 } from "lucide-react"
+import { Download, Play, Square, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
-import type { Agent, Task, TaskLog } from "@/types"
+import type { Agent, ScriptType, Task, TaskLog } from "@/types"
 
 type TaskWorkspaceProps = {
   agent: Agent
   selectedTask: Task | null
   selectedLog: TaskLog | null
   onSelectLog: (logId: string | null) => void
+  onRunTask: (taskId: string, scriptType: ScriptType) => void
+  onStopTask: (taskId: string) => void
 }
 
-const statusLabel: Record<Agent["status"], string> = {
-  online: "Current status: Online",
-  offline: "Current status: Offline",
-  error: "Current status: Error",
+const statusLabel: Record<Task["status"], string> = {
+  ok: "Current status: ok",
+  starting: "Current status: starting",
+  failed: "Current status: failed",
+  stopped: "Current status: stopped",
+  executed: "Current status: executed",
 }
 
-const logStripClass: Record<TaskLog["status"], string> = {
-  ok: "bg-emerald-500/90",
-  warning: "bg-amber-500/90",
-  error: "bg-red-500/90",
+const statusDotClass: Record<Task["status"], string> = {
+  ok: "bg-emerald-500",
+  starting: "bg-sky-400",
+  failed: "bg-red-500",
+  stopped: "bg-slate-500",
+  executed: "bg-violet-500",
 }
 
-function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog }: TaskWorkspaceProps) {
-  const actionRows = [
-    { id: "install", title: "Install", icon: Download, tone: "bg-violet-400/80" },
-    { id: "run", title: "Run", icon: PencilLine, tone: "bg-emerald-400/80" },
-    { id: "delete", title: "Delete", icon: Trash2, tone: "bg-red-400/80" },
-  ]
+const scriptStripClass: Record<ScriptType, string> = {
+  install: "bg-violet-400/80",
+  run: "bg-emerald-400/80",
+  delete: "bg-red-400/80",
+}
 
+function TaskWorkspace({ selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
   if (!selectedTask) {
     return (
       <div className="flex min-h-[calc(100vh-16rem)] items-center justify-center px-8 pb-8 pt-40 text-center md:pt-56">
@@ -44,6 +50,12 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog }: TaskWo
     )
   }
 
+  const actionRows = [
+    { id: "install", title: "Install", icon: Download, tone: "bg-violet-400/80" },
+    { id: "run", title: "Run", icon: Play, tone: "bg-emerald-400/80" },
+    { id: "delete", title: "Delete", icon: Trash2, tone: "bg-red-400/80" },
+  ]
+
   return (
     <div className="grid h-full w-full gap-0 lg:grid-cols-[18rem_1fr]">
       <div className="border-r border-white/[0.035]">
@@ -53,6 +65,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog }: TaskWo
               <button
                 key={row.id}
                 type="button"
+                onClick={() => onRunTask(selectedTask.id, row.id as ScriptType)}
                 className="group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
               >
                 <div className={cn("flex h-11 w-8 items-center justify-center", row.tone)}>
@@ -78,12 +91,31 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog }: TaskWo
                 key={log.id}
                 type="button"
                 onClick={() => onSelectLog(log.id)}
-                className="group flex w-full items-center overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05]"
+                className="group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
               >
-                <span className={cn("h-14 w-7 shrink-0", logStripClass[log.status])} />
+                <div className={cn("flex h-11 w-8 items-center justify-center", scriptStripClass[log.scriptType])}>
+                  {log.scriptType === "install" ? (
+                    <Download className="size-3.5 text-black/80" />
+                  ) : log.scriptType === "run" ? (
+                    <Play className="size-3.5 text-black/80" />
+                  ) : (
+                    <Trash2 className="size-3.5 text-black/80" />
+                  )}
+                </div>
                 <span className="flex min-w-0 flex-1 items-center justify-between px-3">
-                  <span className="truncate text-sm text-white/84">{log.startedAt}</span>
-                  <ArrowUpRight className="size-4 text-white/45 group-hover:text-white/75" />
+                  <span className="truncate text-sm text-white/82">{log.startedAt}</span>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onStopTask(selectedTask.id)
+                    }}
+                    className="inline-flex shrink-0 items-center justify-center text-white/45 transition-colors hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+                    aria-label={`Stop task ${selectedTask.name}`}
+                    title="Stop task"
+                  >
+                    <Square className="size-4 text-white/60 group-hover:text-white/75" />
+                  </button>
                 </span>
               </button>
             ))}
@@ -108,8 +140,8 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog }: TaskWo
                 <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
                   <div className="space-y-3 text-white/82">
                     <p className="text-xl">
-                      <span className="mr-2 inline-block size-2 rounded-full bg-emerald-500" />
-                      {statusLabel[agent.status]}
+                      <span className={cn("mr-2 inline-block size-2 rounded-full -translate-y-0.5", statusDotClass[selectedTask.status])} />
+                      {statusLabel[selectedTask.status]}
                     </p>
                     <p className="text-sm text-white/70">Started: {selectedLog.startedAt}</p>
                     <p className="text-sm text-white/70">Working: 5 days 6 hours 7 minutes 52 seconds</p>

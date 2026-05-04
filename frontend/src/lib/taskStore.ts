@@ -49,6 +49,14 @@ function logStatusFromMessage(message: string): TaskLog["status"] {
   return "ok";
 }
 
+function normalizeScriptType(script: unknown) {
+  const value = String(script ?? "").toLowerCase();
+  if (value === "install" || value === "delete") {
+    return value;
+  }
+  return "run";
+}
+
 export function normalizeLog(rawLog: any): TaskLog {
   const message = String(rawLog?.message ?? "");
   const startedAt = rawLog?.timestamp ? String(rawLog.timestamp) : new Date().toISOString();
@@ -56,6 +64,7 @@ export function normalizeLog(rawLog: any): TaskLog {
   return {
     id: String(rawLog?.id ?? `${startedAt}-${message.slice(0, 12)}`),
     startedAt,
+    scriptType: normalizeScriptType(rawLog?.script),
     status: logStatusFromMessage(message),
     summary: message,
     output: message ? message.split("\n") : [],

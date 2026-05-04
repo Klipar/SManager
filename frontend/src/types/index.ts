@@ -50,6 +50,7 @@ export type ScriptType = "install" | "run" | "delete";
 export type TaskLog = {
   id: string;
   startedAt: string;
+  scriptType: ScriptType;
   status: "ok" | "warning" | "error";
   summary: string;
   output: string[];
