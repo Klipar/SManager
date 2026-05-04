@@ -1,6 +1,12 @@
 import React from "react"
 import { useNavigate } from "react-router-dom"
 import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Download, Play, Trash2 } from "lucide-react"
@@ -201,15 +207,23 @@ export function CreateTaskPanel({ agent }: Props) {
 
       <div className="mb-4 flex justify-center">
         <div className="relative w-[36rem]">
-          <select value={restartPolicy} onChange={(e) => setRestartPolicy(e.target.value as RestartPolicy)} className="w-full appearance-none rounded-full border border-white/[0.04] bg-[#081017] px-4 py-3 pr-12 text-white shadow-sm">
-            <option value="">Choose restart policy</option>
-            <option value="no">No</option>
-            <option value="always">Always</option>
-            <option value="on-failure">On Failure</option>
-          </select>
-          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/75">
-            <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-full rounded-2xl border border-white/[0.04] bg-[#081017] px-4 py-3 pr-12 text-left text-white shadow-sm">
+                <span className="truncate">{restartPolicy || "Choose restart policy"}</span>
+                <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/75">
+                  <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent sideOffset={8} className="w-[36rem] rounded-2xl">
+              <DropdownMenuItem onClick={() => setRestartPolicy("no")}>Choose restart policy</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRestartPolicy("no")}>No</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRestartPolicy("always")}>Always</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setRestartPolicy("on-failure")}>On Failure</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

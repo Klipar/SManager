@@ -12,7 +12,6 @@ class WSClient {
   private openListeners = new Set<OpenListener>();
   private pingInterval?: ReturnType<typeof setInterval>;
   private autoReconnect = true;
-  private isClosing = false;
 
   constructor(url?: string) {
     this.url = url ?? (import.meta.env.VITE_CORE_WS as string) ?? "ws://127.0.0.1:6767";
@@ -22,11 +21,11 @@ class WSClient {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
+    this.autoReconnect = true;
     this.ws = new WebSocket(this.url);
 
     this.ws.addEventListener("open", () => {
       console.log(`[WS] Connected`);
-      this.isClosing = false;
       this.startPingInterval();
       this.openListeners.forEach((listener) => {
         try {
@@ -70,7 +69,6 @@ class WSClient {
 
     this.ws.addEventListener("close", () => {
       console.log(`[WS] Disconnected`);
-      this.isClosing = true;
       this.stopPingInterval();
       if (this.autoReconnect) {
         console.log(`[WS] Reconnecting in 1s...`);
@@ -157,10 +155,6 @@ class WSClient {
       const checker = () => {
         if (Date.now() > deadline) {
           reject(new Error(`WS connection timeout: ${action}`));
-          return;
-        }
-        if (this.isClosing) {
-          reject(new Error(`WS is closing, cannot send: ${action}`));
           return;
         }
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {

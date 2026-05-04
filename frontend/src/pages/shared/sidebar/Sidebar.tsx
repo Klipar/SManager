@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
+import React, { useEffect } from "react";
 import { AddAgentButton } from "./AddAgentButton";
 import { AgentList } from "./AgentList";
 import { SidebarHeader } from "./SidebarHeader";
@@ -30,6 +31,13 @@ function Sidebar({ onOpenAddAgent }: SidebarProps) {
 
   const { user } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname !== "/") {
+      setSelectedTaskId(null);
+    }
+  }, [location.pathname, setSelectedTaskId]);
 
   const displayUser = {
     username: user?.name ?? 'User',
@@ -41,10 +49,12 @@ function Sidebar({ onOpenAddAgent }: SidebarProps) {
     setSelectedTaskId(null);
     const newExpanded = expandedAgentId === agentId ? null : agentId;
     setExpandedAgentId(newExpanded);
+    navigate("/");
   };
 
   const handleSelectTask = (taskId: string) => {
     setSelectedTaskId(taskId);
+    navigate("/");
   };
 
   const handleAddTask = (agentId: string) => {
