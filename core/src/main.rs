@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use sqlx::postgres::PgPool;
 use dotenvy::dotenv;
+use core_lib::tls_client::client::AgentClient;
+use core_lib::tls_client::connection::connect;
+use shared::server::message::Message;
 
 use core_lib::{
     handler::{
@@ -30,6 +33,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pg_pool = PgPool::connect(&std::env::var("CORE_DATABASE_URL")?).await?;
     let state = AppState::new(pg_pool);
+
+    {
+        let agent_ip = std::env::var("AGENT_SERVER_IP").unwrap_or("127.0.0.1".to_string());
+        let agent_port: u16 = std::env::var("AGENT_SERVER_PORT")
+            .unwrap_or("6969".to_string())
+            .parse()?;
+        let agent_cn = std::env::var("AGENT_SERVER_CN").unwrap_or("localhost".to_string());
+
+        println!("Connecting to agent {}:{}", agent_ip, agent_port);
+
+        match connect(&agent_ip, agent_port, &agent_cn).await {
+            Ok(framed) => {
+                println!("TLS connected!");
+                let (client, mut inbound_rx) = AgentClient::new(framed);
+
+                let msg = Message::Request {
+                    id: 1,
+                    action: "ping".to_string(),
+                    data: Some(serde_json::json!({})),
+                };
+
+                client.send(msg).await?;
+                println!("Ping sent!");
+
+                match tokio::time::timeout(
+                    std::time::Duration::from_secs(5),
+                    inbound_rx.recv()
+                ).await {
+                    Ok(Some(response)) => println!("Response: {:?}", response),
+                    Ok(None)           => println!("Channel closed"),
+                    Err(_)             => println!("Timeout — no response"),
+                }
+            }
+            Err(e) => eprintln!("Failed to connect to agent: {e}"),
+        }
+    }
 
     let ip = std::env::var("CORE_SERVER_IP")
         .unwrap_or_else(|e| {

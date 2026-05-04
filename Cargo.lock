@@ -330,17 +330,21 @@ dependencies = [
  "chrono",
  "dotenvy",
  "env_logger",
+ "futures",
  "futures-util",
  "jsonwebtoken",
  "log",
  "rand",
+ "rustls-pemfile",
  "serde",
  "serde_json",
  "sha2",
  "shared",
  "sqlx",
  "tokio",
+ "tokio-rustls",
  "tokio-tungstenite",
+ "tokio-util",
 ]
 
 [[package]]
