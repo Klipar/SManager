@@ -81,12 +81,10 @@ pub async fn run_message_loop(
 
                 match &msg {
                     tokio_tungstenite::tungstenite::Message::Close(_) => {
-                        // request writer to send a Close and then exit
                         let _ = tx.send(tokio_tungstenite::tungstenite::Message::Close(None)).await;
                         break;
                     }
                     tokio_tungstenite::tungstenite::Message::Ping(_) | tokio_tungstenite::tungstenite::Message::Pong(_) => {
-                        // ignore — tungstenite handles ping/pong
                         continue;
                     }
                     _ => {}
@@ -123,7 +121,6 @@ pub async fn run_message_loop(
 
                 let response = process_message(message, &handlers, &mut ctx, addr).await;
 
-                // attempt to send response; if channel closed, exit
                 if tx.send(response_to_ws(response)).await.is_err() {
                     debug!("Outgoing channel closed for {}, stopping reader", addr);
                     break;
@@ -132,7 +129,6 @@ pub async fn run_message_loop(
         }
     }
 
-    // close writer by dropping sender and awaiting the task
     drop(tx);
     let _ = writer.await;
 }
