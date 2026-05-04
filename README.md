@@ -62,7 +62,7 @@ sqlx migrate run --source migrations
 For `core`:
 
 ```bash
-cd agent
+cd core
 sqlx migrate run --source migrations
 ```
 
