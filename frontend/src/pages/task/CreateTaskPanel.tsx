@@ -1,30 +1,169 @@
 import React from "react"
+import { useNavigate } from "react-router-dom"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Download, Play, Trash2 } from "lucide-react"
-import type { Agent } from "@/types"
+import { useApp } from "@/contexts/AppContext"
+import type { Agent, CreateTaskPayload, RestartPolicy } from "@/types"
 
 type Props = {
   agent: Agent | null
 }
 
+type ScriptKind = "install" | "run" | "delete"
+
+const scriptTitles: Record<ScriptKind, string> = {
+  install: "Install script",
+  run: "Run script",
+  delete: "Delete script",
+}
+
+const defaultScriptText: Record<ScriptKind, string> = {
+  install: "#!/usr/bin/env bash\nset -e\n\n# install dependencies here",
+  run: "#!/usr/bin/env bash\nset -e\n\n# run the task here",
+  delete: "#!/usr/bin/env bash\nset -e\n\n# cleanup here",
+}
+
 export function CreateTaskPanel({ agent }: Props) {
+  const navigate = useNavigate()
+  const { createTask } = useApp()
+  const importInputId = React.useId()
+  const dragDepthRef = React.useRef(0)
   const [name, setName] = React.useState("")
   const [description, setDescription] = React.useState("")
-  const [restartPolicy, setRestartPolicy] = React.useState("no")
+  const [restartPolicy, setRestartPolicy] = React.useState<RestartPolicy>("no")
   const [editorOpen, setEditorOpen] = React.useState(false)
+  const [editorKind, setEditorKind] = React.useState<ScriptKind>("install")
   const [editorCode, setEditorCode] = React.useState("")
+  const [isDragActive, setIsDragActive] = React.useState(false)
+  const [scripts, setScripts] = React.useState<Record<ScriptKind, string>>({
+    install: "",
+    run: "",
+    delete: "",
+  })
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
-  function openEditor(kind: string) {
-    setEditorCode(`# ${kind} script\n# write bash here`)
+  function openEditor(kind: ScriptKind) {
+    setErrorMessage(null)
+    setEditorKind(kind)
+    setEditorCode(scripts[kind] || defaultScriptText[kind])
     setEditorOpen(true)
+  }
+
+  function saveEditor() {
+    setScripts((prev) => ({
+      ...prev,
+      [editorKind]: editorCode,
+    }))
+    setEditorOpen(false)
+  }
+
+  async function loadScriptFile(file: File) {
+    if (!file.name.toLowerCase().endsWith(".sh")) {
+      setErrorMessage("Only .sh files are allowed.")
+      return
+    }
+
+    if (!file) {
+      return
+    }
+
+    try {
+      const content = await file.text()
+      setEditorCode(content)
+      setErrorMessage(null)
+    } catch {
+      setErrorMessage("Failed to read the selected file.")
+    }
+  }
+
+  async function handleImportFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+
+    if (!file) {
+      return
+    }
+
+    await loadScriptFile(file)
+  }
+
+  function handleDragEvent(event: React.DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+
+  function handleDragEnter(event: React.DragEvent<HTMLDivElement>) {
+    handleDragEvent(event)
+    dragDepthRef.current += 1
+    setIsDragActive(true)
+  }
+
+  function handleDragLeave(event: React.DragEvent<HTMLDivElement>) {
+    handleDragEvent(event)
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+    if (dragDepthRef.current === 0) {
+      setIsDragActive(false)
+    }
+  }
+
+  async function handleDrop(event: React.DragEvent<HTMLDivElement>) {
+    handleDragEvent(event)
+    dragDepthRef.current = 0
+    setIsDragActive(false)
+
+    const file = event.dataTransfer.files?.[0]
+    if (!file) {
+      return
+    }
+
+    await loadScriptFile(file)
+  }
+
+  async function handleCreateTask() {
+    if (!agent) {
+      setErrorMessage("Select an agent first.")
+      return
+    }
+
+    if (!name.trim()) {
+      setErrorMessage("Task name is required.")
+      return
+    }
+
+    setIsSubmitting(true)
+    setErrorMessage(null)
+
+    const payload: CreateTaskPayload = {
+      agentId: agent.id,
+      name: name.trim(),
+      description: description.trim(),
+      installScript: scripts.install.trim(),
+      runScript: scripts.run.trim(),
+      deleteScript: scripts.delete.trim(),
+      restartPolicy,
+    }
+
+    try {
+      const createdTaskId = await createTask(payload)
+      if (!createdTaskId) {
+        setErrorMessage("Failed to create task.")
+        return
+      }
+
+      navigate("/", { replace: true })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <>
       <div className="mb-6">
         <h2 className="text-3xl font-medium tracking-tight text-white">Create task{agent ? ` — ${agent.name}` : ""}</h2>
+        {!agent ? <p className="mt-2 text-sm text-amber-300/80">Select an agent from the sidebar before creating a task.</p> : null}
       </div>
       <div className="mb-6">
         <label className="mb-2 block font-medium">Enter task name:</label>
@@ -43,23 +182,26 @@ export function CreateTaskPanel({ agent }: Props) {
       </div>
 
       <div className="mb-8 flex items-center justify-center gap-6">
-        <button onClick={() => openEditor('install')} className="flex h-28 w-44 transform flex-col items-center justify-center gap-2 rounded-xl bg-violet-400 text-white shadow-md transition-all hover:scale-105 hover:shadow-lg">
+        <button onClick={() => openEditor("install")} className="flex h-28 w-44 transform flex-col items-center justify-center gap-2 rounded-xl bg-violet-400 text-white shadow-md transition-all hover:scale-105 hover:shadow-lg">
           <Download />
           <div className="mt-1">Set install script</div>
+          <div className="text-xs text-white/80">{scripts.install ? "Configured" : "Empty"}</div>
         </button>
-        <button onClick={() => openEditor('run')} className="flex h-28 w-44 transform flex-col items-center justify-center gap-2 rounded-xl bg-emerald-400 text-white shadow-md transition-all hover:scale-105 hover:shadow-lg">
+        <button onClick={() => openEditor("run")} className="flex h-28 w-44 transform flex-col items-center justify-center gap-2 rounded-xl bg-emerald-400 text-white shadow-md transition-all hover:scale-105 hover:shadow-lg">
           <Play />
           <div className="mt-1">Set run script</div>
+          <div className="text-xs text-white/80">{scripts.run ? "Configured" : "Empty"}</div>
         </button>
-        <button onClick={() => openEditor('delete')} className="flex h-28 w-44 transform flex-col items-center justify-center gap-2 rounded-xl bg-rose-400 text-white shadow-md transition-all hover:scale-105 hover:shadow-lg">
+        <button onClick={() => openEditor("delete")} className="flex h-28 w-44 transform flex-col items-center justify-center gap-2 rounded-xl bg-rose-400 text-white shadow-md transition-all hover:scale-105 hover:shadow-lg">
           <Trash2 />
           <div className="mt-1">Set delete script</div>
+          <div className="text-xs text-white/80">{scripts.delete ? "Configured" : "Empty"}</div>
         </button>
       </div>
 
       <div className="mb-4 flex justify-center">
         <div className="relative w-[36rem]">
-          <select value={restartPolicy} onChange={(e) => setRestartPolicy(e.target.value)} className="w-full appearance-none rounded-full border border-white/[0.04] bg-[#081017] px-4 py-3 pr-12 text-white shadow-sm">
+          <select value={restartPolicy} onChange={(e) => setRestartPolicy(e.target.value as RestartPolicy)} className="w-full appearance-none rounded-full border border-white/[0.04] bg-[#081017] px-4 py-3 pr-12 text-white shadow-sm">
             <option value="">Choose restart policy</option>
             <option value="no">No</option>
             <option value="always">Always</option>
@@ -71,31 +213,58 @@ export function CreateTaskPanel({ agent }: Props) {
         </div>
       </div>
 
+      {errorMessage ? (
+        <div className="mb-4 rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+          {errorMessage}
+        </div>
+      ) : null}
+
       <div className="mb-8 flex justify-end">
-        <Button className="bg-emerald-600 px-8 py-3 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 hover:shadow-md" onClick={() => { /* TODO: create task action */ }} size="lg">Create task</Button>
+        <Button
+          className="bg-emerald-600 px-8 py-3 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 hover:shadow-md"
+          onClick={handleCreateTask}
+          size="lg"
+          disabled={isSubmitting || !agent}
+        >
+          {isSubmitting ? "Creating..." : "Create task"}
+        </Button>
       </div>
 
       {editorOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-8" onDragEnter={handleDragEnter} onDragOver={handleDragEvent} onDragLeave={handleDragLeave} onDrop={handleDrop}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setEditorOpen(false)} />
-          <Card className="relative z-10 w-[820px] border border-white/[0.04] bg-[#0b0f13] p-6 text-white shadow-lg">
+          <Card className={[
+            "relative z-10 w-[820px] border bg-[#0b0f13] p-6 text-white shadow-lg transition-colors",
+            isDragActive ? "border-emerald-400/70 ring-2 ring-emerald-400/30" : "border-white/[0.04]",
+          ].join(" ")}>
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl text-white">Run script</h3>
+              <h3 className="text-2xl text-white">{scriptTitles[editorKind]}</h3>
               <button aria-label="close" onClick={() => setEditorOpen(false)} className="text-white/60 hover:text-white">✕</button>
             </div>
 
             <div className="mt-4">
-              <label className="block text-lg font-medium text-white">Code:</label>
               <textarea className="mt-2 min-h-[240px] w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white shadow-sm outline-none transition-colors placeholder:text-white/35 focus:border-white/20 focus:ring-2 focus:ring-white/10" value={editorCode} onChange={(e) => setEditorCode(e.target.value)} />
             </div>
 
             <div className="mt-4 flex justify-between">
-              <Button variant="outline" className="border-white/[0.06] text-white/70 hover:text-white">Import</Button>
-              <Button className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 hover:shadow-md" onClick={() => { console.log('save', editorCode); setEditorOpen(false) }}>Save</Button>
+              <Button asChild variant="outline" className="border-white/[0.06] text-white/70 hover:text-white">
+                <label htmlFor={importInputId} onClick={() => setErrorMessage(null)}>
+                  Import
+                </label>
+              </Button>
+              <Button className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 hover:shadow-md" onClick={saveEditor}>Save</Button>
             </div>
           </Card>
         </div>
       ) : null}
+
+      <input
+        id={importInputId}
+        type="file"
+        accept=".sh"
+        className="hidden"
+        onChange={handleImportFile}
+      />
     </>
   )
 }

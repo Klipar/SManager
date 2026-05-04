@@ -60,7 +60,7 @@ function AgentTasks({ tasks, selectedTaskId, onSelectTask, onAddTask }: AgentTas
         type="button"
         variant="secondary"
         className="h-8 w-full justify-start rounded-lg border border-white/[0.05] bg-white/[0.035] px-2 text-xs font-medium text-white/82 hover:bg-white/[0.055]"
-      onClick={() => onAddTask?.()}
+        onClick={() => onAddTask?.()}
       >
         <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
         Add new task
