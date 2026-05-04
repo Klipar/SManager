@@ -1,4 +1,10 @@
 import React from "react"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -70,28 +76,32 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
           <div>
             <Label className="mb-2 block text-sm font-medium">Role</Label>
             <div className="relative">
-              <select
-                value={form.role}
-                onChange={(e) => setForm({ ...form, role: e.target.value as any })}
-                className="w-full appearance-none rounded-full border border-white/[0.04] bg-[#081017] px-4 py-3 pr-12 text-white shadow-sm outline-none transition-colors focus:border-white/20 focus:ring-2 focus:ring-white/10"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 20 20"
-                fill="none"
-                className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/75"
-              >
-                <path
-                  d="M5 7.5L10 12.5L15 7.5"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="w-full rounded-2xl border border-white/[0.04] bg-[#081017] px-4 py-3 pr-12 text-left text-white shadow-sm">
+                    <span className="truncate">{form.role}</span>
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/75"
+                    >
+                      <path
+                        d="M5 7.5L10 12.5L15 7.5"
+                        stroke="currentColor"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent sideOffset={8} className="w-[600px] rounded-2xl">
+                  <DropdownMenuItem onClick={() => setForm({ ...form, role: "user" })}>User</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setForm({ ...form, role: "admin" })}>Admin</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 

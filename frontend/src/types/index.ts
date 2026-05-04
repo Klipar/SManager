@@ -33,6 +33,16 @@ export type Agent = {
 // --- Task ---
 export type RestartPolicy = "no" | "always" | "on-failure";
 
+export type CreateTaskPayload = {
+  agentId: string;
+  name: string;
+  description: string;
+  installScript: string;
+  runScript: string;
+  deleteScript: string;
+  restartPolicy: RestartPolicy;
+};
+
 export type TaskStatus = "ok" | "starting" | "failed" | "stopped" | "executed";
 
 export type ScriptType = "install" | "run" | "delete";
@@ -40,6 +50,7 @@ export type ScriptType = "install" | "run" | "delete";
 export type TaskLog = {
   id: string;
   startedAt: string;
+  scriptType: ScriptType;
   status: "ok" | "warning" | "error";
   summary: string;
   output: string[];

@@ -3,7 +3,7 @@ import { TaskWorkspace } from "../agent/TaskWorkspace";
 import { EmptyState } from "../agent/EmptyState";
 
 function Dashboard() {
-  const { selectedAgentId, agents, selectedTaskId, selectedLogId, setSelectedLogId, tasksByAgentId } = useApp();
+  const { selectedAgentId, agents, selectedTaskId, selectedLogId, setSelectedLogId, tasksByAgentId, runTask, stopTask } = useApp();
   const agent = agents.find((a) => a.id === selectedAgentId) ?? null;
   const tasks = agent ? (tasksByAgentId[agent.id] ?? []) : [];
   const task = tasks.find((t) => t.id === selectedTaskId) ?? null;
@@ -18,6 +18,8 @@ function Dashboard() {
           selectedTask={task}
           selectedLog={log}
           onSelectLog={setSelectedLogId}
+          onRunTask={runTask}
+          onStopTask={stopTask}
         />
       ) : (
         <EmptyState />

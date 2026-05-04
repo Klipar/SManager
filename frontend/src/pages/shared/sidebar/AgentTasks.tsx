@@ -13,10 +13,10 @@ type AgentTasksProps = {
 
 const taskStatusStyles: Record<Task["status"], string> = {
   ok: "text-emerald-400",
-  starting: "text-cyan-300",
+  starting: "text-sky-300",
   failed: "text-red-400",
   stopped: "text-white/30",
-  executed: "text-white/60",
+  executed: "text-violet-400",
 }
 
 function AgentTasks({ tasks, selectedTaskId, onSelectTask, onAddTask }: AgentTasksProps) {
@@ -60,7 +60,7 @@ function AgentTasks({ tasks, selectedTaskId, onSelectTask, onAddTask }: AgentTas
         type="button"
         variant="secondary"
         className="h-8 w-full justify-start rounded-lg border border-white/[0.05] bg-white/[0.035] px-2 text-xs font-medium text-white/82 hover:bg-white/[0.055]"
-      onClick={() => onAddTask?.()}
+        onClick={() => onAddTask?.()}
       >
         <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
         Add new task

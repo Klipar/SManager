@@ -1,10 +1,15 @@
 import type { WSMessage } from "@/types";
 
+type RequestListener = (msg: WSMessage) => void;
+type OpenListener = () => void;
+
 class WSClient {
   private ws?: WebSocket;
   private url: string;
   private nextId = 1;
   private pending = new Map<number, (msg: WSMessage) => void>();
+  private requestListeners = new Map<string, Set<RequestListener>>();
+  private openListeners = new Set<OpenListener>();
   private pingInterval?: ReturnType<typeof setInterval>;
   private autoReconnect = true;
 
@@ -16,22 +21,46 @@ class WSClient {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
+    this.autoReconnect = true;
     this.ws = new WebSocket(this.url);
 
     this.ws.addEventListener("open", () => {
       console.log(`[WS] Connected`);
       this.startPingInterval();
+      this.openListeners.forEach((listener) => {
+        try {
+          listener();
+        } catch (error) {
+          console.error("[WS] Open listener failed:", error);
+        }
+      });
     });
 
     this.ws.addEventListener("message", (ev) => {
       try {
         const msg = JSON.parse(ev.data) as WSMessage;
-        if (msg && typeof msg.id === "number") {
+        if (!msg || typeof msg.id !== "number") {
+          return;
+        }
+
+        if (msg.type === "response") {
           const resolver = this.pending.get(msg.id);
           if (resolver) {
             resolver(msg);
             this.pending.delete(msg.id);
           }
+          return;
+        }
+
+        if (msg.type === "request" && msg.action) {
+          const listeners = this.requestListeners.get(msg.action);
+          listeners?.forEach((listener) => {
+            try {
+              listener(msg);
+            } catch (error) {
+              console.error(`[WS] Request listener failed for ${msg.action}:`, error);
+            }
+          });
         }
       } catch (e) {
         console.error("Invalid WS message", e);
@@ -78,6 +107,41 @@ class WSClient {
       clearInterval(this.pingInterval);
       this.pingInterval = undefined;
     }
+  }
+
+  onOpen(listener: OpenListener) {
+    this.openListeners.add(listener);
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      queueMicrotask(() => {
+        try {
+          listener();
+        } catch (error) {
+          console.error("[WS] Open listener failed:", error);
+        }
+      });
+    }
+
+    return () => {
+      this.openListeners.delete(listener);
+    };
+  }
+
+  onRequest(action: string, listener: RequestListener) {
+    const listeners = this.requestListeners.get(action) ?? new Set<RequestListener>();
+    listeners.add(listener);
+    this.requestListeners.set(action, listeners);
+
+    return () => {
+      const currentListeners = this.requestListeners.get(action);
+      if (!currentListeners) {
+        return;
+      }
+
+      currentListeners.delete(listener);
+      if (currentListeners.size === 0) {
+        this.requestListeners.delete(action);
+      }
+    };
   }
 
   async sendRequest(action: string, data: any) {
@@ -166,6 +230,14 @@ export function sendCoreRequest(action: string, data: any) {
   return defaultClient.sendRequest(action, data);
 }
 
+export function subscribeCoreOpen(listener: OpenListener) {
+  return defaultClient.onOpen(listener);
+}
+
+export function subscribeCoreRequest(action: string, listener: RequestListener) {
+  return defaultClient.onRequest(action, listener);
+}
+
 export function disconnectCore() {
   defaultClient.disconnectAndWait();
 }
@@ -174,6 +246,7 @@ export async function logout() {
   try { localStorage.removeItem('sm_token'); } catch {}
   try { localStorage.removeItem('sm_userData'); } catch {}
   try { localStorage.removeItem('sm_homeViewState'); } catch {}
+  try { localStorage.removeItem('sm_taskStore'); } catch {}
 
   await defaultClient.disconnectAndWait();
 }
