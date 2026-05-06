@@ -1,10 +1,7 @@
 use std::sync::Arc;
 use sqlx::postgres::PgPool;
 use dotenvy::dotenv;
-use core_lib::tls_client::client::AgentClient;
-use core_lib::tls_client::connection::connect;
 use core_lib::tls_client::connection_manager::ConnectionManager;
-use shared::server::message::Message;
 use core_lib::tls_client::requests::task::{new_task, NewTaskRequest, RestartPolicy};
 
 use core_lib::{

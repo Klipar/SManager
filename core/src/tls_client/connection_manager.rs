@@ -1,15 +1,8 @@
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use anyhow::Result;
+use std::{ collections::HashMap, sync::Arc, time::{Duration, Instant}};
+use tokio::{sync::{mpsc, oneshot, Mutex}, time};
+use shared::server::message::Message;
 use log::{error, info, warn};
-use tokio::{
-    sync::{mpsc, oneshot, Mutex},
-    time,
-};
-use shared::server::message::{Message, Status};
+use anyhow::Result;
 
 use crate::tls_client::client::AgentClient;
 use crate::tls_client::connection::connect;
@@ -24,7 +17,7 @@ struct PendingRequest {
 struct Inner {
     pending: HashMap<u64, PendingRequest>,
     next_id: u64,
-    /// IDs that have been used and released — reused before incrementing next_id.
+    /// IDs that have been used and released - reused before incrementing next_id.
     free_ids: Vec<u64>,
     last_activity: Instant,
 }
@@ -131,7 +124,7 @@ impl ConnectionManager {
                     let mut state = inner.lock().await;
                     state.last_activity = Instant::now();
                     if let Some(pending) = state.pending.remove(&id) {
-                        // Don't free the id here — the caller's request() does it
+                        // Don't free the id here - the caller's request() does it
                         // after the oneshot resolves, keeping the slot live until then.
                         let _ = pending.tx.send(msg);
                     } else {
@@ -139,11 +132,11 @@ impl ConnectionManager {
                     }
                 }
                 Message::Request { .. } => {
-                    error!("[ConnectionManager] Unexpected Request from agent — ignoring");
+                    error!("[ConnectionManager] Unexpected Request from agent - ignoring");
                 }
             }
         }
-        info!("[ConnectionManager] Inbound channel closed — agent disconnected");
+        info!("[ConnectionManager] Inbound channel closed - agent disconnected");
     }
 
     async fn keepalive_task(client: AgentClient, inner: Arc<Mutex<Inner>>) {
