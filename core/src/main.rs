@@ -2,8 +2,9 @@ use std::sync::Arc;
 use sqlx::postgres::PgPool;
 use dotenvy::dotenv;
 use core_lib::tls_client::connection_manager::ConnectionManager;
-use core_lib::tls_client::requests::task::{new_task, NewTaskRequest, RestartPolicy};
-
+use core_lib::tls_client::requests::task::new_task;
+use shared::db::models::enums::RestartPolicy;
+use shared::server::dto::new_task_request_dto::NewTaskRequestDTO;
 use core_lib::{
     handler::{
         get_all_agents_handler::GetAllAgentsHandler,
@@ -40,12 +41,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .parse()?;
         let agent_cn = std::env::var("AGENT_SERVER_CN").unwrap_or("localhost".to_string());
         let manager = ConnectionManager::connect(&agent_ip, agent_port, &agent_cn).await?;
-        let task = new_task(&manager, NewTaskRequest {
-            name: "My Task",
-            description: Some("Does something useful"),
-            install_script: Some("bash install.sh"),
-            run_script: Some("bash run.sh"),
-            delete_script: Some("bash run.sh"),
+        let task = new_task(&manager, NewTaskRequestDTO {
+            name: "My Task2".to_string(),
+            description: "Does something useful".to_string(),
+            install_script: "bash install.sh".to_string(),
+            run_script: "bash run.sh".to_string(),
+            delete_script: "bash run.sh".to_string(),
             restart_policy: RestartPolicy::Always,
         }).await?;
         println!("Created task: {:?}", task);

@@ -2,26 +2,8 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use crate::tls_client::connection_manager::ConnectionManager;
 use shared::server::message::{Message, Status};
-#[derive(Serialize)]
-pub struct NewTaskRequest<'a> {
-    pub name: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<&'a str>,
-    pub install_script: Option<&'a str>,
-    pub run_script: Option<&'a str>,
-    pub delete_script: Option<&'a str>,
-    pub restart_policy: RestartPolicy,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "kebab-case")]
-pub enum RestartPolicy {
-    No,
-    Always,
-    OnFailure,
-}
-
-// ---- Response data ----
+use shared::server::dto::new_task_request_dto::NewTaskRequestDTO;
+use shared::db::models::enums::RestartPolicy;
 
 #[derive(Deserialize, Debug)]
 pub struct AgentTask {
@@ -40,7 +22,7 @@ pub struct AgentTask {
 
 pub async fn new_task(
     manager: &ConnectionManager,
-    req: NewTaskRequest<'_>,
+    req: NewTaskRequestDTO,
 ) -> Result<AgentTask> {
     let data = serde_json::to_value(&req)?;
     let response = manager.request("new-task", Some(data)).await?;
