@@ -58,7 +58,7 @@ impl ManagedTask {
         tokio::spawn(async move {
             let mut reader = BufReader::new(stdout).lines();
             while let Ok(Some(line)) = reader.next_line().await {
-                manager.handle_stdout(run_id, &line).await;
+                manager.clone().handle_stdout(run_id, line);
             }
         });
     }
@@ -67,7 +67,7 @@ impl ManagedTask {
         tokio::spawn(async move {
             let mut reader = BufReader::new(stderr).lines();
             while let Ok(Some(line)) = reader.next_line().await {
-                manager.handle_stderr(run_id, &line).await;
+                manager.clone().handle_stderr(run_id, line);
             }
         });
     }

@@ -67,24 +67,32 @@ impl TaskManager {
         return Ok(());
     }
 
-    pub async fn handle_stdout(&self, run_id: i64, line: &str) {
-        match TaskManager::write_std_to_db(&self, run_id, line, "STDOUT").await{
-            Some(run) => {
-                let payload = serde_json::to_value(vec!(run)).ok();
-                self.connection_registry.broadcast_to_group("execution_stream", payload).await;
-            },
-            None => error!("Failed to update stderr for run {}", run_id)
-        }
+    pub fn handle_stdout(self: Arc<Self>, run_id: i64, line: String) {
+        let this = self.clone();
+        tokio::spawn(async move {
+            match TaskManager::write_std_to_db(&this, run_id, &line, "STDOUT").await {
+                Some(run) => {
+                    let payload = serde_json::to_value(vec![run]).ok();
+                    this.connection_registry.broadcast_to_group("execution_stream", payload).await;
+                }
+                None => error!("Failed to update stdout for run {}", run_id),
+            }
+        });
     }
 
-    pub async fn handle_stderr(&self, run_id: i64, line: &str) {
-        match TaskManager::write_std_to_db(&self, run_id, line, "STDERR").await{ //stdout because its only field in struct
-            Some(run) => {
-                let payload = serde_json::to_value(vec!(run)).ok();
-                self.connection_registry.broadcast_to_group("execution_stream", payload).await;
-            },
-            None => error!("Failed to update stderr for run {}", run_id)
-        }
+    pub fn handle_stderr(self: Arc<Self>, run_id: i64, line: String) {
+        let this = self.clone();
+        tokio::spawn(async move {
+            match TaskManager::write_std_to_db(&this, run_id, &line, "STDERR").await {
+                Some(run) => {
+                    let payload = serde_json::to_value(vec![run]).ok();
+                    this.connection_registry
+                        .broadcast_to_group("execution_stream", payload)
+                        .await;
+                }
+                None => error!("Failed to update stderr for run {}", run_id),
+            }
+        });
     }
 
    async fn write_std_to_db(&self, run_id: i64, line: &str, test_type: &str) -> Option<Run> {
