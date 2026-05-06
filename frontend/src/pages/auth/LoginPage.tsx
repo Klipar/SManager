@@ -16,8 +16,9 @@ function LoginPage({ onLogin }: LoginPageProps) {
       <section className="relative flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
         <div className="w-full max-w-md text-center">
           <div className="mb-8 space-y-3">
-            <h1 className="text-4xl font-semibold tracking-[0.18em] text-white sm:text-5xl">
-              SManager
+            <h1 className="text-7xl font-semibold tracking-tight">
+              <span className="text-[#E53935]">S</span>
+              <span className="text-[#EAEAEA]">Manager</span>
             </h1>
             <p className="text-sm text-white/50">
               Sign in to continue to your workspace.

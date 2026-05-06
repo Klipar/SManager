@@ -27,7 +27,10 @@ function SidebarHeader({ isCollapsed, onToggleCollapse }: SidebarHeaderProps) {
             <div className="flex size-9 items-center justify-center rounded-2xl border border-white/5 bg-white/[0.03] text-cyan-200">
               <Orbit className="size-5" aria-hidden="true" />
             </div>
-            <p className="text-[15px] font-semibold tracking-tight text-white">SManager</p>
+            <p className="text-xl font-semibold tracking-tight">
+              <span className="text-[#E53935]">S</span>
+              <span className="text-[#EAEAEA]">Manager</span>
+            </p>
           </div>
 
           <Button
