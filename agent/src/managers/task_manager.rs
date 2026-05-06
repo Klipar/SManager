@@ -67,27 +67,35 @@ impl TaskManager {
         return Ok(());
     }
 
-    pub async fn handle_stdout(&self, run_id: i64, line: &str) {
-        match TaskManager::write_std_to_db(&self, run_id, line, "STDOUT").await{
-            Some(run) => {
-                let payload = serde_json::to_value(vec!(run)).ok();
-                self.connection_registry.broadcast_to_group("execution_stream", payload).await;
-            },
-            None => error!("Failed to update stderr for run {}", run_id)
-        }
+    pub fn handle_stdout(self: Arc<Self>, run_id: i64, line: String) {
+        let this = self.clone();
+        tokio::spawn(async move {
+            match TaskManager::write_std_to_db(&this, run_id, &line, "STDOUT").await {
+                Some(run) => {
+                    let payload = serde_json::to_value(vec![run]).ok();
+                    this.connection_registry.broadcast_to_group("execution_stream", payload).await;
+                }
+                None => error!("Failed to update stdout for run {}", run_id),
+            }
+        });
     }
 
-    pub async fn handle_stderr(&self, run_id: i64, line: &str) {
-        match TaskManager::write_std_to_db(&self, run_id, line, "STDERR").await{ //stdout because its only field in struct
-            Some(run) => {
-                let payload = serde_json::to_value(vec!(run)).ok();
-                self.connection_registry.broadcast_to_group("execution_stream", payload).await;
-            },
-            None => error!("Failed to update stderr for run {}", run_id)
-        }
+    pub fn handle_stderr(self: Arc<Self>, run_id: i64, line: String) {
+        let this = self.clone();
+        tokio::spawn(async move {
+            match TaskManager::write_std_to_db(&this, run_id, &line, "STDERR").await {
+                Some(run) => {
+                    let payload = serde_json::to_value(vec![run]).ok();
+                    this.connection_registry
+                        .broadcast_to_group("execution_stream", payload)
+                        .await;
+                }
+                None => error!("Failed to update stderr for run {}", run_id),
+            }
+        });
     }
 
-   async fn write_std_to_db(&self, run_id: i64, line: &str, test_type: &str) -> Option<Run> {
+    async fn write_std_to_db(&self, run_id: i64, line: &str, test_type: &str) -> Option<Run> {
         let res = sqlx::query_as::<_, Run>(
             r#"
             UPDATE runs
@@ -152,52 +160,63 @@ impl TaskManager {
         Ok(())
     }
 
-    pub async fn handle_exit(&self, run_id: i64, code: i32) {
+    pub fn handle_exit(self: Arc<Self>, run_id: i64, code: i32) {
         self.tasks.remove(&run_id);
-        let res = sqlx::query_as::<_, Run>(
-            r#"
-            UPDATE runs
-            SET end_time = NOW(),
-                return_code = $1
-            WHERE id = $2
-            RETURNING *
-            "#
-        )
-        .bind(code)
-        .bind(run_id)
-        .fetch_optional(&*self.pool)
-        .await;
 
-        match res {
-            Ok(Some(run)) => {
-                let task_repository = TaskRepository::new(self.pool.clone());
-                let task = task_repository.get_by_id(run.task_id as i64).await;
-                let payload = serde_json::to_value(vec![run]).ok();
+        let this = self.clone();
 
-                match task {
-                    Ok(mut task) => {
-                        if matches!(task.status, TaskStatus::Stopped) {
-                            self.connection_registry.broadcast_to_group("execution_stream", payload).await;
+        tokio::spawn(async move {
+            let res = sqlx::query_as::<_, Run>(
+                r#"
+                UPDATE runs
+                SET end_time = NOW(),
+                    return_code = $1
+                WHERE id = $2
+                RETURNING *
+                "#
+            )
+            .bind(code)
+            .bind(run_id)
+            .fetch_optional(&*this.pool)
+            .await;
 
-                        } else {
-                            task.status = match code {
-                                0 => TaskStatus::Executed,
-                                _ => TaskStatus::Failed,
-                            };
+            match res {
+                Ok(Some(run)) => {
+                    let task_repository = TaskRepository::new(this.pool.clone());
+                    let task = task_repository.get_by_id(run.task_id as i64).await;
+                    let payload = serde_json::to_value(vec![run]).ok();
 
-                            _ = tokio::join!(
-                                task_repository.update_task(task),
-                                self.connection_registry.broadcast_to_group("execution_stream", payload)
-                            );
+                    match task {
+                        Ok(mut task) => {
+                            if matches!(task.status, TaskStatus::Stopped) {
+                                this.connection_registry
+                                    .broadcast_to_group("execution_stream", payload)
+                                    .await;
+                            } else {
+                                task.status = match code {
+                                    0 => TaskStatus::Executed,
+                                    _ => TaskStatus::Failed,
+                                };
 
+                                _ = tokio::join!(
+                                    task_repository.update_task(task),
+                                    this.connection_registry
+                                        .broadcast_to_group("execution_stream", payload)
+                                );
+                            }
                         }
-                    },
-                    Err(e) => { error!("[MANAGER EXIT DB ERROR] {}", e) }
+                        Err(e) => {
+                            error!("[MANAGER EXIT DB ERROR] {}", e)
+                        }
+                    }
                 }
-            },
-            Ok(None) => error!("[MANAGER STDOUT DB ERROR] Run with id {} not found", run_id),
-            Err(e) => error!("[MANAGER STDOUT DB ERROR] {}", e)
-        }
+                Ok(None) => error!(
+                    "[MANAGER STDOUT DB ERROR] Run with id {} not found",
+                    run_id
+                ),
+                Err(e) => error!("[MANAGER STDOUT DB ERROR] {}", e),
+            }
+        });
     }
 
     async fn create_run_record(
