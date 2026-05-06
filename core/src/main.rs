@@ -5,6 +5,7 @@ use core_lib::tls_client::client::AgentClient;
 use core_lib::tls_client::connection::connect;
 use core_lib::tls_client::connection_manager::ConnectionManager;
 use shared::server::message::Message;
+use core_lib::tls_client::requests::task::{new_task, NewTaskRequest, RestartPolicy};
 
 use core_lib::{
     handler::{
@@ -42,6 +43,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .parse()?;
         let agent_cn = std::env::var("AGENT_SERVER_CN").unwrap_or("localhost".to_string());
         let manager = ConnectionManager::connect(&agent_ip, agent_port, &agent_cn).await?;
+        let task = new_task(&manager, NewTaskRequest {
+            name: "My Task",
+            description: Some("Does something useful"),
+            install_script: Some("bash install.sh"),
+            run_script: Some("bash run.sh"),
+            delete_script: Some("bash run.sh"),
+            restart_policy: RestartPolicy::Always,
+        }).await?;
+        println!("Created task: {:?}", task);
     }
 
     let ip = std::env::var("CORE_SERVER_IP")
