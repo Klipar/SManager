@@ -78,7 +78,7 @@ impl ManagedTask {
             match status {
                 Ok(status) => {
                     let code = status.code().unwrap_or(-1);
-                    manager.handle_exit(run_id, code).await;
+                    manager.handle_exit(run_id, code);
                 }
                 Err(e) => {
                     eprintln!("Failed to wait process: {}", e);
