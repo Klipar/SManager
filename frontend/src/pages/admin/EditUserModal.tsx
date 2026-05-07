@@ -25,6 +25,7 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
     password: "",
     role: "user",
   })
+  const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (user) {
@@ -42,9 +43,36 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
         role: "user",
       })
     }
+    setError(null)
   }, [user, open])
 
   if (!open) return null
+
+  const isValidEmail = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return false
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailPattern.test(trimmed)
+  }
+
+  const validate = () => {
+    if (!form.name.trim()) return "Name is required"
+    if (!form.email.trim()) return "Email is required"
+    if (!isValidEmail(form.email)) return "Email must be a valid address like user@example.com"
+    return null
+  }
+
+  const handleSave = () => {
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      return false
+    }
+
+    setError(null)
+    onSave(form)
+    return true
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
@@ -71,6 +99,12 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             </div>
           </div>
         )}
+
+        {error ? (
+          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
 
         <div className="space-y-6">
           <div>
@@ -120,7 +154,10 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             <Input
               type="email"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, email: e.target.value })
+                if (error) setError(null)
+              }}
               placeholder="user@email.com"
               className="border-white/10 bg-white/[0.04]"
             />
@@ -150,11 +187,11 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             Cancel
           </Button>
           <Button
-            disabled={isSaving || !form.name || !form.email}
+            disabled={isSaving}
             className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:scale-100"
             onClick={() => {
-              onSave(form)
-              onClose()
+              const saved = handleSave()
+              if (saved) onClose()
             }}
           >
             {isSaving ? "Saving..." : "Save"}

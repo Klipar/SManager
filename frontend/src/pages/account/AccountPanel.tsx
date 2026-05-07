@@ -62,6 +62,7 @@ export default function AccountPanel() {
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
+  const [emailError, setEmailError] = React.useState<string | null>(null)
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return "Never"
@@ -89,7 +90,14 @@ export default function AccountPanel() {
       setUserId(user.id ?? null)
       setLastChanged(user.last_update ? `Last changed ${formatDate(user.last_update)}` : "Never changed")
     }
+    setEmailError(null)
   }, [user])
+
+  const isValidEmail = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return false
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
+  }
 
   async function handleDeleteConfirm(_pw: string) {
     setError(null)
@@ -116,8 +124,21 @@ export default function AccountPanel() {
     setSaving(true)
     setError(null)
     setSuccess(null)
+    setEmailError(null)
     if (!userId) {
       setError('User not identified')
+      setSaving(false)
+      return
+    }
+
+    if (!email.trim()) {
+      setEmailError('Email is required')
+      setSaving(false)
+      return
+    }
+
+    if (!isValidEmail(email)) {
+      setEmailError('Email must be a valid address like user@example.com')
       setSaving(false)
       return
     }
@@ -167,7 +188,15 @@ export default function AccountPanel() {
 
         <div className="mb-8">
           <label className="mb-3 block text-base font-medium text-white/85">Your email:</label>
-          <Input placeholder="Enter your email address" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            placeholder="Enter your email address"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value)
+              if (emailError) setEmailError(null)
+            }}
+          />
+          {emailError ? <div className="mt-2 text-sm text-rose-400">{emailError}</div> : null}
         </div>
 
         <div className="mb-8">
