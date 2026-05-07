@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -7,14 +7,25 @@ type AddAgentModalProps = {
   open: boolean
   onClose: () => void
   onSave: (payload: { name: string; ip: string; description?: string; port: number }) => void
+  initial?: { name?: string; ip?: string; description?: string; port?: number }
+  title?: string
 }
 
-function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
+function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalProps) {
   const [name, setName] = useState("")
   const [ip, setIp] = useState("")
   const [description, setDescription] = useState("")
   const [port, setPort] = useState("")
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) return
+    setName(initial?.name ?? "")
+    setIp(initial?.ip ?? "")
+    setDescription(initial?.description ?? "")
+    setPort(initial?.port !== undefined && initial?.port !== null ? String(initial.port) : "")
+    setError(null)
+  }, [open, initial])
 
   if (!open) return null
 
@@ -72,9 +83,9 @@ function AddAgentModal({ open, onClose, onSave }: AddAgentModalProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative z-10 w-[600px] border border-white/[0.04] bg-[#0b0f13] p-8 text-white shadow-lg rounded-xl">
+      <div className="relative z-10 w-[600px] border border-white/[0.04] bg-[#0b0f13] p-8 text-white shadow-lg rounded-xl text-left">
         <div className="mb-6">
-          <h2 className="text-3xl font-medium">Add Agent</h2>
+          <h2 className="text-3xl font-medium text-left">{title ?? "Add Agent"}</h2>
         </div>
 
         <div className="grid grid-cols-1 gap-3">

@@ -1,7 +1,14 @@
-import { Download, Play, Square, Trash2 } from "lucide-react"
+import { Download, Play, Square, Trash2, MoreHorizontal } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
+
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { useState } from "react"
+import { useApp } from "@/contexts/AppContext"
+import { sendCoreRequest } from "@/lib/ws"
+import { AddAgentModal } from "./AddAgentModal"
+import DeleteAgentModal from "./DeleteAgentModal"
 
 import type { Agent, ScriptType, Task, TaskLog } from "@/types"
 
@@ -36,15 +43,17 @@ const scriptStripClass: Record<ScriptType, string> = {
   delete: "bg-red-400/80",
 }
 
-function TaskWorkspace({ selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
+function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
   if (!selectedTask) {
     return (
-      <div className="flex min-h-[calc(100vh-16rem)] items-center justify-center px-8 pb-8 pt-40 text-center md:pt-56">
+      <div className="relative flex min-h-[calc(100vh-16rem)] items-center justify-center px-8 pb-8 pt-40 text-center md:pt-56">
+        <div className="absolute right-0.5 top-1">
+          <AgentMenu agent={agent} />
+        </div>
+
         <div>
           <h2 className="text-5xl font-semibold tracking-tight text-white/92">Select Task</h2>
-          <p className="mt-4 text-base text-white/50">
-            Choose a task from the sidebar to continue.
-          </p>
+          <p className="mt-4 text-base text-white/50">Choose a task from the sidebar to continue.</p>
         </div>
       </div>
     )
@@ -177,6 +186,90 @@ function TaskWorkspace({ selectedTask, selectedLog, onSelectLog, onRunTask, onSt
         )}
       </div>
     </div>
+  )
+}
+
+function AgentMenu({ agent }: { agent: Agent | null }) {
+  const { refreshAgents, refreshTasks, setSelectedAgentId } = useApp()
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  if (!agent) return null
+
+  const handleEditSave = async (payload: { name: string; ip: string; description?: string; port: number }) => {
+    try {
+      const res = await sendCoreRequest("update-agent", {
+        id: Number(agent.id),
+        name: payload.name,
+        ip: payload.ip,
+        description: payload.description,
+        port: payload.port,
+      })
+
+      if (res?.status === "ok") {
+        await refreshAgents()
+      } else {
+        alert(res?.message ?? "Failed to update agent")
+      }
+    } catch (e) {
+      console.error(e)
+      alert("Error updating agent")
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await sendCoreRequest("remove-agent", { id: Number(agent.id) })
+      if (res?.status === "ok") {
+        await refreshAgents()
+        await refreshTasks()
+        setSelectedAgentId(null)
+        setShowDelete(false)
+      } else {
+        alert(res?.message ?? "Failed to delete agent")
+      }
+    } catch (e) {
+      console.error(e)
+      alert("Error deleting agent")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="rounded-xl transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">
+            <MoreHorizontal className="size-5 text-white/70" />
+          </button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-44 rounded-2xl border border-white/[0.04] bg-[#12161d]/95 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowEdit(true)}>
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowDelete(true)}>
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AddAgentModal
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        onSave={async (payload) => {
+          await handleEditSave(payload)
+          setShowEdit(false)
+        }}
+        initial={{ name: agent.name, ip: agent.ip ?? "", description: agent.description ?? "", port: agent.port ?? 0 }}
+        title="Edit Agent"
+      />
+
+      <DeleteAgentModal open={showDelete} agent={agent} onClose={() => setShowDelete(false)} onConfirm={handleDeleteConfirm} isDeleting={isDeleting} />
+    </>
   )
 }
 
