@@ -90,7 +90,7 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
 
       <div className="relative z-10 w-[600px] border border-white/[0.04] bg-[#0b0f13] p-8 text-white shadow-lg rounded-xl text-left">
         <div className="mb-6">
-          <h2 className="text-3xl font-medium text-left">{title ?? "Add Agent"}</h2>
+          <h2 className="text-3xl font-medium text-left">{title ?? "Add new Agent"}</h2>
         </div>
 
         <div className="grid grid-cols-1 gap-3">

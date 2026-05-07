@@ -163,7 +163,7 @@ export function AdminPanel() {
     <>
       <div className="mb-8">
         <h1 className="text-3xl font-medium tracking-tight text-white">Admin Panel</h1>
-        <p className="mt-3 text-sm text-white/50">Manage users, agents, and system settings</p>
+        <p className="mt-3 text-sm text-white/50">Manage users</p>
       </div>
 
       <div className="space-y-8">

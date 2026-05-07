@@ -168,7 +168,17 @@ export function CreateTaskPanel({ agent }: Props) {
   return (
     <>
       <div className="mb-6">
-        <h2 className="text-3xl font-medium tracking-tight text-white">Create task{agent ? ` — ${agent.name}` : ""}</h2>
+        <h2 className="text-3xl font-medium tracking-tight text-white">
+          Add new Task
+          {agent && (
+            <>
+              {" "}for Agent:{" "}
+              <span className="text-[#E53935]">
+                {agent.name}
+              </span>
+            </>
+          )}
+        </h2>
         {!agent ? <p className="mt-2 text-sm text-amber-300/80">Select an agent from the sidebar before creating a task.</p> : null}
       </div>
       <div className="mb-6">

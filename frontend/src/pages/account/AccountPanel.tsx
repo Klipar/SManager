@@ -28,7 +28,7 @@ function DeleteAccountModal({ open, onClose, onConfirm, error }: { open: boolean
 
         <div className="mb-6 space-y-3 rounded-xl border border-white/[0.04] bg-white/[0.03] p-4">
           <p className="text-sm text-white/80">Are you sure you want to delete your account? This action cannot be undone.</p>
-          <p className="text-sm text-white/60">All associated data (tasks, settings, history) will be deleted.</p>
+          <p className="text-sm text-white/60">All account data will be deleted.</p>
         </div>
 
         <label className="block mb-2 text-lg font-medium">Enter password to confirm:</label>

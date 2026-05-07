@@ -35,7 +35,7 @@ export function DeleteUserModal({ open, user, onClose, onConfirm, isDeleting = f
             Email: <span className="font-medium text-white/80">{user.email}</span>
           </p>
           <p className="mt-4 text-xs text-red-400/80">
-            ⚠️ All associated data will be deleted. This includes tasks, settings, and history.
+            ⚠️ All account data will be deleted.
           </p>
         </div>
 
