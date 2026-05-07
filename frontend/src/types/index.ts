@@ -15,7 +15,6 @@ export type UserData = {
   name?: string;
   email?: string;
   is_admin?: boolean;
-  last_update?: string | null;
 };
 
 // --- Agent ---

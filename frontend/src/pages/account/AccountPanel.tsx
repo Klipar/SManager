@@ -57,38 +57,17 @@ export default function AccountPanel() {
   const [password, setPassword] = React.useState("")
   const [email, setEmail] = React.useState(user?.email || "")
   const [userId, setUserId] = React.useState<number | null>(user?.id ?? null)
-  const [lastChanged, setLastChanged] = React.useState("Never changed")
   const [modalOpen, setModalOpen] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
   const [emailError, setEmailError] = React.useState<string | null>(null)
 
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return "Never"
-    try {
-      const date = new Date(dateStr)
-      const now = new Date()
-      const diffMs = now.getTime() - date.getTime()
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-      if (diffDays === 0) return "Today"
-      if (diffDays === 1) return "Yesterday"
-      if (diffDays < 7) return `${diffDays} days ago`
-      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-      if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
-      return `${Math.floor(diffDays / 365)} years ago`
-    } catch {
-      return dateStr
-    }
-  }
-
   React.useEffect(() => {
     if (user) {
       setNickname(user.name || "")
       setEmail(user.email || "")
       setUserId(user.id ?? null)
-      setLastChanged(user.last_update ? `Last changed ${formatDate(user.last_update)}` : "Never changed")
     }
     setEmailError(null)
   }, [user])
@@ -156,14 +135,12 @@ export default function AccountPanel() {
             name: res.data?.user?.name ?? nickname,
             email: res.data?.user?.email ?? email,
             is_admin: res.data?.user?.is_admin ?? user?.is_admin,
-            last_update: res.data?.user?.last_update ?? new Date().toISOString(),
           }
 
           updateUser(updatedUserData)
 
           setNickname(updatedUserData.name || '')
           setEmail(updatedUserData.email || '')
-          setLastChanged(updatedUserData.last_update ? `Last changed ${formatDate(updatedUserData.last_update)}` : 'Never changed')
           setSuccess('Saved')
           setPassword('')
         } else {
@@ -203,8 +180,6 @@ export default function AccountPanel() {
           <label className="mb-3 block text-base font-medium text-white/85">Your password:</label>
           <Input placeholder="Leave empty to keep current password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-
-        <div className="mb-12 text-muted-foreground">{lastChanged}</div>
 
         <div className="flex items-center justify-between">
           <Button className="bg-rose-600 px-8 py-3 shadow-md transition-all hover:scale-105 hover:bg-rose-700 hover:shadow-md" size="lg" onClick={() => { setError(null); setModalOpen(true); }}>Delete account</Button>
