@@ -30,9 +30,9 @@ export function AdminPanel() {
             name: u.name,
             email: u.email,
             role: u.is_admin ? "admin" : "user",
+            createdAt: u.created_at ? u.created_at.split('T')[0] : "Unknown",
             lastLogin: u.last_login ? u.last_login.split('T')[0] : null,
-            lastUpdate: u.last_update ? u.last_update.split('T')[0] : "Never",
-            createdAt: "Unknown",
+            updatedAt: u.updated_at ? u.updated_at.split('T')[0] : "Never",
           }))
           setUsers(mappedUsers)
         } else {
@@ -107,7 +107,7 @@ export function AdminPanel() {
                       name: data.name,
                       email: data.email,
                       role: data.role,
-                      lastUpdate: new Date().toISOString().split('T')[0],
+                      updatedAt: new Date().toISOString().split('T')[0],
                     }
                   : user,
               ),
@@ -139,9 +139,9 @@ export function AdminPanel() {
                 name: newUser.name,
                 email: newUser.email,
                 role: newUser.is_admin ? "admin" : "user",
+                createdAt: newUser.created_at ? newUser.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
                 lastLogin: null,
-                lastUpdate: new Date().toISOString().split('T')[0],
-                createdAt: new Date().toISOString().split('T')[0],
+                updatedAt: newUser.updated_at ? newUser.updated_at.split('T')[0] : new Date().toISOString().split('T')[0],
               }
               setUsers((prev) => [...prev, mappedUser])
             }

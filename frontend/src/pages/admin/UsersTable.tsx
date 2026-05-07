@@ -61,7 +61,7 @@ export function UsersTable({ users, onEditUser, onAddUser, onDeleteUser }: Users
                 <td className="px-6 py-4 text-sm text-white/85">{user.name}</td>
                 <td className="px-6 py-4 text-sm text-white/70">{user.email}</td>
                 <td className="px-6 py-4 text-sm text-white/60">{user.lastLogin || "Never"}</td>
-                <td className="px-6 py-4 text-sm text-white/60">{user.lastUpdate}</td>
+                <td className="px-6 py-4 text-sm text-white/60">{user.updatedAt}</td>
                 <td className="px-6 py-4">
                   <div className="flex items-center justify-end gap-2">
                     <Button

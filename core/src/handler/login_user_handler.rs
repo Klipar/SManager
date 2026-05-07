@@ -48,8 +48,7 @@ impl HandlerTrait for LoginUserHandler {
             }
         };
 
-        let user = sqlx::query_as!(
-            UserResponseDto,
+        let user = sqlx::query_as::<_, UserResponseDto>(
             r#"
             UPDATE users
             SET last_login = NOW()
@@ -58,14 +57,15 @@ impl HandlerTrait for LoginUserHandler {
                 id,
                 name,
                 email,
-                COALESCE(is_admin, FALSE) AS "is_admin!",
-                last_login AS "last_login?: chrono::NaiveDateTime",
-                last_update AS "last_update?: chrono::NaiveDateTime",
+                COALESCE(is_admin, FALSE) as is_admin,
+                created_at,
+                updated_at,
+                last_login,
                 gui_settings
-            "#,
-            dto.login,
-            get_hash(&dto.password)
+            "#
         )
+        .bind(dto.login)
+        .bind(get_hash(&dto.password))
         .fetch_optional(&*self.pool)
         .await;
 

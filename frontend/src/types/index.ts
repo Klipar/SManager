@@ -80,9 +80,9 @@ export type AdminUser = {
   name: string;
   email: string;
   role: UserRole;
-  lastLogin: string | null;
-  lastUpdate: string;
   createdAt?: string;
+  updatedAt: string;
+  lastLogin: string | null;
 };
 
 export type EditUserForm = {
