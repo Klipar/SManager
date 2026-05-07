@@ -217,7 +217,10 @@ export function CreateTaskPanel({ agent }: Props) {
               </button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent sideOffset={8} className="w-[36rem] rounded-2xl">
+            <DropdownMenuContent
+              sideOffset={8}
+              className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)] rounded-2xl border border-white/[0.04] bg-[#12161d] p-1.5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
+            >
               <DropdownMenuItem onClick={() => setRestartPolicy("no")}>Choose restart policy</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setRestartPolicy("no")}>No</DropdownMenuItem>
               <DropdownMenuItem onClick={() => setRestartPolicy("always")}>Always</DropdownMenuItem>

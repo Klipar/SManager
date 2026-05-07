@@ -63,7 +63,7 @@ function AgentTasks({ tasks, selectedTaskId, onSelectTask, onAddTask }: AgentTas
         onClick={() => onAddTask?.()}
       >
         <Plus className="mr-1.5 size-3.5" aria-hidden="true" />
-        Add new task
+        New Task
       </Button>
     </div>
   )
