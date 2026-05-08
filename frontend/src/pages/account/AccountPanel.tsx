@@ -39,7 +39,7 @@ function DeleteAccountModal({ open, onClose, onConfirm, error }: { open: boolean
           className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-white outline-none transition-colors placeholder:text-white/35 focus:border-white/20 focus:ring-2 focus:ring-white/10"
         />
 
-        {error ? <div className="mb-4 text-sm text-rose-400">{error}</div> : null}
+        {error ? <div className="mt-2 text-sm text-rose-400">{error}</div> : null}
 
         <div className="mt-6 flex items-center justify-between">
           <Button variant="outline" className="border-white/[0.06] text-white/70 hover:text-white" onClick={() => { setPassword(""); onClose(); }}>Cancel</Button>
@@ -178,13 +178,21 @@ export default function AccountPanel() {
 
         <div className="mb-8">
           <label className="mb-3 block text-base font-medium text-white/85">Your password:</label>
-          <Input placeholder="Leave empty to keep current password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input
+            placeholder="Leave empty to keep current password"
+            type="password"
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value)
+              if (error) setError(null)
+            }}
+          />
+          {error ? <div className="mt-2 text-sm text-rose-400">{error}</div> : null}
         </div>
 
         <div className="flex items-center justify-between">
           <Button className="bg-rose-600 px-8 py-3 shadow-md transition-all hover:scale-105 hover:bg-rose-700 hover:shadow-md" size="lg" onClick={() => { setError(null); setModalOpen(true); }}>Delete account</Button>
           <div className="flex items-center gap-3">
-            {error ? <div className="text-sm text-rose-400">{error}</div> : null}
             {success ? <div className="text-sm text-emerald-400">{success}</div> : null}
             <Button disabled={saving} className="bg-emerald-600 px-8 py-3 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 hover:shadow-md" size="lg" onClick={handleSave}>{saving ? 'Saving...' : 'Save changes'}</Button>
           </div>

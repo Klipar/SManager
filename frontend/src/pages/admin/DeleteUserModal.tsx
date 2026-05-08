@@ -88,8 +88,8 @@ export function DeleteUserModal({
               placeholder="Password"
               className="border-white/10 bg-white/[0.04]"
             />
-            {localError ? <p className="text-sm text-rose-400">{localError}</p> : null}
-            {error ? <p className="text-sm text-rose-400">{error}</p> : null}
+            {localError ? <p className="mt-2 text-sm text-rose-400">{localError}</p> : null}
+            {error ? <p className="mt-2 text-sm text-rose-400">{error}</p> : null}
           </div>
         ) : null}
 

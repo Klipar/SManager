@@ -76,7 +76,7 @@ export function CreateTaskPanel({ agent }: Props) {
 
   async function loadScriptFile(file: File) {
     if (!file.name.toLowerCase().endsWith(".sh")) {
-      setErrorMessage("Only .sh files are allowed.")
+      setErrorMessage("Only .sh files are allowed")
       return
     }
 
@@ -89,7 +89,7 @@ export function CreateTaskPanel({ agent }: Props) {
       setEditorCode(content)
       setErrorMessage(null)
     } catch {
-      setErrorMessage("Failed to read the selected file.")
+      setErrorMessage("Failed to read the selected file")
     }
   }
 
@@ -138,17 +138,17 @@ export function CreateTaskPanel({ agent }: Props) {
 
   async function handleCreateTask() {
     if (!agent) {
-      setErrorMessage("Select an agent first.")
+      setErrorMessage("Select an agent first")
       return
     }
 
     if (!name.trim()) {
-      setNameError("Task name is required.")
+      setNameError("Task name is required")
       return
     }
 
     if (restartPolicy === "choose") {
-      setRestartPolicyError("Restart policy is required.")
+      setRestartPolicyError("Restart policy is required")
       return
     }
 
@@ -170,7 +170,7 @@ export function CreateTaskPanel({ agent }: Props) {
     try {
       const createdTaskId = await createTask(payload)
       if (!createdTaskId) {
-        setErrorMessage("Failed to create task.")
+        setErrorMessage("Failed to create task")
         return
       }
 
@@ -272,10 +272,10 @@ export function CreateTaskPanel({ agent }: Props) {
         </div>
       </div>
 
-      {restartPolicyError ? <div className="mb-4 text-sm text-rose-400">{restartPolicyError}</div> : null}
+      {restartPolicyError ? <div className="mt-2 mb-4 text-sm text-rose-400">{restartPolicyError}</div> : null}
 
       {errorMessage ? (
-        <div className="mb-4 rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
+        <div className="mb-4 text-sm text-rose-400">
           {errorMessage}
         </div>
       ) : null}

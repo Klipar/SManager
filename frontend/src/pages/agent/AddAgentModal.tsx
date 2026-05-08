@@ -16,7 +16,9 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
   const [ip, setIp] = useState("")
   const [description, setDescription] = useState("")
   const [port, setPort] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | null>(null)
+  const [ipError, setIpError] = useState<string | null>(null)
+  const [portError, setPortError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -24,7 +26,9 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
     setIp(initial?.ip ?? "")
     setDescription(initial?.description ?? "")
     setPort(initial?.port !== undefined && initial?.port !== null ? String(initial.port) : "")
-    setError(null)
+    setNameError(null)
+    setIpError(null)
+    setPortError(null)
   }, [open, initial])
 
   if (!open) return null
@@ -49,28 +53,38 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
     const trimmedIp = ip.trim()
     const trimmedPort = port.trim()
 
-    if (!trimmedName) return "Name is required"
-    if (!trimmedIp) return "IP is required"
-    if (!isValidIpOrHost(trimmedIp)) return "IP must be a valid IPv4, IPv6 address or hostname (e.g. example.com or localhost)"
+    const nextNameError = !trimmedName ? "Name is required" : null
 
-    if (!trimmedPort) return "Port is required"
-
-    const parsedPort = Number(trimmedPort)
-    if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
-      return "Port must be a number between 1 and 65535"
+    let nextIpError: string | null = null
+    if (!trimmedIp) {
+      nextIpError = "IP is required"
+    } else if (!isValidIpOrHost(trimmedIp)) {
+      nextIpError = "IP must be a valid IPv4, IPv6 address or hostname (e.g. example.com or localhost)"
     }
 
-    return null
+    let nextPortError: string | null = null
+    if (!trimmedPort) {
+      nextPortError = "Port is required"
+    } else {
+      const parsedPort = Number(trimmedPort)
+      if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+        nextPortError = "Port must be a number between 1 and 65535"
+      }
+    }
+
+    setNameError(nextNameError)
+    setIpError(nextIpError)
+    setPortError(nextPortError)
+
+    return !nextNameError && !nextIpError && !nextPortError
   }
 
   const handleSave = () => {
-    const validationError = validate()
-    if (validationError) {
-      setError(validationError)
+    const isValid = validate()
+    if (!isValid) {
       return false
     }
 
-    setError(null)
     onSave({
       name: name.trim(),
       ip: ip.trim(),
@@ -94,22 +108,17 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
         </div>
 
         <div className="grid grid-cols-1 gap-3">
-          {error ? (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              {error}
-            </div>
-          ) : null}
-
           <div>
             <Label className="mb-1 block text-sm text-white/80">Name</Label>
             <Input
               value={name}
               onChange={(e) => {
                 setName(e.target.value)
-                if (error) setError(null)
+                if (nameError) setNameError(null)
               }}
               placeholder="Agent display name"
             />
+            {nameError ? <div className="mt-2 text-sm text-rose-400">{nameError}</div> : null}
           </div>
 
           <div>
@@ -128,10 +137,11 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
               value={ip}
               onChange={(e) => {
                 setIp(e.target.value)
-                if (error) setError(null)
+                if (ipError) setIpError(null)
               }}
               placeholder="192.0.2.1 or host.example.com"
             />
+            {ipError ? <div className="mt-2 text-sm text-rose-400">{ipError}</div> : null}
           </div>
 
           <div>
@@ -140,11 +150,12 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
               value={port}
               onChange={(e) => {
                 setPort(e.target.value)
-                if (error) setError(null)
+                if (portError) setPortError(null)
               }}
               placeholder="6767"
               inputMode="numeric"
             />
+            {portError ? <div className="mt-2 text-sm text-rose-400">{portError}</div> : null}
           </div>
         </div>
 

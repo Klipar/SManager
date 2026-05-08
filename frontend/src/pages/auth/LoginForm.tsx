@@ -22,25 +22,30 @@ type LoginFormProps = {
 function LoginForm({ onSuccess }: LoginFormProps) {
   const [formState, setFormState] = useState<LoginFormState>(initialFormState)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const validateForm = () => {
-    if (!formState.username.trim()) return "Username is required"
-    if (!formState.password.trim()) return "Password is required"
-    return null
+    const nextUsernameError = !formState.username.trim() ? "Username is required" : null
+    const nextPasswordError = !formState.password.trim() ? "Password is required" : null
+
+    setUsernameError(nextUsernameError)
+    setPasswordError(nextPasswordError)
+
+    return !nextUsernameError && !nextPasswordError
   }
 
   const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault()
 
-    const validationError = validateForm()
-    if (validationError) {
-      setError(validationError)
+    const isValid = validateForm()
+    if (!isValid) {
       return
     }
 
     setIsSubmitting(true)
-    setError(null)
+    setSubmitError(null)
 
     try {
       const res = await sendCoreRequest("login", {
@@ -55,11 +60,11 @@ function LoginForm({ onSuccess }: LoginFormProps) {
         try { localStorage.setItem("sm_token", token) } catch {}
         onSuccess?.(token, user as UserData)
       } else {
-        setError(res?.message ?? "Login failed")
+        setSubmitError(res?.message ?? "Login failed")
       }
     } catch (e) {
       console.error("[LoginForm] error:", e)
-      setError("Connection error, please try again")
+      setSubmitError("Connection error, please try again")
     } finally {
       setIsSubmitting(false)
     }
@@ -75,10 +80,13 @@ function LoginForm({ onSuccess }: LoginFormProps) {
           autoComplete="username"
           placeholder="login"
           value={formState.username}
-          onChange={(event) =>
+          onChange={(event) => {
             setFormState((current) => ({ ...current, username: event.target.value }))
-          }
+            if (usernameError) setUsernameError(null)
+            if (submitError) setSubmitError(null)
+          }}
         />
+        {usernameError ? <p className="mt-2 text-sm text-rose-400">{usernameError}</p> : null}
       </div>
       <div>
         <Label htmlFor="password">Password</Label>
@@ -89,15 +97,15 @@ function LoginForm({ onSuccess }: LoginFormProps) {
           autoComplete="current-password"
           placeholder="password"
           value={formState.password}
-          onChange={(event) =>
+          onChange={(event) => {
             setFormState((current) => ({ ...current, password: event.target.value }))
-          }
+            if (passwordError) setPasswordError(null)
+            if (submitError) setSubmitError(null)
+          }}
         />
+        {passwordError ? <p className="mt-2 text-sm text-rose-400">{passwordError}</p> : null}
+        {submitError ? <p className="mt-2 text-sm text-rose-400">{submitError}</p> : null}
       </div>
-
-      {error ? (
-        <p className="text-sm text-red-400">{error}</p>
-      ) : null}
 
       <Button
         type="submit"

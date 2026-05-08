@@ -25,7 +25,9 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
     password: "",
     role: "user",
   })
-  const [error, setError] = React.useState<string | null>(null)
+  const [nameError, setNameError] = React.useState<string | null>(null)
+  const [emailError, setEmailError] = React.useState<string | null>(null)
+  const [passwordError, setPasswordError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (user) {
@@ -43,7 +45,9 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
         role: "user",
       })
     }
-    setError(null)
+    setNameError(null)
+    setEmailError(null)
+    setPasswordError(null)
   }, [user, open])
 
   if (!open) return null
@@ -56,22 +60,38 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
   }
 
   const validate = () => {
-    if (!form.name.trim()) return "Name is required"
-    if (!form.email.trim()) return "Email is required"
-    if (!isValidEmail(form.email)) return "Email must be a valid address like user@example.com"
-    if (!user && !form.password.trim()) return "Password is required"
-    if (form.password && form.password.trim().length === 0) return "Password must have at least 1 character"
-    return null
+    const nextNameError = !form.name.trim() ? "Name is required" : null
+
+    let nextEmailError: string | null = null
+    if (!form.email.trim()) {
+      nextEmailError = "Email is required"
+    } else if (!isValidEmail(form.email)) {
+      nextEmailError = "Email must be a valid address like user@example.com"
+    }
+
+    let nextPasswordError: string | null = null
+    if (!user && !form.password.trim()) {
+      nextPasswordError = "Password is required"
+    } else if (form.password && form.password.trim().length === 0) {
+      nextPasswordError = "Password must have at least 1 character"
+    }
+
+    setNameError(nextNameError)
+    setEmailError(nextEmailError)
+    setPasswordError(nextPasswordError)
+
+    return !nextNameError && !nextEmailError && !nextPasswordError
   }
 
   const handleSave = () => {
-    const validationError = validate()
-    if (validationError) {
-      setError(validationError)
+    const isValid = validate()
+    if (!isValid) {
       return false
     }
 
-    setError(null)
+    setNameError(null)
+    setEmailError(null)
+    setPasswordError(null)
     onSave(form)
     return true
   }
@@ -142,10 +162,14 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             <Label className="mb-2 block text-sm font-medium">Name</Label>
             <Input
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, name: e.target.value })
+                if (nameError) setNameError(null)
+              }}
               placeholder="User name"
               className="border-white/10 bg-white/[0.04]"
             />
+            {nameError ? <div className="mt-2 text-sm text-rose-400">{nameError}</div> : null}
           </div>
 
           <div>
@@ -155,11 +179,12 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
               value={form.email}
               onChange={(e) => {
                 setForm({ ...form, email: e.target.value })
-                if (error) setError(null)
+                if (emailError) setEmailError(null)
               }}
               placeholder="user@email.com"
               className="border-white/10 bg-white/[0.04]"
             />
+            {emailError ? <div className="mt-2 text-sm text-rose-400">{emailError}</div> : null}
           </div>
 
           <div>
@@ -169,22 +194,18 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             <Input
               type="password"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, password: e.target.value })
+                if (passwordError) setPasswordError(null)
+              }}
               placeholder={user ? "Leave empty to keep current" : "Enter password"}
               className="border-white/10 bg-white/[0.04]"
             />
+            {passwordError ? <div className="mt-2 text-sm text-rose-400">{passwordError}</div> : null}
           </div>
         </div>
 
         <div className="mt-8 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            {error ? (
-              <div className="mb-0 max-w-[36rem] truncate rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-sm text-rose-100">
-                {error}
-              </div>
-            ) : null}
-          </div>
-
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
