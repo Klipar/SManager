@@ -1,11 +1,13 @@
 import React from "react"
 import { sendCoreRequest } from "@/lib/ws"
+import { useUser } from "@/contexts/UserContext"
 import { UsersTable } from "./UsersTable"
 import { EditUserModal } from "./EditUserModal"
 import { DeleteUserModal } from "./DeleteUserModal"
 import type { AdminUser, EditUserForm } from "@/types"
 
 export function AdminPanel() {
+  const { user: currentUser, logout: contextLogout } = useUser()
   const [users, setUsers] = React.useState<AdminUser[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -14,6 +16,7 @@ export function AdminPanel() {
   const [deletingUser, setDeletingUser] = React.useState<AdminUser | null>(null)
   const [isDeleteModalOpen, setIsDeleteModalOpen] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
+  const [deleteError, setDeleteError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     loadUsers()
@@ -58,27 +61,42 @@ export function AdminPanel() {
 
   const handleDeleteUser = (user: AdminUser) => {
     setDeletingUser(user)
+    setDeleteError(null)
     setIsDeleteModalOpen(true)
   }
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async (password?: string) => {
     if (!deletingUser) return
+    const isSelfDeletion = deletingUser.id === currentUser?.id
+
     setIsSaving(true)
-    sendCoreRequest("remove-user", { id: deletingUser.id })
-      .then((res) => {
-        if (res?.status === "ok") {
-          setUsers((prev) => prev.filter((user) => user.id !== deletingUser.id))
-          setIsDeleteModalOpen(false)
-          setDeletingUser(null)
-        } else {
-          alert(res?.message ?? "Failed to delete user")
+
+    try {
+      const res = await sendCoreRequest("remove-user", {
+        id: deletingUser.id,
+        ...(password ? { password } : {}),
+      })
+
+      if (res?.status === "ok") {
+        setIsDeleteModalOpen(false)
+        setDeletingUser(null)
+        setDeleteError(null)
+
+        if (isSelfDeletion) {
+          await contextLogout()
+          return
         }
-      })
-      .catch((e) => {
-        console.error("[AdminPanel] Delete error:", e)
-        alert("Error deleting user")
-      })
-      .finally(() => setIsSaving(false))
+
+        setUsers((prev) => prev.filter((user) => user.id !== deletingUser.id))
+      } else {
+        setDeleteError(res?.message ?? "Failed to delete user")
+      }
+    } catch (e) {
+      console.error("[AdminPanel] Delete error:", e)
+      setDeleteError("Error deleting user")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleSaveUser = (data: EditUserForm) => {
@@ -201,9 +219,12 @@ export function AdminPanel() {
       <DeleteUserModal
         open={isDeleteModalOpen}
         user={deletingUser}
+        requirePassword={deletingUser?.id === currentUser?.id}
+        error={deleteError}
         onClose={() => {
           setIsDeleteModalOpen(false)
           setDeletingUser(null)
+          setDeleteError(null)
         }}
         onConfirm={handleConfirmDelete}
         isDeleting={isSaving}
