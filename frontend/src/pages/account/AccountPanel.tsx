@@ -191,7 +191,15 @@ export default function AccountPanel() {
         </div>
       </div>
 
-      <DeleteAccountModal open={modalOpen} onClose={() => setModalOpen(false)} onConfirm={handleDeleteConfirm} error={error} />
+      <DeleteAccountModal
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false)
+          setError(null)
+        }}
+        onConfirm={handleDeleteConfirm}
+        error={error}
+      />
     </>
   )
 }

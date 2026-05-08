@@ -102,12 +102,6 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
           </div>
         )}
 
-        {error ? (
-          <div className="mb-6 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-            {error}
-          </div>
-        ) : null}
-
         <div className="space-y-6">
           <div>
             <Label className="mb-2 block text-sm font-medium">Role</Label>
@@ -183,24 +177,34 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
         </div>
 
         <div className="mt-8 flex items-center justify-between gap-3">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isSaving}
-            className="border-white/10 text-white/70 hover:text-white disabled:opacity-50"
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={isSaving}
-            className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:scale-100"
-            onClick={() => {
-              const saved = handleSave()
-              if (saved) onClose()
-            }}
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </Button>
+          <div className="min-w-0">
+            {error ? (
+              <div className="mb-0 max-w-[36rem] truncate rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-2 text-sm text-rose-100">
+                {error}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isSaving}
+              className="border-white/10 text-white/70 hover:text-white disabled:opacity-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={isSaving}
+              className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:scale-100"
+              onClick={() => {
+                const saved = handleSave()
+                if (saved) onClose()
+              }}
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+          </div>
         </div>
       </div>
     </div>
