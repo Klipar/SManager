@@ -24,8 +24,21 @@ function LoginForm({ onSuccess }: LoginFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const validateForm = () => {
+    if (!formState.username.trim()) return "Username is required"
+    if (!formState.password.trim()) return "Password is required"
+    return null
+  }
+
   const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement, SubmitEvent>) => {
     event.preventDefault()
+
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
@@ -89,7 +102,7 @@ function LoginForm({ onSuccess }: LoginFormProps) {
       <Button
         type="submit"
         className="h-12 w-full rounded-xl text-base font-medium tracking-wide"
-        disabled={isSubmitting}
+        disabled={isSubmitting || !formState.username.trim() || !formState.password.trim()}
       >
         {isSubmitting ? "Signing in..." : "LOGIN"}
       </Button>

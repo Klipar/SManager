@@ -59,6 +59,8 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
     if (!form.name.trim()) return "Name is required"
     if (!form.email.trim()) return "Email is required"
     if (!isValidEmail(form.email)) return "Email must be a valid address like user@example.com"
+    if (!user && !form.password.trim()) return "Password is required"
+    if (form.password && form.password.trim().length === 0) return "Password must have at least 1 character"
     return null
   }
 
