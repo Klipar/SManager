@@ -18,6 +18,7 @@ type Props = {
 }
 
 type ScriptKind = "install" | "run" | "delete"
+type RestartPolicyOption = RestartPolicy | "choose"
 
 const scriptTitles: Record<ScriptKind, string> = {
   install: "Install script",
@@ -38,7 +39,7 @@ export function CreateTaskPanel({ agent }: Props) {
   const dragDepthRef = React.useRef(0)
   const [name, setName] = React.useState("")
   const [description, setDescription] = React.useState("")
-  const [restartPolicy, setRestartPolicy] = React.useState<RestartPolicy>("no")
+  const [restartPolicy, setRestartPolicy] = React.useState<RestartPolicyOption>("choose")
   const [editorOpen, setEditorOpen] = React.useState(false)
   const [editorKind, setEditorKind] = React.useState<ScriptKind>("install")
   const [editorCode, setEditorCode] = React.useState("")
@@ -50,6 +51,13 @@ export function CreateTaskPanel({ agent }: Props) {
   })
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  const [nameError, setNameError] = React.useState<string | null>(null)
+  const [restartPolicyError, setRestartPolicyError] = React.useState<string | null>(null)
+
+  const restartPolicyLabel =
+    restartPolicy === "choose"
+      ? "Choose restart policy"
+      : restartPolicy
 
   function openEditor(kind: ScriptKind) {
     setErrorMessage(null)
@@ -135,10 +143,17 @@ export function CreateTaskPanel({ agent }: Props) {
     }
 
     if (!name.trim()) {
-      setErrorMessage("Task name is required.")
+      setNameError("Task name is required.")
       return
     }
 
+    if (restartPolicy === "choose") {
+      setRestartPolicyError("Restart policy is required.")
+      return
+    }
+
+    setNameError(null)
+    setRestartPolicyError(null)
     setIsSubmitting(true)
     setErrorMessage(null)
 
@@ -183,7 +198,15 @@ export function CreateTaskPanel({ agent }: Props) {
       </div>
       <div className="mb-6">
         <label className="mb-2 block font-medium">Enter task name:</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Task name" />
+        <Input
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (nameError) setNameError(null)
+          }}
+          placeholder="Task name"
+        />
+        {nameError ? <div className="mt-2 text-sm text-rose-400">{nameError}</div> : null}
       </div>
 
       <div className="mb-6">
@@ -220,7 +243,7 @@ export function CreateTaskPanel({ agent }: Props) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="w-full rounded-2xl border border-white/[0.04] bg-[#081017] px-4 py-3 pr-12 text-left text-white shadow-sm">
-                <span className="truncate">{restartPolicy || "Choose restart policy"}</span>
+                <span className="truncate">{restartPolicyLabel}</span>
                 <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-white/75">
                   <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
@@ -231,14 +254,25 @@ export function CreateTaskPanel({ agent }: Props) {
               sideOffset={8}
               className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)] rounded-2xl border border-white/[0.04] bg-[#12161d] p-1.5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
             >
-              <DropdownMenuItem onClick={() => setRestartPolicy("no")}>Choose restart policy</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRestartPolicy("no")}>No</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRestartPolicy("always")}>Always</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRestartPolicy("on-failure")}>On Failure</DropdownMenuItem>
+              <DropdownMenuItem disabled>Choose restart policy</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setRestartPolicy("no")
+                if (restartPolicyError) setRestartPolicyError(null)
+              }}>No</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setRestartPolicy("always")
+                if (restartPolicyError) setRestartPolicyError(null)
+              }}>Always</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                setRestartPolicy("on-failure")
+                if (restartPolicyError) setRestartPolicyError(null)
+              }}>On Failure</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+
+      {restartPolicyError ? <div className="mb-4 text-sm text-rose-400">{restartPolicyError}</div> : null}
 
       {errorMessage ? (
         <div className="mb-4 rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
