@@ -14,7 +14,7 @@ function DeleteAccountModal({ open, onClose, onConfirm, error }: { open: boolean
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
       <div className="absolute inset-0 bg-black/75" onClick={onClose} />
 
-      <div className="relative z-10 w-[760px] rounded-xl border border-red-500/20 bg-[#0b0f13] p-8 text-white shadow-lg">
+      <div className="relative z-10 w-[760px] max-h-[90vh] overflow-y-auto rounded-xl border border-red-500/20 bg-[#0b0f13] p-8 text-white shadow-lg">
         <div className="mb-6 flex items-start gap-4">
           <div className="flex size-14 items-center justify-center rounded-xl bg-red-500/15">
             <svg className="size-7 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>

@@ -49,7 +49,7 @@ export function DeleteUserModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
       <div className="absolute inset-0 bg-black/75" onClick={onClose} />
-      <div className="relative z-10 w-[480px] rounded-xl border border-red-500/20 bg-[#0b0f13] p-8 text-white shadow-lg">
+      <div className="relative z-10 w-[480px] max-h-[90vh] overflow-y-auto rounded-xl border border-red-500/20 bg-[#0b0f13] p-8 text-white shadow-lg">
         <div className="mb-6 flex items-start gap-4">
           <div className="flex size-12 items-center justify-center rounded-xl bg-red-500/15">
             <AlertTriangle className="size-6 text-red-500" />

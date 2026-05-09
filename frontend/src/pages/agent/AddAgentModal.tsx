@@ -103,7 +103,7 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
-      <div className="relative z-10 w-[600px] border border-white/[0.04] bg-[#0b0f13] p-8 text-white shadow-lg rounded-xl text-left">
+      <div className="relative z-10 w-[600px] max-h-[90vh] overflow-y-auto border border-white/[0.04] rounded-xl bg-[#0b0f13] p-8 text-left text-white shadow-lg">
         <div className="mb-6">
           <h2 className="text-3xl font-medium text-left">{title ?? "Add new Agent"}</h2>
         </div>

@@ -297,7 +297,7 @@ export function CreateTaskPanel({ agent }: Props) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-8" onDragEnter={handleDragEnter} onDragOver={handleDragEvent} onDragLeave={handleDragLeave} onDrop={handleDrop}>
           <div className="absolute inset-0 bg-black/60" onClick={() => setEditorOpen(false)} />
           <Card className={[
-            "relative z-10 w-[820px] border bg-[#0b0f13] p-6 text-white shadow-lg transition-colors",
+            "relative z-10 w-[820px] max-h-[90vh] overflow-y-auto border bg-[#0b0f13] p-6 text-white shadow-lg transition-colors",
             isDragActive ? "border-emerald-400/70 ring-2 ring-emerald-400/30" : "border-white/[0.04]",
           ].join(" ")}>
             <div className="flex items-center justify-between">
