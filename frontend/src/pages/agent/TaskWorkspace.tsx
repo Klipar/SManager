@@ -153,20 +153,22 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                       {statusLabel[selectedTask.status]}
                     </p>
                     <p className="text-sm text-white/70">Started: {selectedLog.startedAt}</p>
-                    <p className="text-sm text-white/70">Working: 5 days 6 hours 7 minutes 52 seconds</p>
+                    <p className="text-sm text-white/70">Working: 5 days 6 hours 7 minutes</p>
                     <div className="pt-3 text-sm text-white/72">
                       <p>Created by core: {selectedTask.createdByCore}</p>
                       <p className="mt-2">Restart policy: {selectedTask.restartPolicy}</p>
                     </div>
                   </div>
 
-                  <Card className="rounded-3xl border-white/[0.05] bg-white/[0.04] shadow-none">
-                    <CardHeader className="pb-2">
-                      <h4 className="text-center text-base font-medium text-white/88">Task Name</h4>
+                  <Card className="flex max-h-60 flex-col overflow-hidden rounded-3xl border-white/[0.05] bg-white/[0.04] shadow-none">
+                    <CardHeader className="pb-1">
+                      <div className="px-1">
+                        <h4 className="text-center text-base font-medium text-white/88">{selectedTask.name}</h4>
+                      </div>
                     </CardHeader>
-                    <CardContent>
-                      <div className="rounded-2xl border border-white/[0.05] bg-white/[0.03] p-3 text-sm text-white/74">
-                        <p>{selectedTask.description}</p>
+                    <CardContent className="min-h-0 flex-1 overflow-hidden p-3">
+                      <div className="h-full overflow-auto rounded-2xl border border-white/[0.05] bg-white/[0.03] p-2 text-sm text-white/74">
+                        <p className="whitespace-pre-wrap text-sm text-white/74">{selectedTask.description ?? ""}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -174,12 +176,12 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
               </div>
             </div>
 
-            <div className="p-4">
+            <div className="max-h-96 p-4">
               <h3 className="mb-3 text-4xl font-medium tracking-tight text-white/90">Output:</h3>
-              <div className="h-full rounded-xl border border-white/[0.05] bg-white/[0.03] p-3">
-                <pre className="overflow-auto whitespace-pre-wrap text-sm leading-6 text-white/76">
-                  {selectedLog.output.join("\n")}
-                </pre>
+              <div className="flex h-full max-h-[22rem] flex-col overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03]">
+                <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+                  <pre className="m-0 whitespace-pre-wrap text-sm leading-6 text-white/76">{selectedLog.output.join("\n")}</pre>
+                </div>
               </div>
             </div>
           </div>
