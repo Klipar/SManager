@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react"
+import TextareaAutosize from "react-textarea-autosize"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -123,8 +124,10 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
 
           <div>
             <Label className="mb-1 block text-sm text-white/80">Description</Label>
-            <textarea
-              className="mt-2 min-h-24 max-h-64 w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white shadow-sm outline-none transition-colors placeholder:text-white/35 focus:border-white/20 focus:ring-2 focus:ring-white/10"
+            <TextareaAutosize
+              minRows={3}
+              maxRows={12}
+              className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm text-white shadow-sm outline-none transition-colors placeholder:text-white/35 focus:border-white/20 focus:ring-2 focus:ring-white/10"
               value={description}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
               placeholder="Optional description"

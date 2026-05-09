@@ -7,8 +7,8 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { useState } from "react"
 import { useApp } from "@/contexts/AppContext"
 import { sendCoreRequest } from "@/lib/ws"
-import { AddAgentModal } from "./AddAgentModal"
-import DeleteAgentModal from "./DeleteAgentModal"
+import { AddAgentModal } from "../agent/AddAgentModal"
+import DeleteAgentModal from "../agent/DeleteAgentModal"
 
 import type { Agent, ScriptType, Task, TaskLog } from "@/types"
 

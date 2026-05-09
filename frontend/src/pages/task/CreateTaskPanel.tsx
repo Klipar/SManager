@@ -1,4 +1,5 @@
 import React from "react"
+import TextareaAutosize from "react-textarea-autosize"
 import { useNavigate } from "react-router-dom"
 import { Input } from "@/components/ui/input"
 import {
@@ -211,12 +212,13 @@ export function CreateTaskPanel({ agent }: Props) {
 
       <div className="mb-6">
         <label className="mb-2 block font-medium">Enter task description:</label>
-        <textarea
+        <TextareaAutosize
+          minRows={6}
+          maxRows={12}
           value={description}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setDescription(e.target.value)}
-          rows={6}
           placeholder="Task description..."
-          className="flex w-full min-h-32 max-h-64  rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-white/35 focus:border-white/20 focus:ring-2 focus:ring-white/10"
+          className="flex w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-foreground shadow-sm outline-none transition-colors placeholder:text-white/35 focus:border-white/20 focus:ring-2 focus:ring-white/10"
         />
       </div>
 
@@ -304,7 +306,13 @@ export function CreateTaskPanel({ agent }: Props) {
             </div>
 
             <div className="mt-4">
-              <textarea className="mt-2 min-h-72 max-h-[70vh] w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white shadow-sm outline-none transition-colors placeholder:text-white/35 focus:border-white/20 focus:ring-2 focus:ring-white/10" value={editorCode} onChange={(e) => setEditorCode(e.target.value)} />
+              <TextareaAutosize
+                minRows={12}
+                maxRows={27}
+                className="mt-2 w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white shadow-sm outline-none transition-colors placeholder:text-white/35 focus:border-white/20 focus:ring-2 focus:ring-white/10"
+                value={editorCode}
+                onChange={(e) => setEditorCode(e.target.value)}
+              />
             </div>
 
             <div className="mt-4 flex justify-between">
