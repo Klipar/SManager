@@ -20,6 +20,7 @@ type AppContextType = {
   selectedLogId: string | null;
   expandedAgentId: string | null;
   createTaskAgentId: string | null;
+  createTaskModalOpen: boolean;
   isSidebarCollapsed: boolean;
   sidebarWidth: number;
   tasksByAgentId: Record<string, Task[]>;
@@ -28,10 +29,13 @@ type AppContextType = {
   setSelectedLogId: (id: string | null) => void;
   setExpandedAgentId: (id: string | null) => void;
   setCreateTaskAgentId: (id: string | null) => void;
+  setCreateTaskModalOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSidebarWidth: (width: number) => void;
   addAgent: (payload: any) => Promise<void>;
   createTask: (payload: CreateTaskPayload) => Promise<string | null>;
+  saveTaskRecord: (taskId: string, updates: Partial<Omit<StoredTaskRecord, "id">>) => Promise<boolean>;
+  removeTaskRecord: (taskId: string) => Promise<boolean>;
   runTask: (taskId: string, scriptType: ScriptType) => Promise<boolean>;
   stopTask: (taskId: string) => Promise<boolean>;
   refreshAgents: () => void;
@@ -68,6 +72,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
   const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(null);
+  const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(228);
   const [taskStore, setTaskStore] = useState<Record<string, StoredTaskRecord>>(() => loadTaskStore());
@@ -84,6 +89,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (saved.selectedTaskId) setSelectedTaskId(saved.selectedTaskId);
     if (saved.selectedLogId) setSelectedLogId(saved.selectedLogId);
     if (saved.createTaskAgentId) setCreateTaskAgentId(saved.createTaskAgentId);
+    if (saved.createTaskModalOpen !== undefined) setCreateTaskModalOpen(saved.createTaskModalOpen);
     if (saved.isSidebarCollapsed !== undefined) setIsSidebarCollapsed(saved.isSidebarCollapsed);
     if (saved.sidebarWidth) setSidebarWidth(saved.sidebarWidth);
   }, []);
@@ -95,10 +101,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       selectedTaskId,
       selectedLogId,
       createTaskAgentId,
+      createTaskModalOpen,
       isSidebarCollapsed,
       sidebarWidth,
     });
-  }, [selectedAgentId, expandedAgentId, selectedTaskId, selectedLogId, createTaskAgentId, isSidebarCollapsed, sidebarWidth]);
+  }, [selectedAgentId, expandedAgentId, selectedTaskId, selectedLogId, createTaskAgentId, createTaskModalOpen, isSidebarCollapsed, sidebarWidth]);
 
   const refreshAgents = useCallback(async () => {
     try {
@@ -242,9 +249,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSelectedTaskId(taskRecord.id);
     setSelectedLogId(null);
     setCreateTaskAgentId(payload.agentId);
+    setCreateTaskModalOpen(false);
 
     await refreshTasks(nextTaskStore);
     return taskRecord.id;
+  }, [refreshTasks, taskStore]);
+
+  const saveTaskRecord = useCallback(async (taskId: string, updates: Partial<Omit<StoredTaskRecord, "id">>) => {
+    const currentTask = taskStore[taskId];
+    if (!currentTask) {
+      return false;
+    }
+
+    const nextTask: StoredTaskRecord = {
+      ...currentTask,
+      ...updates,
+      id: taskId,
+      agentId: updates.agentId ?? currentTask.agentId,
+    };
+
+    const nextTaskStore = {
+      ...taskStore,
+      [taskId]: nextTask,
+    };
+
+    setTaskStore(nextTaskStore);
+    await refreshTasks(nextTaskStore);
+    return true;
+  }, [refreshTasks, taskStore]);
+
+  const removeTaskRecord = useCallback(async (taskId: string) => {
+    const nextTaskStore = { ...taskStore };
+    delete nextTaskStore[taskId];
+
+    setTaskStore(nextTaskStore);
+    await refreshTasks(nextTaskStore);
+    return Boolean(taskStore[taskId]);
   }, [refreshTasks, taskStore]);
 
   const runTask = useCallback(async (taskId: string, scriptType: ScriptType) => {
@@ -351,6 +391,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     selectedLogId,
     expandedAgentId,
     createTaskAgentId,
+    createTaskModalOpen,
     isSidebarCollapsed,
     sidebarWidth,
     tasksByAgentId,
@@ -359,10 +400,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSelectedLogId,
     setExpandedAgentId,
     setCreateTaskAgentId,
+    setCreateTaskModalOpen,
     toggleSidebar,
     setSidebarWidth,
     addAgent,
     createTask,
+    saveTaskRecord,
+    removeTaskRecord,
     runTask,
     stopTask,
     refreshAgents,

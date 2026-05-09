@@ -101,7 +101,7 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative z-10 w-[600px] max-h-[90vh] overflow-y-auto rounded-xl border border-white/[0.04] bg-[#0b0f13] p-8 text-white shadow-lg">
         <div className="mb-6">
-          <h2 className="text-3xl font-medium">{user ? "Edit User" : "Add User"}</h2>
+          <h2 className="text-3xl font-medium">{user ? "Edit User" : "Add new User"}</h2>
         </div>
 
         {user && (
@@ -206,26 +206,24 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
         </div>
 
         <div className="mt-8 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              disabled={isSaving}
-              className="border-white/10 text-white/70 hover:text-white disabled:opacity-50"
-            >
-              Cancel
-            </Button>
-            <Button
-              disabled={isSaving}
-              className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:scale-100"
-              onClick={() => {
-                const saved = handleSave()
-                if (saved) onClose()
-              }}
-            >
-              {isSaving ? "Saving..." : "Save"}
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={isSaving}
+            className="border-white/10 text-white/70 hover:text-white disabled:opacity-50"
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={isSaving}
+            className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:scale-100"
+            onClick={() => {
+              const saved = handleSave()
+              if (saved) onClose()
+            }}
+          >
+            {isSaving ? "Saving..." : user ? "Save user" : "Create user"}
+          </Button>
         </div>
       </div>
     </div>

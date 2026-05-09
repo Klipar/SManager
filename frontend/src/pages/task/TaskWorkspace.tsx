@@ -9,6 +9,8 @@ import { useApp } from "@/contexts/AppContext"
 import { sendCoreRequest } from "@/lib/ws"
 import { AddAgentModal } from "../agent/AddAgentModal"
 import DeleteAgentModal from "../agent/DeleteAgentModal"
+import AddTaskModal from "./AddTaskModal"
+import DeleteTaskModal from "./DeleteTaskModal"
 
 import type { Agent, ScriptType, Task, TaskLog } from "@/types"
 
@@ -132,7 +134,11 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
         </ScrollArea>
       </div>
 
-      <div className="min-h-[34rem]">
+      <div className="relative min-h-[34rem]">
+        <div className="absolute right-4 top-4 z-20">
+          <TaskMenu agent={agent} task={selectedTask} />
+        </div>
+
         <div className="grid h-full grid-rows-[auto_1fr]">
           <div className="p-4 pt-3">
             <div className="rounded-3xl border border-white/[0.05] bg-white/[0.035] p-4">
@@ -183,6 +189,89 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
         </div>
       </div>
     </div>
+  )
+}
+
+function TaskMenu({ agent, task }: { agent: Agent; task: Task }) {
+  const { removeTaskRecord, setSelectedTaskId, setSelectedLogId, saveTaskRecord } = useApp()
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true)
+    setDeleteError(null)
+
+    try {
+      const res = await sendCoreRequest("remove-task", { id: Number(task.id) })
+      if (res?.status === "ok") {
+        await removeTaskRecord(task.id)
+        setSelectedTaskId(null)
+        setSelectedLogId(null)
+        setShowDelete(false)
+      } else {
+        setDeleteError(res?.message ?? "Failed to delete task")
+      }
+    } catch (error) {
+      setDeleteError(String(error))
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleEditSave = async (payload: any) => {
+    if (payload.id) {
+      // Edit mode
+      await saveTaskRecord(payload.id, payload.updates)
+    }
+    setShowEdit(false)
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="rounded-xl transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">
+            <MoreHorizontal className="size-5 text-white/70" />
+          </button>
+        </DropdownMenuTrigger>
+
+        <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-44 rounded-2xl border border-white/[0.04] bg-[#12161d]/95 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowEdit(true)}>
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowDelete(true)}>
+            Delete
+          </DropdownMenuItem>
+          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => undefined}>
+            Export
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AddTaskModal
+        open={showEdit}
+        task={task}
+        agent={agent}
+        onClose={() => setShowEdit(false)}
+        onSave={handleEditSave}
+        title="Edit Task"
+      />
+
+      <DeleteTaskModal
+        open={showDelete}
+        task={task}
+        agent={agent}
+        onClose={() => {
+          setShowDelete(false)
+          setDeleteError(null)
+        }}
+        onConfirm={handleDeleteConfirm}
+        isDeleting={isDeleting}
+        error={deleteError}
+      />
+    </>
   )
 }
 

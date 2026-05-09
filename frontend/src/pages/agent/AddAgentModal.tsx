@@ -34,6 +34,8 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
 
   if (!open) return null
 
+  const isEditing = !!initial?.name
+
   const isValidIpOrHost = (value: string) => {
     const trimmed = value.trim()
     if (!trimmed) return false
@@ -177,7 +179,7 @@ function AddAgentModal({ open, onClose, onSave, initial, title }: AddAgentModalP
               if (saved) onClose()
             }}
           >
-            Save
+            {isEditing ? "Save agent" : "Create agent"}
           </Button>
         </div>
       </div>
