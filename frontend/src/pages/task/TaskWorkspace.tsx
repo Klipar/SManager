@@ -49,9 +49,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
   if (!selectedTask) {
     return (
       <div className="relative flex min-h-[calc(100vh-16rem)] items-center justify-center px-8 pb-8 pt-40 text-center md:pt-56">
-        <div className="absolute right-0.5 top-1">
-          <AgentMenu agent={agent} />
-        </div>
+        <AgentMenu agent={agent} />
 
         <div>
           <h2 className="text-5xl font-semibold tracking-tight text-white/92">Select Task</h2>
@@ -135,9 +133,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
       </div>
 
       <div className="relative min-h-[34rem]">
-        <div className="absolute right-4 top-4 z-20">
-          <TaskMenu agent={agent} task={selectedTask} />
-        </div>
+        <TaskMenu agent={agent} task={selectedTask} />
 
         <div className="grid h-full grid-rows-[auto_1fr]">
           <div className="p-4 pt-3">
@@ -230,25 +226,28 @@ function TaskMenu({ agent, task }: { agent: Agent; task: Task }) {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="rounded-xl transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">
-            <MoreHorizontal className="size-5 text-white/70" />
-          </button>
-        </DropdownMenuTrigger>
+      <button className="fixed right-6 top-6 z-50 p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40" style={{
+        backgroundImage: 'radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+        borderRadius: '9999px',
+      }}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <MoreHorizontal className="size-5 text-white/90" />
+          </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-44 rounded-2xl border border-white/[0.04] bg-[#12161d]/95 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowEdit(true)}>
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowDelete(true)}>
-            Delete
-          </DropdownMenuItem>
-          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => undefined}>
-            Export
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-44 rounded-2xl border border-white/[0.04] bg-[#12161d]/95 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+            <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowEdit(true)}>
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowDelete(true)}>
+              Delete
+            </DropdownMenuItem>
+            <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => undefined}>
+              Export
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </button>
 
       <AddTaskModal
         open={showEdit}
@@ -326,22 +325,25 @@ function AgentMenu({ agent }: { agent: Agent | null }) {
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button className="rounded-xl transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40">
-            <MoreHorizontal className="size-5 text-white/70" />
-          </button>
-        </DropdownMenuTrigger>
+      <button className="fixed right-6 top-6 z-50 p-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40" style={{
+        backgroundImage: 'radial-gradient(circle, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)',
+        borderRadius: '9999px',
+      }}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <MoreHorizontal className="size-5 text-white/80" />
+          </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-44 rounded-2xl border border-white/[0.04] bg-[#12161d]/95 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
-          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowEdit(true)}>
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowDelete(true)}>
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          <DropdownMenuContent align="end" side="bottom" sideOffset={8} className="w-44 rounded-2xl border border-white/[0.04] bg-[#12161d]/95 p-1.5 shadow-[0_24px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+            <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowEdit(true)}>
+              Edit
+            </DropdownMenuItem>
+            <DropdownMenuItem className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm text-white/76 focus:bg-white/[0.04] focus:text-white" onSelect={() => setShowDelete(true)}>
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </button>
 
       <AddAgentModal
         open={showEdit}
