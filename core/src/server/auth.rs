@@ -28,6 +28,10 @@ pub fn is_action_allowed(action: &str, data: &Option<Value>, ctx: &ConnectionCon
         return true;
     }
 
+    if matches!(action, "get-all-users" | "new-user") {
+        return false;
+    }
+
     match action {
         "update-user" | "remove-user" => {
             match (ctx.user_id, get_target_user_id(data)) {
@@ -35,7 +39,7 @@ pub fn is_action_allowed(action: &str, data: &Option<Value>, ctx: &ConnectionCon
                 _ => false,
             }
         }
-        _ => false,
+        _ => true,
     }
 }
 

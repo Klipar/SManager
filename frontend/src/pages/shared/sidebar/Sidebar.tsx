@@ -23,6 +23,7 @@ function Sidebar({ onOpenAddAgent }: SidebarProps) {
     setSelectedTaskId,
     setExpandedAgentId,
     setCreateTaskAgentId,
+    setCreateTaskModalOpen,
     isSidebarCollapsed,
     toggleSidebar,
     sidebarWidth,
@@ -59,7 +60,7 @@ function Sidebar({ onOpenAddAgent }: SidebarProps) {
 
   const handleAddTask = (agentId: string) => {
     setCreateTaskAgentId(agentId);
-    navigate(`/task/new/${agentId}`);
+    setCreateTaskModalOpen(true);
   };
 
   return (

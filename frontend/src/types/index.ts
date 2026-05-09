@@ -15,7 +15,6 @@ export type UserData = {
   name?: string;
   email?: string;
   is_admin?: boolean;
-  last_update?: string | null;
 };
 
 // --- Agent ---
@@ -80,9 +79,9 @@ export type AdminUser = {
   name: string;
   email: string;
   role: UserRole;
-  lastLogin: string | null;
-  lastUpdate: string;
   createdAt?: string;
+  updatedAt: string;
+  lastLogin: string | null;
 };
 
 export type EditUserForm = {

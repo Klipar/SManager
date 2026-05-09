@@ -18,7 +18,7 @@ function AddAgentButton({ isCollapsed, onOpen }: AddAgentButtonProps) {
       <span className="flex size-4 items-center justify-center rounded-full text-white/80">
         <Plus className="size-3.5" aria-hidden="true" />
       </span>
-      {!isCollapsed ? <span>Add Agent</span> : null}
+      {!isCollapsed ? <span>New Agent</span> : null}
     </Button>
   )
 }

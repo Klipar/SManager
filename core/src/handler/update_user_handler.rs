@@ -76,8 +76,7 @@ impl HandlerTrait for UpdateUserHandler {
 
         let password_hash = dto.password.as_ref().map(|pwd| get_hash(pwd));
 
-        let updated_user = sqlx::query_as!(
-            UserResponseDto,
+        let updated_user = sqlx::query_as::<_, UserResponseDto>(
             r#"
             UPDATE users
             SET
@@ -86,24 +85,25 @@ impl HandlerTrait for UpdateUserHandler {
                 password = COALESCE($3, password),
                 is_admin = COALESCE($4, is_admin),
                 gui_settings = COALESCE($5::jsonb, gui_settings),
-                last_update = NOW()
+                updated_at = NOW()
             WHERE id = $6
             RETURNING
                 id,
                 name,
                 email,
-                COALESCE(is_admin, FALSE) AS "is_admin!",
-                last_login AS "last_login?: chrono::NaiveDateTime",
-                last_update AS "last_update?: chrono::NaiveDateTime",
+                COALESCE(is_admin, FALSE) as is_admin,
+                created_at,
+                updated_at,
+                last_login,
                 gui_settings
-            "#,
-            dto.name,
-            dto.email,
-            password_hash,
-            dto.is_admin,
-            dto.gui_settings,
-            dto.id
+            "#
         )
+        .bind(dto.name)
+        .bind(dto.email)
+        .bind(password_hash)
+        .bind(dto.is_admin)
+        .bind(dto.gui_settings)
+        .bind(dto.id)
         .fetch_one(&*self.pool)
         .await;
 

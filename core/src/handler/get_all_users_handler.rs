@@ -21,16 +21,16 @@ impl GetAllUsersHandler {
 impl HandlerTrait for GetAllUsersHandler {
     async fn handle(&self, _data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
         info!("Received request for extracting all users");
-        let users = sqlx::query_as!(
-            UsersDTO,
+        let users = sqlx::query_as::<_, UsersDTO>(
             r#"
             SELECT
                 id,
                 name,
                 email,
-                COALESCE(is_admin, FALSE) AS "is_admin!",
-                last_login,
-                last_update
+                COALESCE(is_admin, FALSE) as is_admin,
+                created_at,
+                updated_at,
+                last_login
             FROM users
             "#
         )

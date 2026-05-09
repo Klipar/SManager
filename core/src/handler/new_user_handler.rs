@@ -46,8 +46,7 @@ impl HandlerTrait for NewUserHandler {
             }
         };
 
-        let inserted = sqlx::query_as!(
-            UserResponseDto,
+        let inserted = sqlx::query_as::<_, UserResponseDto>(
             r#"
             INSERT INTO users (name, email, password, is_admin)
             VALUES ($1, $2, $3, $4)
@@ -55,16 +54,17 @@ impl HandlerTrait for NewUserHandler {
                 id,
                 name,
                 email,
-                COALESCE(is_admin, FALSE) AS "is_admin!",
-                last_login AS "last_login?: chrono::NaiveDateTime",
-                last_update AS "last_update?: chrono::NaiveDateTime",
+                COALESCE(is_admin, FALSE) as is_admin,
+                created_at,
+                updated_at,
+                last_login,
                 gui_settings
-            "#,
-            dto.name,
-            dto.email,
-            get_hash(&dto.password),
-            dto.is_admin
+            "#
         )
+        .bind(dto.name)
+        .bind(dto.email)
+        .bind(get_hash(&dto.password))
+        .bind(dto.is_admin)
         .fetch_one(&*self.pool)
         .await;
 

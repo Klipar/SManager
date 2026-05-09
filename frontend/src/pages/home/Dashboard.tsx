@@ -1,5 +1,5 @@
 import { useApp } from "@/contexts/AppContext";
-import { TaskWorkspace } from "../agent/TaskWorkspace";
+import { TaskWorkspace } from "../task/TaskWorkspace";
 import { EmptyState } from "../agent/EmptyState";
 
 function Dashboard() {

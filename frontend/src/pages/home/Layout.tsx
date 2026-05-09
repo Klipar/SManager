@@ -1,16 +1,23 @@
-import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Sidebar } from "../shared/sidebar/Sidebar";
 import { AddAgentModal } from "../agent/AddAgentModal";
+import AddTaskModal from "../task/AddTaskModal";
 import { useApp } from "@/contexts/AppContext";
+import { useState } from "react";
 
 function Layout() {
-  const { addAgent } = useApp();
+  const { addAgent, agents, createTaskModalOpen, setCreateTaskModalOpen, createTaskAgentId, createTask } = useApp();
   const [showAddAgent, setShowAddAgent] = useState(false);
 
   const handleSaveAgent = (payload: any) => {
     addAgent(payload).finally(() => setShowAddAgent(false));
   };
+
+  const handleSaveTask = (payload: any) => {
+    createTask(payload).finally(() => setCreateTaskModalOpen(false));
+  };
+
+  const agent = createTaskAgentId ? (agents.find(a => a.id === createTaskAgentId) ?? null) : null;
 
   return (
     <div className="flex min-h-screen w-full flex-col md:flex-row">
@@ -27,6 +34,7 @@ function Layout() {
         </div>
       </main>
       <AddAgentModal open={showAddAgent} onClose={() => setShowAddAgent(false)} onSave={handleSaveAgent} />
+      <AddTaskModal open={createTaskModalOpen} agent={agent} onClose={() => setCreateTaskModalOpen(false)} onSave={handleSaveTask} />
     </div>
   );
 }

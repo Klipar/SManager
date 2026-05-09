@@ -25,6 +25,9 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
     password: "",
     role: "user",
   })
+  const [nameError, setNameError] = React.useState<string | null>(null)
+  const [emailError, setEmailError] = React.useState<string | null>(null)
+  const [passwordError, setPasswordError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (user) {
@@ -42,16 +45,63 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
         role: "user",
       })
     }
+    setNameError(null)
+    setEmailError(null)
+    setPasswordError(null)
   }, [user, open])
 
   if (!open) return null
 
+  const isValidEmail = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return false
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    return emailPattern.test(trimmed)
+  }
+
+  const validate = () => {
+    const nextNameError = !form.name.trim() ? "Name is required" : null
+
+    let nextEmailError: string | null = null
+    if (!form.email.trim()) {
+      nextEmailError = "Email is required"
+    } else if (!isValidEmail(form.email)) {
+      nextEmailError = "Email must be a valid address like user@example.com"
+    }
+
+    let nextPasswordError: string | null = null
+    if (!user && !form.password.trim()) {
+      nextPasswordError = "Password is required"
+    } else if (form.password && form.password.trim().length === 0) {
+      nextPasswordError = "Password must have at least 1 character"
+    }
+
+    setNameError(nextNameError)
+    setEmailError(nextEmailError)
+    setPasswordError(nextPasswordError)
+
+    return !nextNameError && !nextEmailError && !nextPasswordError
+  }
+
+  const handleSave = () => {
+    const isValid = validate()
+    if (!isValid) {
+      return false
+    }
+
+    setNameError(null)
+    setEmailError(null)
+    setPasswordError(null)
+    onSave(form)
+    return true
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-8">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative z-10 w-[600px] border border-white/[0.04] bg-[#0b0f13] p-8 text-white shadow-lg rounded-xl">
+      <div className="relative z-10 w-[600px] max-h-[90vh] overflow-y-auto rounded-xl border border-white/[0.04] bg-[#0b0f13] p-8 text-white shadow-lg">
         <div className="mb-6">
-          <h2 className="text-3xl font-medium">{user ? "Edit User" : "Add User"}</h2>
+          <h2 className="text-3xl font-medium">{user ? "Edit User" : "Add new User"}</h2>
         </div>
 
         {user && (
@@ -97,7 +147,10 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
                   </button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent sideOffset={8} className="w-[600px] rounded-2xl">
+                <DropdownMenuContent
+                  sideOffset={8}
+                  className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)] rounded-2xl border border-white/[0.04] bg-[#12161d] p-1.5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.45)]"
+                >
                   <DropdownMenuItem onClick={() => setForm({ ...form, role: "user" })}>User</DropdownMenuItem>
                   <DropdownMenuItem onClick={() => setForm({ ...form, role: "admin" })}>Admin</DropdownMenuItem>
                 </DropdownMenuContent>
@@ -109,10 +162,14 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             <Label className="mb-2 block text-sm font-medium">Name</Label>
             <Input
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, name: e.target.value })
+                if (nameError) setNameError(null)
+              }}
               placeholder="User name"
               className="border-white/10 bg-white/[0.04]"
             />
+            {nameError ? <div className="mt-2 text-sm text-rose-400">{nameError}</div> : null}
           </div>
 
           <div>
@@ -120,10 +177,14 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             <Input
               type="email"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, email: e.target.value })
+                if (emailError) setEmailError(null)
+              }}
               placeholder="user@email.com"
               className="border-white/10 bg-white/[0.04]"
             />
+            {emailError ? <div className="mt-2 text-sm text-rose-400">{emailError}</div> : null}
           </div>
 
           <div>
@@ -133,10 +194,14 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             <Input
               type="password"
               value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              onChange={(e) => {
+                setForm({ ...form, password: e.target.value })
+                if (passwordError) setPasswordError(null)
+              }}
               placeholder={user ? "Leave empty to keep current" : "Enter password"}
               className="border-white/10 bg-white/[0.04]"
             />
+            {passwordError ? <div className="mt-2 text-sm text-rose-400">{passwordError}</div> : null}
           </div>
         </div>
 
@@ -150,14 +215,14 @@ export function EditUserModal({ open, user, onClose, onSave, isSaving = false }:
             Cancel
           </Button>
           <Button
-            disabled={isSaving || !form.name || !form.email}
+            disabled={isSaving}
             className="bg-emerald-600 shadow-md transition-all hover:scale-105 hover:bg-emerald-700 disabled:opacity-50 disabled:hover:scale-100"
             onClick={() => {
-              onSave(form)
-              onClose()
+              const saved = handleSave()
+              if (saved) onClose()
             }}
           >
-            {isSaving ? "Saving..." : "Save"}
+            {isSaving ? "Saving..." : user ? "Save user" : "Create user"}
           </Button>
         </div>
       </div>

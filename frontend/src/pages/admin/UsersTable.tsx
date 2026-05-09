@@ -37,10 +37,13 @@ export function UsersTable({ users, onEditUser, onAddUser, onDeleteUser }: Users
                 Email
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/60">
-                Last Active
+                Created At
               </th>
               <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/60">
-                Created At
+                Updated At
+              </th>
+              <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider text-white/60">
+                Last Active
               </th>
               <th className="px-6 py-4 text-right text-xs font-medium uppercase tracking-wider text-white/60">
                 Actions
@@ -60,8 +63,9 @@ export function UsersTable({ users, onEditUser, onAddUser, onDeleteUser }: Users
                 </td>
                 <td className="px-6 py-4 text-sm text-white/85">{user.name}</td>
                 <td className="px-6 py-4 text-sm text-white/70">{user.email}</td>
+                <td className="px-6 py-4 text-sm text-white/60">{user.createdAt}</td>
+                <td className="px-6 py-4 text-sm text-white/60">{user.updatedAt}</td>
                 <td className="px-6 py-4 text-sm text-white/60">{user.lastLogin || "Never"}</td>
-                <td className="px-6 py-4 text-sm text-white/60">{user.lastUpdate}</td>
                 <td className="px-6 py-4">
                   <div className="flex items-center justify-end gap-2">
                     <Button

@@ -47,7 +47,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 name: res.data.user.name,
                 email: res.data.user.email,
                 is_admin: res.data.user.is_admin,
-                last_update: res.data.user.last_update,
               };
               setUser(updatedUser);
               try { localStorage.setItem("sm_userData", JSON.stringify(updatedUser)); } catch {}
@@ -82,7 +81,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       name: newUser.name,
       email: newUser.email,
       is_admin: newUser.is_admin,
-      last_update: newUser.last_update,
     };
     try { localStorage.setItem("sm_userData", JSON.stringify(userToSave)); } catch {}
     setToken(newToken);
