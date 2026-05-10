@@ -1,7 +1,7 @@
 use std::{ collections::HashMap, sync::Arc, time::{Duration, Instant}};
 use tokio::{sync::{mpsc, oneshot, Mutex}, time};
-use shared::server::message::Message;
-use log::{error, info, warn};
+use shared::server::message::{Message, Status};
+use log::{debug, error, info, warn};
 use anyhow::Result;
 
 use crate::tls_client::client::AgentClient;
@@ -9,7 +9,6 @@ use crate::tls_client::connection::connect;
 
 const PING_INTERVAL: Duration = Duration::from_secs(20);
 
-/// A pending request waiting for its response.
 struct PendingRequest {
     tx: oneshot::Sender<Message>,
 }
@@ -17,7 +16,6 @@ struct PendingRequest {
 struct Inner {
     pending: HashMap<u64, PendingRequest>,
     next_id: u64,
-    /// IDs that have been used and released - reused before incrementing next_id.
     free_ids: Vec<u64>,
     last_activity: Instant,
 }
@@ -50,10 +48,10 @@ impl Inner {
 pub struct ConnectionManager {
     client: AgentClient,
     inner: Arc<Mutex<Inner>>,
+    stream_tx: Arc<Mutex<Option<mpsc::Sender<Message>>>>,
 }
 
 impl ConnectionManager {
-    /// Connect to agent and spawn background tasks (reader + keepalive).
     pub async fn connect(
         agent_ip: &str,
         agent_port: u16,
@@ -61,11 +59,13 @@ impl ConnectionManager {
     ) -> Result<Self> {
         let framed = connect(agent_ip, agent_port, agent_cn).await?;
         let (client, inbound_rx) = AgentClient::new(framed);
-
         let inner = Arc::new(Mutex::new(Inner::new()));
+        let stream_tx: Arc<Mutex<Option<mpsc::Sender<Message>>>> = Arc::new(Mutex::new(None));
+
         {
             let inner_clone = Arc::clone(&inner);
-            tokio::spawn(Self::reader_task(inbound_rx, inner_clone));
+            let stream_tx_clone = Arc::clone(&stream_tx);
+            tokio::spawn(Self::reader_task(inbound_rx, inner_clone, stream_tx_clone, client.clone()));
         }
         {
             let client_clone = client.clone();
@@ -73,10 +73,64 @@ impl ConnectionManager {
             tokio::spawn(Self::keepalive_task(client_clone, inner_clone));
         }
 
-        Ok(Self { client, inner })
+        Ok(Self { client, inner, stream_tx })
     }
 
-    /// Send a request and await its correlated response.
+    pub async fn subscribe_push(&self) -> mpsc::Receiver<Message> {
+        let (tx, rx) = mpsc::channel(64);
+        *self.stream_tx.lock().await = Some(tx);
+        rx
+    }
+
+    async fn reader_task(
+        mut inbound_rx: mpsc::Receiver<Message>,
+        inner: Arc<Mutex<Inner>>,
+        stream_tx: Arc<Mutex<Option<mpsc::Sender<Message>>>>,
+        client: AgentClient,  // nové
+    ) {
+        while let Some(msg) = inbound_rx.recv().await {
+            match &msg {
+                Message::Request { action, id, .. } if action == "execution_stream" => {
+                    let msg_id = *id;
+
+                    let guard = stream_tx.lock().await;
+                    if let Some(tx) = guard.as_ref() {
+                        if tx.send(msg).await.is_err() {
+                            warn!("[ConnectionManager] Stream receiver dropped");
+                        }
+                    } else {
+                        warn!("[ConnectionManager] Received execution_stream but no subscriber");
+                    }
+                    drop(guard);
+
+                    let ack = Message::Response {
+                        id: msg_id,
+                        status: Status::Ok,
+                        code: 200,
+                        message: "Received execution_stream".to_string(),
+                        data: None,
+                    };
+                    if let Err(e) = client.send(ack).await {
+                        error!("[ConnectionManager] Failed to send ACK: {}", e);
+                    }
+                }
+                Message::Response { id, .. } => {
+                    let id = *id;
+                    let mut state = inner.lock().await;
+                    state.last_activity = Instant::now();
+                    if let Some(pending) = state.pending.remove(&id) {
+                        let _ = pending.tx.send(msg);
+                    } else {
+                        debug!("[ConnectionManager] Ping/unsolicited response for id={}", id);
+                    }
+                }
+                Message::Request { action, .. } => {
+                    warn!("[ConnectionManager] Unknown push action: {}", action);
+                }
+            }
+        }
+        info!("[ConnectionManager] Inbound channel closed");
+    }
     pub async fn request(
         &self,
         action: impl Into<String>,
@@ -112,33 +166,6 @@ impl ConnectionManager {
             }
         }
     }
-
-    async fn reader_task(
-        mut inbound_rx: mpsc::Receiver<Message>,
-        inner: Arc<Mutex<Inner>>,
-    ) {
-        while let Some(msg) = inbound_rx.recv().await {
-            match &msg {
-                Message::Response { id, .. } => {
-                    let id = *id;
-                    let mut state = inner.lock().await;
-                    state.last_activity = Instant::now();
-                    if let Some(pending) = state.pending.remove(&id) {
-                        // Don't free the id here - the caller's request() does it
-                        // after the oneshot resolves, keeping the slot live until then.
-                        let _ = pending.tx.send(msg);
-                    } else {
-                        warn!("[ConnectionManager] Unsolicited response for id={}", id);
-                    }
-                }
-                Message::Request { .. } => {
-                    error!("[ConnectionManager] Unexpected Request from agent - ignoring");
-                }
-            }
-        }
-        info!("[ConnectionManager] Inbound channel closed - agent disconnected");
-    }
-
     async fn keepalive_task(client: AgentClient, inner: Arc<Mutex<Inner>>) {
         let mut ticker = time::interval(Duration::from_secs(1));
         loop {
