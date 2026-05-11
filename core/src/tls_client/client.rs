@@ -2,13 +2,12 @@ use anyhow::Result;
 use futures::{StreamExt, SinkExt};
 use log::{error, info};
 use tokio::sync::mpsc;
-use std::sync::Arc;
 use shared::server::message::Message;
 
 use super::connection::AgentFramed;
 
-// tx — pošli správu
-// rx — prijatá správa
+// tx - transmit
+// rx - receive
 
 #[derive(Clone)]
 pub struct AgentClient {
