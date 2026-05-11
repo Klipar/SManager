@@ -7,28 +7,16 @@ use shared::server::message::{Message, Status};
 use shared::server::dto::new_task_request_dto::NewTaskRequestDTO;
 use shared::server::dto::run_task_dto::RunTaskDTO;
 use shared::db::models::enums::RestartPolicy;
-
+use shared::db::models::task::Task;
 use shared::db::models::run::Run;
 
-#[derive(Deserialize, Debug)]
-pub struct AgentTask {
-    pub id: u64,
-    pub core_id: u64,
-    pub name: String,
-    pub description: Option<String>,
-    pub install_script: Option<String>,
-    pub run_script: Option<String>,
-    pub delete_script: Option<String>,
-    pub restart_policy: RestartPolicy,
-    pub status: String,
-}
 
 // ---- Actions ----
 
 pub async fn new_task(
     manager: &ConnectionManager,
     req: NewTaskRequestDTO,
-) -> Result<AgentTask> {
+) -> Result<Task> {
     let data = serde_json::to_value(&req)?;
     let response = manager.request("new-task", Some(data)).await?;
 
@@ -39,6 +27,53 @@ pub async fn new_task(
         }
         Message::Response { status: Status::Error, message, code, .. } => {
             bail!("new-task failed [{code}]: {message}")
+        }
+        _ => bail!("Unexpected response format"),
+    }
+}
+pub async fn get_all_tasks(manager: &ConnectionManager) -> Result<Vec<Task>> {
+    let response = manager.request("get-all-tasks", None).await?;
+
+    match response {
+        Message::Response { status: Status::Ok, data: Some(data), .. } => {
+            let tasks = data["tasks"].clone();
+            Ok(serde_json::from_value(tasks)?)
+        }
+        Message::Response { status: Status::Error, message, code, .. } => {
+            bail!("get-all-tasks failed [{code}]: {message}")
+        }
+        _ => bail!("Unexpected response format"),
+    }
+}
+pub async fn update_task(
+    manager: &ConnectionManager,
+    req: Task,
+) -> Result<Task> {
+    let data = serde_json::to_value(&req)?;
+    let response = manager.request("update-task", Some(data)).await?;
+
+    match response {
+        Message::Response { status: Status::Ok, data: Some(data), .. } => {
+            let task = data["task"].clone();
+            Ok(serde_json::from_value(task)?)
+        }
+        Message::Response { status: Status::Error, message, code, .. } => {
+            bail!("update-task failed [{code}]: {message}")
+        }
+        _ => bail!("Unexpected response format"),
+    }
+}
+pub async fn remove_task(
+    manager: &ConnectionManager,
+    id: i64,
+) -> Result<()> {
+    let data = serde_json::json!({ "id": id });
+    let response = manager.request("remove-task", Some(data)).await?;
+
+    match response {
+        Message::Response { status: Status::Ok, .. } => Ok(()),
+        Message::Response { status: Status::Error, message, code, .. } => {
+            bail!("remove-task failed [{code}]: {message}")
         }
         _ => bail!("Unexpected response format"),
     }
@@ -63,6 +98,9 @@ pub async fn start_stream(manager: &ConnectionManager) -> Result<mpsc::Receiver<
     let response = manager.request("start-stream", None).await?;
     match response {
         Message::Response { status: Status::Ok, .. } => {}
+        Message::Response { status: Status::Error, code: 208, .. } => {
+            // Already joined — ok, pokračujeme
+        }
         Message::Response { status: Status::Error, message, code, .. } => {
             bail!("start-stream failed [{code}]: {message}")
         }
@@ -91,4 +129,30 @@ pub async fn start_stream(manager: &ConnectionManager) -> Result<mpsc::Receiver<
     });
 
     Ok(rx)
+}
+pub async fn stop_task(
+    manager: &ConnectionManager,
+    task_id: i64,
+) -> Result<()> {
+    let data = serde_json::json!({ "task_id": task_id });
+    let response = manager.request("stop-task", Some(data)).await?;
+
+    match response {
+        Message::Response { status: Status::Ok, .. } => Ok(()),
+        Message::Response { status: Status::Error, message, code, .. } => {
+            bail!("stop-task failed [{code}]: {message}")
+        }
+        _ => bail!("Unexpected response format"),
+    }
+}
+pub async fn stop_stream(manager: &ConnectionManager) -> Result<()> {
+    let response = manager.request("stop-stream", None).await?;
+
+    match response {
+        Message::Response { status: Status::Ok, .. } => Ok(()),
+        Message::Response { status: Status::Error, message, code, .. } => {
+            bail!("stop-stream failed [{code}]: {message}")
+        }
+        _ => bail!("Unexpected response format"),
+    }
 }
