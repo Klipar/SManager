@@ -1,12 +1,10 @@
 use anyhow::{bail, Result};
 use log::error;
-use serde::Deserialize;
 use tokio::sync::mpsc;
 use crate::tls_client::connection_manager::ConnectionManager;
 use shared::server::message::{Message, Status};
 use shared::server::dto::new_task_request_dto::NewTaskRequestDTO;
 use shared::server::dto::run_task_dto::RunTaskDTO;
-use shared::db::models::enums::RestartPolicy;
 use shared::db::models::task::Task;
 use shared::db::models::run::Run;
 
@@ -98,9 +96,6 @@ pub async fn start_stream(manager: &ConnectionManager) -> Result<mpsc::Receiver<
     let response = manager.request("start-stream", None).await?;
     match response {
         Message::Response { status: Status::Ok, .. } => {}
-        Message::Response { status: Status::Error, code: 208, .. } => {
-            // Already joined — ok, pokračujeme
-        }
         Message::Response { status: Status::Error, message, code, .. } => {
             bail!("start-stream failed [{code}]: {message}")
         }

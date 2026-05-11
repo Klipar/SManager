@@ -1,5 +1,4 @@
 use anyhow::{bail, Result};
-use serde::Serialize;
 use crate::tls_client::connection_manager::ConnectionManager;
 use shared::server::message::{Message, Status};
 use shared::server::dto::create_core_dto::CreateCoreDto;
