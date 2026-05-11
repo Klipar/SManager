@@ -1,5 +1,6 @@
-import { ChevronLeft, ChevronRight, Orbit } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import SManagerLogo from "@/assets/SManagerLogoLight.svg"
 
 type SidebarHeaderProps = {
   isCollapsed: boolean
@@ -15,18 +16,16 @@ function SidebarHeader({ isCollapsed, onToggleCollapse }: SidebarHeaderProps) {
           variant="ghost"
           size="icon"
           onClick={onToggleCollapse}
-          className="group relative size-9 rounded-2xl border border-white/5 bg-white/[0.03] p-0 text-cyan-200 hover:bg-white/[0.05] hover:text-white"
+          className="group relative size-8 p-0 hover:opacity-80"
           aria-label="Expand sidebar"
         >
-          <Orbit className="size-5 transition-opacity duration-200 group-hover:opacity-0" aria-hidden="true" />
+          <img src={SManagerLogo} alt="SManager" className="size-6 transition-opacity duration-200 group-hover:opacity-0" aria-hidden="true" />
           <ChevronRight className="absolute size-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100" aria-hidden="true" />
         </Button>
       ) : (
         <>
           <div className="flex items-center gap-3">
-            <div className="flex size-9 items-center justify-center rounded-2xl border border-white/5 bg-white/[0.03] text-cyan-200">
-              <Orbit className="size-5" aria-hidden="true" />
-            </div>
+            <img src={SManagerLogo} alt="SManager" className="size-6" aria-hidden="true" />
             <p className="text-xl font-semibold tracking-tight">
               <span className="text-[#E53935]">S</span>
               <span className="text-[#EAEAEA]">Manager</span>
