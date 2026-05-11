@@ -1,19 +1,47 @@
 use async_trait::async_trait;
 use log::{error, info};
 use serde_json::{json, Value};
-use crate::{handler::handler_trait::HandlerTrait, server::connection_context::ConnectionContext};
-use shared::server::{dto::create_task_core_dto::CreateTaskCoreDto, message::{Message, Status}};
-use shared::db::models::TaskCore;
-use sqlx::postgres::PgPool;
 use std::sync::Arc;
+use sqlx::postgres::PgPool;
 
+
+
+use crate::{
+    handler::handler_trait::HandlerTrait,
+    server::connection_context::ConnectionContext,
+    tls_client::{
+        orchestrator::AgentOrchestrator,
+        requests::task::new_task,
+    },
+};
+use shared::server::{
+    dto::{ new_task_request_dto::NewTaskRequestDTO},
+    message::{Message, Status},
+};
+use shared::db::models::TaskCore;
+
+
+use serde::Deserialize;
+use shared::db::models::enums::RestartPolicy;
+
+#[derive(Deserialize)]
+pub struct CreateTaskCoreDto {
+    pub agent_id: i32,
+    pub name: String,
+    pub description: String,
+    pub install_script: String,
+    pub run_script: String,
+    pub delete_script: String,
+    pub restart_policy: RestartPolicy,
+}
 pub struct NewTaskHandler {
     pub pool: Arc<PgPool>,
+    pub orchestrator: Arc<AgentOrchestrator>,
 }
 
 impl NewTaskHandler {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(pool: Arc<PgPool>, orchestrator: Arc<AgentOrchestrator>) -> Self {
+        Self { pool, orchestrator }
     }
 }
 
@@ -24,9 +52,7 @@ impl HandlerTrait for NewTaskHandler {
 
         let data = match data {
             Some(v) => v,
-            None => {
-                return Message::new_response(Status::Error, None, 400, "Missing data");
-            }
+            None => return Message::new_response(Status::Error, None, 400, "Missing data"),
         };
 
         let dto: CreateTaskCoreDto = match serde_json::from_value(data) {
@@ -34,6 +60,28 @@ impl HandlerTrait for NewTaskHandler {
             Err(e) => {
                 error!("Failed to parse new-task request: {}", e);
                 return Message::new_response(Status::Error, None, 400, "Invalid new-task request");
+            }
+        };
+        let manager = match self.orchestrator.get(dto.agent_id as i64).await {
+            Ok(m) => m,
+            Err(_) => return Message::new_response(
+                Status::Error, None, 503,
+                format!("Agent {} not connected", dto.agent_id),
+            ),
+        };
+        
+        let agent_task = match new_task(&manager, NewTaskRequestDTO {
+            name: dto.name.clone(),
+            description: dto.description.clone(),
+            install_script: dto.install_script.clone(),
+            run_script: dto.run_script.clone(),
+            delete_script: dto.delete_script.clone(),
+            restart_policy: dto.restart_policy.clone(),
+        }).await {
+            Ok(t) => t,
+            Err(e) => {
+                error!("Failed to create task on agent: {}", e);
+                return Message::new_response(Status::Error, None, 500, "Failed to create task on agent");
             }
         };
 
@@ -44,10 +92,10 @@ impl HandlerTrait for NewTaskHandler {
             RETURNING *
             "#
         )
-        .bind(dto.id)
-        .bind(dto.agent_id)
-        .fetch_one(&*self.pool)
-        .await;
+            .bind(agent_task.id as i32)
+            .bind(dto.agent_id)
+            .fetch_one(&*self.pool)
+            .await;
 
         match inserted {
             Ok(task) => Message::new_response(
@@ -57,8 +105,8 @@ impl HandlerTrait for NewTaskHandler {
                 "Task created successfully",
             ),
             Err(e) => {
-                error!("Failed to create task: {}", e);
-                Message::new_response(Status::Error, None, 500, "Failed to create task")
+                error!("Failed to save task to DB: {}", e);
+                Message::new_response(Status::Error, None, 500, "Failed to save task to database")
             }
         }
     }
