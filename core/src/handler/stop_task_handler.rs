@@ -39,10 +39,7 @@ impl HandlerTrait for StopTaskHandler {
 
         let manager = match self.orchestrator.get(agent_id).await {
             Ok(m) => m,
-            Err(_) => return Message::new_response(
-                Status::Error, None, 503,
-                format!("Agent {} not connected", agent_id)
-            ),
+            Err(_) => return Message::new_response(Status::Error, None, 503, format!("Agent {} not connected", agent_id)),
         };
 
         match stop_task(&manager, task_id).await {

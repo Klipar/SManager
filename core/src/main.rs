@@ -11,7 +11,6 @@ use core_lib::{
         login_user_handler::LoginUserHandler,
         new_agent_handler::NewAgentHandler,
         new_user_handler::NewUserHandler,
-        new_task_handler::NewTaskHandler,
         remove_agent_handler::RemoveAgentHandler,
         remove_user_handler::RemoveUserHandler,
         remove_task_handler::RemoveTaskHandler,
@@ -25,6 +24,14 @@ use core_lib::{
     state::AppState,
     server::server::Server,
 };
+use core_lib::handler::delete_inactive_runs_handler::DeleteInactiveRunsHandler;
+use core_lib::handler::delete_run_handler::DeleteRunHandler;
+use core_lib::handler::disconnect_agent_handler::DisconnectAgentHandler;
+use core_lib::handler::get_all_cores_handler::GetAllCoresHandler;
+use core_lib::handler::get_runs_handler::GetRunsHandler;
+use core_lib::handler::new_core_handler::NewCoreHandler;
+use core_lib::handler::remove_core_handler::RemoveCoreHandler;
+use core_lib::handler::update_core_handler::UpdateCoreHandler;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -66,11 +73,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&orchestrator),
     )));
 
+    // Cores
+    server.add_handler("new-core", Arc::new(NewCoreHandler::new(Arc::clone(&orchestrator))));
+    server.add_handler("get-all-cores", Arc::new(GetAllCoresHandler::new(Arc::clone(&orchestrator))));
+    server.add_handler("update-core", Arc::new(UpdateCoreHandler::new(Arc::clone(&orchestrator))));
+    server.add_handler("remove-core", Arc::new(RemoveCoreHandler::new(Arc::clone(&orchestrator))));
+
+    // Runs
+    server.add_handler("get-runs", Arc::new(GetRunsHandler::new(Arc::clone(&orchestrator))));
+    server.add_handler("delete-run", Arc::new(DeleteRunHandler::new(Arc::clone(&orchestrator))));
+    server.add_handler("delete-inactive-runs", Arc::new(DeleteInactiveRunsHandler::new(Arc::clone(&orchestrator))));
+
+    // Agent connection
+    server.add_handler("connect-agent", Arc::new(ConnectAgentHandler::new(state.pool.clone(), Arc::clone(&orchestrator))));
+    server.add_handler("disconnect-agent", Arc::new(DisconnectAgentHandler::new(Arc::clone(&orchestrator))));
+
     // Tasks
-    server.add_handler("new-task", Arc::new(NewTaskHandler::new(
-        state.pool.clone(),
-        Arc::clone(&orchestrator),
-    )));
+    server.add_handler("run-task", Arc::new(RunTaskHandler::new(Arc::clone(&orchestrator))));
+    server.add_handler("stop-task", Arc::new(StopTaskHandler::new(Arc::clone(&orchestrator))));
     server.add_handler("get-all-tasks", Arc::new(GetAllTasksHandler::new(state.pool.clone())));
     server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(state.pool.clone())));
     server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(state.pool.clone())));

@@ -1,27 +1,26 @@
 use async_trait::async_trait;
 use log::error;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::sync::Arc;
 use crate::{
     handler::handler_trait::HandlerTrait,
     server::connection_context::ConnectionContext,
-    tls_client::{orchestrator::AgentOrchestrator, requests::task::run_task},
+    tls_client::{orchestrator::AgentOrchestrator, requests::core::update_core},
 };
-use shared::server::{dto::run_task_dto::RunTaskDTO, message::{Message, Status}};
-use shared::enums::script_types::ScriptType;
+use shared::server::{dto::get_cores_dto::CoresDTO, message::{Message, Status}};
 
-pub struct RunTaskHandler {
+pub struct UpdateCoreHandler {
     pub orchestrator: Arc<AgentOrchestrator>,
 }
 
-impl RunTaskHandler {
+impl UpdateCoreHandler {
     pub fn new(orchestrator: Arc<AgentOrchestrator>) -> Self {
         Self { orchestrator }
     }
 }
 
 #[async_trait]
-impl HandlerTrait for RunTaskHandler {
+impl HandlerTrait for UpdateCoreHandler {
     async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext) -> Message {
         let data = match data {
             Some(v) => v,
@@ -33,9 +32,12 @@ impl HandlerTrait for RunTaskHandler {
             None => return Message::new_response(Status::Error, None, 400, "Missing agent_id"),
         };
 
-        let task_id = match data.get("task_id").and_then(|v| v.as_i64()) {
-            Some(id) => id,
-            None => return Message::new_response(Status::Error, None, 400, "Missing task_id"),
+        let dto: CoresDTO = match serde_json::from_value(data) {
+            Ok(v) => v,
+            Err(e) => {
+                error!("Failed to parse update-core request: {}", e);
+                return Message::new_response(Status::Error, None, 400, "Invalid update-core request");
+            }
         };
 
         let manager = match self.orchestrator.get(agent_id).await {
@@ -43,11 +45,11 @@ impl HandlerTrait for RunTaskHandler {
             Err(_) => return Message::new_response(Status::Error, None, 503, format!("Agent {} not connected", agent_id)),
         };
 
-        match run_task(&manager, RunTaskDTO { task_id, script_type: ScriptType::Run }).await {
-            Ok(_) => Message::new_response(Status::Ok, None, 200, "Task started"),
+        match update_core(&manager, dto).await {
+            Ok(core) => Message::new_response(Status::Ok, Some(json!({ "core": core })), 200, "Core updated"),
             Err(e) => {
-                error!("Failed to run task: {}", e);
-                Message::new_response(Status::Error, None, 500, "Failed to run task")
+                error!("Failed to update core: {}", e);
+                Message::new_response(Status::Error, None, 500, "Failed to update core")
             }
         }
     }

@@ -5,23 +5,22 @@ use std::sync::Arc;
 use crate::{
     handler::handler_trait::HandlerTrait,
     server::connection_context::ConnectionContext,
-    tls_client::{orchestrator::AgentOrchestrator, requests::task::run_task},
+    tls_client::{orchestrator::AgentOrchestrator, requests::run::delete_run},
 };
-use shared::server::{dto::run_task_dto::RunTaskDTO, message::{Message, Status}};
-use shared::enums::script_types::ScriptType;
+use shared::server::message::{Message, Status};
 
-pub struct RunTaskHandler {
+pub struct DeleteRunHandler {
     pub orchestrator: Arc<AgentOrchestrator>,
 }
 
-impl RunTaskHandler {
+impl DeleteRunHandler {
     pub fn new(orchestrator: Arc<AgentOrchestrator>) -> Self {
         Self { orchestrator }
     }
 }
 
 #[async_trait]
-impl HandlerTrait for RunTaskHandler {
+impl HandlerTrait for DeleteRunHandler {
     async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext) -> Message {
         let data = match data {
             Some(v) => v,
@@ -33,9 +32,9 @@ impl HandlerTrait for RunTaskHandler {
             None => return Message::new_response(Status::Error, None, 400, "Missing agent_id"),
         };
 
-        let task_id = match data.get("task_id").and_then(|v| v.as_i64()) {
+        let id = match data.get("id").and_then(|v| v.as_i64()) {
             Some(id) => id,
-            None => return Message::new_response(Status::Error, None, 400, "Missing task_id"),
+            None => return Message::new_response(Status::Error, None, 400, "Missing id"),
         };
 
         let manager = match self.orchestrator.get(agent_id).await {
@@ -43,11 +42,11 @@ impl HandlerTrait for RunTaskHandler {
             Err(_) => return Message::new_response(Status::Error, None, 503, format!("Agent {} not connected", agent_id)),
         };
 
-        match run_task(&manager, RunTaskDTO { task_id, script_type: ScriptType::Run }).await {
-            Ok(_) => Message::new_response(Status::Ok, None, 200, "Task started"),
+        match delete_run(&manager, id).await {
+            Ok(_) => Message::new_response(Status::Ok, None, 200, "Run deleted"),
             Err(e) => {
-                error!("Failed to run task: {}", e);
-                Message::new_response(Status::Error, None, 500, "Failed to run task")
+                error!("Failed to delete run: {}", e);
+                Message::new_response(Status::Error, None, 500, "Failed to delete run")
             }
         }
     }
