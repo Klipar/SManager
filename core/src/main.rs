@@ -1,26 +1,7 @@
     use std::sync::Arc;
     use sqlx::postgres::PgPool;
     use dotenvy::dotenv;
-    use core_lib::{
-        handler::{
-            get_all_agents_handler::GetAllAgentsHandler,
-            get_all_users_handler::GetAllUsersHandler,
-            get_all_tasks_handler::GetAllTasksHandler,
-            get_logs_handler::GetLogsHandler,
-            login_user_handler::LoginUserHandler,
-            new_agent_handler::NewAgentHandler,
-            new_user_handler::NewUserHandler,
-            new_task_handler::NewTaskHandler,
-            remove_agent_handler::RemoveAgentHandler,
-            remove_user_handler::RemoveUserHandler,
-            remove_task_handler::RemoveTaskHandler,
-            update_agent_handler::UpdateAgentHandler,
-            update_user_handler::UpdateUserHandler,
-            update_task_handler::UpdateTaskHandler,
-        },
-        state::AppState,
-        server::server::Server,
-    };
+    use core_lib::{ handler::{ get_all_agents_handler::GetAllAgentsHandler, get_all_users_handler::GetAllUsersHandler, get_all_tasks_handler::GetAllTasksHandler, get_logs_handler::GetLogsHandler, login_user_handler::LoginUserHandler, new_agent_handler::NewAgentHandler, new_user_handler::NewUserHandler, new_task_handler::NewTaskHandler, remove_agent_handler::RemoveAgentHandler, remove_user_handler::RemoveUserHandler, remove_task_handler::RemoveTaskHandler, update_agent_handler::UpdateAgentHandler, update_user_handler::UpdateUserHandler, update_task_handler::UpdateTaskHandler, }, state::AppState, server::server::Server };
 
     #[tokio::main]
     async fn main() -> Result<(), Box<dyn std::error::Error>> {
