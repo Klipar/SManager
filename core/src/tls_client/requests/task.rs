@@ -1,6 +1,6 @@
 use anyhow::{bail, Result};
 use log::error;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::sync::mpsc;
 use crate::tls_client::connection_manager::ConnectionManager;
 use shared::server::message::{Message, Status};
@@ -74,7 +74,6 @@ pub async fn start_stream(manager: &ConnectionManager) -> Result<mpsc::Receiver<
     tokio::spawn(async move {
         while let Some(msg) = raw_rx.recv().await {
             if let Message::Request { data: Some(data), .. } = msg {
-                
                 match serde_json::from_value::<Vec<Run>>(data) {
                     Ok(runs) => {
                         for run in runs {
