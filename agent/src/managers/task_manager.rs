@@ -1,32 +1,61 @@
-use crate::{enums::task_errors::TaskError, extern_server::connection_registry::ConnectionRegistry, managers::{managed_task::ManagedTask, token_manager::TokenManager}, repository::task_repository::TaskRepository};
-use shared::{db::models::{Run, Task, TaskStatus}, enums::script_types::ScriptType, server::endpoint::Endpoint};
-use sqlx::postgres::PgPool;
-use std::sync::Arc;
-use tokio::fs;
-use std::path::PathBuf;
-use tokio::sync::Mutex;
-
+use crate::{ enums::task_errors::TaskError, extern_server::connection_registry::ConnectionRegistry, managers::{managed_task::ManagedTask, token_manager::TokenManager}, repository::task_repository::TaskRepository };
 use dashmap::DashMap;
-
 use log::error;
+use shared::{ db::models::{Run, Task, TaskStatus}, enums::script_types::ScriptType, server::endpoint::Endpoint };
+use sqlx::postgres::PgPool;
+use std::{ collections::HashMap, path::PathBuf, sync::Arc };
+use tokio::{fs, sync::Mutex, time};
 
 pub struct TaskManager {
     pool: Arc<PgPool>,
     tasks: Arc<DashMap<i64, ManagedTask>>, // i64 -> run_id
     token_manager: Arc<Mutex<TokenManager>>,
     endpoint: Arc<Endpoint>,
-    connection_registry: ConnectionRegistry
+    connection_registry: ConnectionRegistry,
+    pending_runs: Arc<Mutex<HashMap<i64, Run>>>,
 }
 
 impl TaskManager {
-    pub fn new(pool: Arc<PgPool>, endpoint: Arc<Endpoint>, connection_registry: ConnectionRegistry) -> Self {
-        Self {
-            pool: pool,
+    pub fn new(pool: Arc<PgPool>, endpoint: Arc<Endpoint>, connection_registry: ConnectionRegistry) -> Arc<Self> {
+        let tm = Arc::new(Self {
+            pool,
             tasks: Arc::new(DashMap::new()),
             token_manager: Arc::new(Mutex::new(TokenManager::new())),
             endpoint,
-            connection_registry
-        }
+            connection_registry,
+            pending_runs: Arc::new(Mutex::new(HashMap::new())),
+        });
+
+        tm.clone().start_debouncer();
+
+        return tm;
+    }
+
+    pub fn start_debouncer(self: Arc<Self>) {
+        tokio::spawn(async move {
+            loop {
+                time::sleep(time::Duration::from_millis(250)).await;
+
+                let mut pending = self.pending_runs.lock().await;
+                if pending.is_empty() {
+                    continue;
+                }
+
+                let runs: Vec<Run> = pending.drain().map(|(_, run)| run).collect();
+                drop(pending);
+
+                if let Ok(payload) = serde_json::to_value(&runs) {
+                    self.connection_registry
+                        .broadcast_to_group("execution_stream", Some(payload))
+                        .await;
+                }
+            }
+        });
+    }
+
+    async fn broadcast_run(&self, run: Run) {
+        let mut pending = self.pending_runs.lock().await;
+        pending.insert(run.id, run);
     }
 
     pub async fn run_task(self: Arc<Self>, task_id: i64, scrypt_type: ScriptType, core_id: Option<i32>) -> Result<(), TaskError> {
@@ -64,17 +93,14 @@ impl TaskManager {
             .map_err(|_e| TaskError::FailedToRunTask)?
         );
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn handle_stdout(self: Arc<Self>, run_id: i64, line: String) {
         let this = self.clone();
         tokio::spawn(async move {
             match TaskManager::write_std_to_db(&this, run_id, &line, "STDOUT").await {
-                Some(run) => {
-                    let payload = serde_json::to_value(vec![run]).ok();
-                    this.connection_registry.broadcast_to_group("execution_stream", payload).await;
-                }
+                Some(run) => this.broadcast_run(run).await,
                 None => error!("Failed to update stdout for run {}", run_id),
             }
         });
@@ -84,12 +110,7 @@ impl TaskManager {
         let this = self.clone();
         tokio::spawn(async move {
             match TaskManager::write_std_to_db(&this, run_id, &line, "STDERR").await {
-                Some(run) => {
-                    let payload = serde_json::to_value(vec![run]).ok();
-                    this.connection_registry
-                        .broadcast_to_group("execution_stream", payload)
-                        .await;
-                }
+                Some(run) => this.broadcast_run(run).await,
                 None => error!("Failed to update stderr for run {}", run_id),
             }
         });
@@ -110,13 +131,11 @@ impl TaskManager {
         .await;
 
         match res {
-            Ok(Some(run)) => {
-                Some(run)
-            },
+            Ok(Some(run)) => Some(run),
             Ok(None) => {
                 error!("[MANAGER STDOUT DB ERROR] Run with id {} not found", run_id);
                 None
-            },
+            }
             Err(e) => {
                 error!("[MANAGER STDOUT DB ERROR] {}", e);
                 None
@@ -250,17 +269,15 @@ impl TaskManager {
 
         path.push(scrypt_type.file_name());
 
-        match scrypt_type.get_script(&task) {
+        match scrypt_type.get_script(task) {
             Some(scrypt) => {
                 fs::write(&path, scrypt).await?;
-                return Ok(path);
-            },
-            None => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "script not exist",
-                ));
+                Ok(path)
             }
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "script not exist",
+            )),
         }
     }
 
@@ -268,7 +285,13 @@ impl TaskManager {
         let forbidden = ['\\', '/', ':', '*', '?', '"', '<', '>', '|'];
 
         name.chars()
-            .map(|c| if forbidden.contains(&c) || c.is_control() { '_' } else { c })
+            .map(|c| {
+                if forbidden.contains(&c) || c.is_control() {
+                    '_'
+                } else {
+                    c
+                }
+            })
             .collect()
     }
 

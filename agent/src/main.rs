@@ -20,7 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let extern_endpoint = Arc::new(Endpoint::new(cfg.extern_ip, cfg.extern_port));
     let connection_registry = ConnectionRegistry::default();
 
-    let task_manager = Arc::new(TaskManager::new(shared_pool.clone(), intern_endpoint.clone(), connection_registry.clone()));
+    let task_manager = TaskManager::new(shared_pool.clone(), intern_endpoint.clone(), connection_registry.clone());
 
     let mut intern_server = agent_lib::intern_server::server::Server::new(intern_endpoint.clone());
 

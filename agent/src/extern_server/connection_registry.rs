@@ -27,7 +27,8 @@ impl RegistryInner {
         let id = self.next_id;
         self.next_id = self.next_id.wrapping_add(1);
 
-        if self.next_id == 0{ // 0 is preserved for special undefined messages
+        if self.next_id == 0 {
+            // 0 is preserved for special undefined messages
             self.next_id += 1;
         }
 
@@ -64,9 +65,7 @@ impl ConnectionRegistry {
     pub async fn join_group(&self, core_id: i32, group: &str) -> Result<(), &'static str> {
         let mut inner = self.inner.lock().await;
 
-        let group_members = inner.groups
-            .entry(group.to_string())
-            .or_default();
+        let group_members = inner.groups.entry(group.to_string()).or_default();
 
         if group_members.insert(core_id) {
             Ok(())
@@ -89,12 +88,7 @@ impl ConnectionRegistry {
         }
     }
 
-    async fn send_to(
-        &self,
-        core_id: i32,
-        action: &str,
-        data: Option<Value>,
-    ) -> Option<Message> {
+    async fn send_to(&self, core_id: i32, action: &str, data: Option<Value>) -> Option<Message> {
         let (tx, id) = {
             let mut inner = self.inner.lock().await;
             let tx = inner.connections.get(&core_id).cloned()?;
@@ -115,11 +109,7 @@ impl ConnectionRegistry {
             .await.ok()?.ok()
     }
 
-    pub async fn broadcast_to_group(
-        &self,
-        group: &str,
-        data: Option<Value>,
-    ) -> HashMap<i32, Option<Message>> { //TODO: Not fully implemented waiting for response and resending if problem appears. But, tpc must handle it.
+    pub async fn broadcast_to_group( &self, group: &str, data: Option<Value> ) -> HashMap<i32, Option<Message>> { //TODO: Not fully implemented waiting for response and resending if problem appears. But, tpc must handle it.
         let members: Vec<i32> = {
             let inner = self.inner.lock().await;
             inner.groups.get(group)
