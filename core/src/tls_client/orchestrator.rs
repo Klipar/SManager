@@ -26,9 +26,8 @@ impl AgentOrchestrator {
         agent_id: i64,
         ip: &str,
         port: u16,
-        cn: &str,
     ) -> Result<()> {
-        let manager = Arc::new(ConnectionManager::connect(agent_id, ip, port, cn, self.run_tx.clone()).await?);
+        let manager = Arc::new(ConnectionManager::connect(agent_id, ip, port,  self.run_tx.clone()).await?);
         let mut conns = self.connections.lock().await;
         conns.insert(agent_id, manager);
         info!("[Orchestrator] Connected to agent {}", agent_id);
@@ -79,7 +78,6 @@ impl AgentOrchestrator {
                     agent.id as i64,
                     &agent.ip,
                     agent.port as u16,
-                    &std::env::var("AGENT_SERVER_CN").unwrap_or("localhost".to_string()),
                     run_tx,
                 ).await;
 

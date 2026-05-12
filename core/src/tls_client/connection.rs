@@ -79,13 +79,13 @@ pub type AgentFramed = Framed<
     LinesCodec,
 >;
 
-pub async fn connect(server_ip: &str, port: u16, server_cn: &str) -> Result<AgentFramed> {
+pub async fn connect(server_addr: &str, port: u16) -> Result<AgentFramed> {
     let tls_config = build_client_tls_config();
     let connector = TlsConnector::from(tls_config);
 
-    let tcp = tokio::net::TcpStream::connect((server_ip, port)).await?;
+    let tcp = tokio::net::TcpStream::connect((server_addr, port)).await?;
 
-    let domain = ServerName::try_from(server_cn.to_string())?;
+    let domain = ServerName::try_from(server_addr.to_string())?;
     let tls_stream = connector.connect(domain, tcp).await?;
 
     let framed = Framed::new(

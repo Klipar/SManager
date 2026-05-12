@@ -54,7 +54,6 @@ impl HandlerTrait for ConnectAgentHandler {
             agent_id,
             &agent.ip,
             agent.port as u16,
-            &std::env::var("AGENT_SERVER_CN").unwrap_or("localhost".to_string()),
         ).await {
             Ok(_) => {
                 info!("Connected to agent {}", agent_id);

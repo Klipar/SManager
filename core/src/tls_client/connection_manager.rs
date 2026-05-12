@@ -61,10 +61,9 @@ impl ConnectionManager {
         agent_id: i64,
         agent_ip: &str,
         agent_port: u16,
-        agent_cn: &str,
         run_tx: broadcast::Sender<RunEvent>,
     ) -> Result<Self> {
-        let framed = connect(agent_ip, agent_port, agent_cn).await?;
+        let framed = connect(agent_ip, agent_port).await?;
         let (client, inbound_rx) = AgentClient::new(framed);
         let inner = Arc::new(Mutex::new(Inner::new()));
         let stream_tx: Arc<Mutex<Option<mpsc::Sender<Message>>>> = Arc::new(Mutex::new(None));
