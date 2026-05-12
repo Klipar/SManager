@@ -131,65 +131,69 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTasks = useCallback(async (taskStoreSnapshot: Record<string, StoredTaskRecord> = taskStore) => {
     try {
-      const [tasksRes, logsRes] = await Promise.all([
-        sendCoreRequest("get-all-tasks", null),
-        sendCoreRequest("get-runs", null),
-      ]);
-
-      if (tasksRes?.status !== "ok") {
-        setTasksByAgentId({});
-        return;
-      }
-
-      const rawTasks = tasksRes.data?.tasks ?? [];
-      const rawRuns = logsRes?.status === "ok" ? (logsRes.data?.runs ?? []) : [];
+      const agentsRes = await sendCoreRequest("get-all-agents", null);
+      const agentList = agentsRes?.status === "ok" ? (agentsRes.data?.agents ?? []) : [];
 
       const runsByTaskId = new Map<string, TaskLog[]>();
-      for (const rawRun of rawRuns) {
-        const taskId = rawRun?.task_id;
-        if (taskId === null || taskId === undefined) continue;
-
-        const normalizedLog = normalizeLog(rawRun);
-        const key = String(taskId);
-        const existing = runsByTaskId.get(key) ?? [];
-        existing.push(normalizedLog);
-        runsByTaskId.set(key, existing);
-      }
-
       const groupedTasks: Record<string, Task[]> = {};
 
-      for (const rawTask of rawTasks) {
-        const taskId = String(rawTask?.id ?? "");
-        const agentId = String(rawTask?.agent_id ?? "");
-        if (!taskId || !agentId) continue;
+      await Promise.all(agentList.map(async (a: any) => {
+        const agentId = Number(a?.id ?? a?._id ?? a?.uuid ?? NaN);
+        if (Number.isNaN(agentId)) return;
 
-        const storedTask = taskStoreSnapshot[taskId];
-        const logs = runsByTaskId.get(taskId) ?? [];
+        const [tasksRes, runsRes] = await Promise.all([
+          sendCoreRequest("get-all-tasks", { agent_id: agentId }),
+          sendCoreRequest("get-runs", { agent_id: agentId }),
+        ]);
 
-        const task: Task = {
-          id: taskId,
-          name: buildTaskName(taskId, storedTask),
-          scriptType: "run",
-          status: (rawTask?.status as Task["status"] | undefined) ?? buildTaskStatus(logs, Boolean(storedTask)),
-          description: buildTaskDescription(taskId, storedTask),
-          createdByCore: storedTask?.createdByCore ?? "Core",
-          restartPolicy: storedTask?.restartPolicy ?? "no",
-          logs,
-        };
+        const rawTasks = tasksRes?.status === "ok" ? (tasksRes.data?.tasks ?? []) : [];
+        const rawRuns = runsRes?.status === "ok" ? (runsRes.data?.runs ?? []) : [];
 
-        if (!groupedTasks[agentId]) {
-          groupedTasks[agentId] = [];
+        for (const rawRun of rawRuns) {
+          const taskId = rawRun?.task_id;
+          if (taskId === null || taskId === undefined) continue;
+
+          const normalizedLog = normalizeLog(rawRun);
+          const key = String(taskId);
+          const existing = runsByTaskId.get(key) ?? [];
+          existing.push(normalizedLog);
+          runsByTaskId.set(key, existing);
         }
 
-        groupedTasks[agentId].push(task);
-      }
+        for (const rawTask of rawTasks) {
+          const taskId = String(rawTask?.id ?? "");
+          const agentIdStr = String(agentId);
+          if (!taskId) continue;
+
+          const storedTask = taskStoreSnapshot[taskId];
+          const logs = runsByTaskId.get(taskId) ?? [];
+
+          const task: Task = {
+            id: taskId,
+            name: rawTask?.name ?? buildTaskName(taskId, storedTask),
+            scriptType: "run",
+            status: (rawTask?.status as Task["status"] | undefined) ?? buildTaskStatus(logs, Boolean(storedTask)),
+            description: rawTask?.description ?? buildTaskDescription(taskId, storedTask),
+            createdByCore: storedTask?.createdByCore ?? "Agent",
+            restartPolicy: (rawTask?.restart_policy as Task["restartPolicy"] | undefined) ?? storedTask?.restartPolicy ?? "no",
+            installScript: rawTask?.install_script ?? storedTask?.installScript ?? "",
+            runScript: rawTask?.run_script ?? storedTask?.runScript ?? "",
+            deleteScript: rawTask?.delete_script ?? storedTask?.deleteScript ?? "",
+            logs,
+          };
+
+          if (!groupedTasks[agentIdStr]) groupedTasks[agentIdStr] = [];
+          groupedTasks[agentIdStr].push(task);
+        }
+      }));
 
       Object.values(groupedTasks).forEach((tasks) => {
         tasks.sort((left, right) => Number(right.id) - Number(left.id));
       });
 
       setTasksByAgentId(groupedTasks);
-    } catch {
+    } catch (e) {
+      console.error("refreshTasks error:", e);
       setTasksByAgentId({});
     }
   }, [taskStore]);
@@ -256,17 +260,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [refreshTasks, taskStore]);
 
   const saveTaskRecord = useCallback(async (taskId: string, updates: Partial<Omit<StoredTaskRecord, "id">>) => {
+    const numericTaskId = Number.parseInt(taskId, 10);
+    if (Number.isNaN(numericTaskId)) {
+      return false;
+    }
+
     const currentTask = taskStore[taskId];
-    if (!currentTask) {
+
+    let fallbackAgentId: string | null = null;
+    let fallbackTask: Task | null = null;
+    for (const [agentId, tasks] of Object.entries(tasksByAgentId)) {
+      const found = tasks.find((task) => task.id === taskId);
+      if (found) {
+        fallbackAgentId = agentId;
+        fallbackTask = found;
+        break;
+      }
+    }
+
+    const resolvedAgentId = updates.agentId ?? currentTask?.agentId ?? fallbackAgentId;
+    if (!resolvedAgentId) {
+      return false;
+    }
+
+    const numericAgentId = Number.parseInt(resolvedAgentId, 10);
+    if (Number.isNaN(numericAgentId)) {
       return false;
     }
 
     const nextTask: StoredTaskRecord = {
-      ...currentTask,
-      ...updates,
       id: taskId,
-      agentId: updates.agentId ?? currentTask.agentId,
+      agentId: resolvedAgentId,
+      name: updates.name ?? currentTask?.name ?? fallbackTask?.name ?? `Task ${taskId}`,
+      description: updates.description ?? currentTask?.description ?? fallbackTask?.description ?? "",
+      installScript: updates.installScript ?? currentTask?.installScript ?? fallbackTask?.installScript ?? "",
+      runScript: updates.runScript ?? currentTask?.runScript ?? fallbackTask?.runScript ?? "",
+      deleteScript: updates.deleteScript ?? currentTask?.deleteScript ?? fallbackTask?.deleteScript ?? "",
+      restartPolicy: updates.restartPolicy ?? currentTask?.restartPolicy ?? fallbackTask?.restartPolicy ?? "no",
+      createdByCore: currentTask?.createdByCore ?? fallbackTask?.createdByCore ?? "Agent",
     };
+
+    const res = await sendCoreRequest("update-task", {
+      agent_id: numericAgentId,
+      id: numericTaskId,
+      name: nextTask.name,
+      description: nextTask.description || null,
+      install_script: nextTask.installScript || null,
+      run_script: nextTask.runScript || null,
+      delete_script: nextTask.deleteScript || null,
+      restart_policy: nextTask.restartPolicy,
+      status: fallbackTask?.status ?? "stopped",
+    });
+
+    if (res?.status !== "ok") {
+      return false;
+    }
 
     const nextTaskStore = {
       ...taskStore,
@@ -276,7 +324,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTaskStore(nextTaskStore);
     await refreshTasks(nextTaskStore);
     return true;
-  }, [refreshTasks, taskStore]);
+  }, [refreshTasks, taskStore, tasksByAgentId]);
 
   const removeTaskRecord = useCallback(async (taskId: string) => {
     const nextTaskStore = { ...taskStore };
@@ -294,21 +342,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const res = await sendCoreRequest("run-task", {
+      let agentIdStr: string | undefined = taskStore[taskId]?.agentId;
+      if (!agentIdStr) {
+        for (const [aid, tasks] of Object.entries(tasksByAgentId)) {
+          if (tasks.some((t) => t.id === taskId)) {
+            agentIdStr = aid;
+            break;
+          }
+        }
+      }
+
+      if (!agentIdStr) return false;
+
+      const agent_id = Number.parseInt(agentIdStr, 10);
+      if (Number.isNaN(agent_id)) return false;
+
+      const scriptTypeForCore = scriptType === "install"
+        ? "Install"
+        : scriptType === "run"
+          ? "Run"
+          : "Delete";
+
+      const payload = {
+        agent_id,
         task_id: numericTaskId,
-        script_type: scriptType,
-      });
+        script_type: scriptTypeForCore,
+      };
+
+      console.log("[run-task] request", payload);
+
+      const res = await sendCoreRequest("run-task", payload);
 
       if (res?.status !== "ok") {
+        console.error("[run-task] failed response", res);
         return false;
       }
 
       await refreshTasks();
       return true;
     } catch {
+      console.error("[run-task] request error");
       return false;
     }
-  }, [refreshTasks]);
+  }, [refreshTasks, taskStore, tasksByAgentId]);
 
   const stopTask = useCallback(async (taskId: string) => {
     const numericTaskId = Number.parseInt(taskId, 10);
@@ -317,7 +393,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      let agentIdStr: string | undefined = taskStore[taskId]?.agentId;
+      if (!agentIdStr) {
+        for (const [aid, tasks] of Object.entries(tasksByAgentId)) {
+          if (tasks.some((t) => t.id === taskId)) {
+            agentIdStr = aid;
+            break;
+          }
+        }
+      }
+
+      if (!agentIdStr) return false;
+
+      const agent_id = Number.parseInt(agentIdStr, 10);
+      if (Number.isNaN(agent_id)) return false;
+
       const res = await sendCoreRequest("stop-task", {
+        agent_id,
         task_id: numericTaskId,
       });
 
@@ -330,7 +422,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       return false;
     }
-  }, [refreshTasks]);
+  }, [refreshTasks, taskStore, tasksByAgentId]);
 
   useEffect(() => {
     const unsubscribeOpen = subscribeCoreOpen(() => {

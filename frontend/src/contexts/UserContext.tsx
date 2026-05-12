@@ -75,34 +75,31 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = useCallback((newToken: string, newUser: UserData) => {
-    try { localStorage.setItem("sm_token", newToken); } catch {}
-    const userToSave: UserData = {
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      is_admin: newUser.is_admin,
-    };
-    try { localStorage.setItem("sm_userData", JSON.stringify(userToSave)); } catch {}
-    setToken(newToken);
-    setUser(userToSave);
-    setIsAuthenticated(true);
     connectCore();
     sendCoreRequest("authenticate", { token: newToken })
       .then((res) => {
-        if (res?.status !== "ok") {
+        if (res?.status === "ok") {
+          try { localStorage.setItem("sm_token", newToken); } catch {}
+          const userToSave: UserData = {
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email,
+            is_admin: newUser.is_admin,
+          };
+          try { localStorage.setItem("sm_userData", JSON.stringify(userToSave)); } catch {}
+          setToken(newToken);
+          setUser(userToSave);
+          setIsAuthenticated(true);
+        } else {
           setToken(null);
           setUser(null);
           setIsAuthenticated(false);
-          localStorage.removeItem("sm_token");
-          localStorage.removeItem("sm_userData");
         }
       })
       .catch(() => {
         setToken(null);
         setUser(null);
         setIsAuthenticated(false);
-        localStorage.removeItem("sm_token");
-        localStorage.removeItem("sm_userData");
       });
   }, []);
 

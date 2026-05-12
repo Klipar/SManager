@@ -79,7 +79,11 @@ export function AddTaskModal({ open, agent, task, onClose, onSave, title }: AddT
           delete: storedTask.deleteScript || "",
         })
       } else {
-        setScripts({ install: "", run: "", delete: "" })
+        setScripts({
+          install: task.installScript || "",
+          run: task.runScript || "",
+          delete: task.deleteScript || "",
+        })
       }
     } else {
       setName("")

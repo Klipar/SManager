@@ -63,6 +63,9 @@ export type Task = {
   description: string;
   createdByCore: string;
   restartPolicy: RestartPolicy;
+  installScript?: string | null;
+  runScript?: string | null;
+  deleteScript?: string | null;
   logs: TaskLog[];
 };
 

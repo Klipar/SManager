@@ -19,8 +19,8 @@ type TaskWorkspaceProps = {
   selectedTask: Task | null
   selectedLog: TaskLog | null
   onSelectLog: (logId: string | null) => void
-  onRunTask: (taskId: string, scriptType: ScriptType) => void
-  onStopTask: (taskId: string) => void
+  onRunTask: (taskId: string, scriptType: ScriptType) => Promise<boolean>
+  onStopTask: (taskId: string) => Promise<boolean>
 }
 
 const statusLabel: Record<Task["status"], string> = {
@@ -65,6 +65,31 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     { id: "delete", title: "Delete", icon: Trash2, tone: "bg-red-400/80" },
   ]
 
+  const handleRunAction = async (scriptType: ScriptType) => {
+    const script = scriptType === "install"
+      ? selectedTask.installScript
+      : scriptType === "run"
+        ? selectedTask.runScript
+        : selectedTask.deleteScript
+
+    if (!script || !script.trim()) {
+      alert(`${scriptType} script is empty for this task`)
+      return
+    }
+
+    const ok = await onRunTask(selectedTask.id, scriptType)
+    if (!ok) {
+      alert(`Failed to start ${scriptType} script`)
+    }
+  }
+
+  const handleStopAction = async () => {
+    const ok = await onStopTask(selectedTask.id)
+    if (!ok) {
+      alert("Failed to stop task")
+    }
+  }
+
   return (
     <div className="grid h-full w-full gap-0 lg:grid-cols-[18rem_1fr]">
       <div className="border-r border-white/[0.035]">
@@ -74,7 +99,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
               <button
                 key={row.id}
                 type="button"
-                onClick={() => onRunTask(selectedTask.id, row.id as ScriptType)}
+                onClick={() => { void handleRunAction(row.id as ScriptType) }}
                 className="group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
               >
                 <div className={cn("flex h-11 w-8 items-center justify-center", row.tone)}>
@@ -117,7 +142,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation()
-                      onStopTask(selectedTask.id)
+                      void handleStopAction()
                     }}
                     className="inline-flex shrink-0 items-center justify-center text-white/45 transition-colors hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
                     aria-label={`Stop task ${selectedTask.name}`}
@@ -145,7 +170,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                     {statusLabel[selectedTask.status]}
                   </p>
                   <p className="text-sm text-white/70">Started: {selectedLog?.startedAt ?? "Select a log to see the start time"}</p>
-                  <p className="text-sm text-white/70">Working: 5 days 6 hours 7 minutes</p>
+                  <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt)}</p>
                   <div className="pt-3 text-sm text-white/72">
                     <p>Created by core: {selectedTask.createdByCore}</p>
                     <p className="mt-2">Restart policy: {selectedTask.restartPolicy}</p>
@@ -188,6 +213,29 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
   )
 }
 
+function formatUptime(startedAt?: string | null) {
+  if (!startedAt) return "-"
+  try {
+    const date = new Date(startedAt)
+    if (Number.isNaN(date.getTime())) return "-"
+    const diff = Date.now() - date.getTime()
+    if (diff < 0) return "-"
+
+    const sec = Math.floor(diff / 1000)
+    const days = Math.floor(sec / 86400)
+    const hours = Math.floor((sec % 86400) / 3600)
+    const minutes = Math.floor((sec % 3600) / 60)
+    const parts: string[] = []
+    if (days > 0) parts.push(`${days} day${days !== 1 ? "s" : ""}`)
+    if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? "s" : ""}`)
+    if (minutes > 0) parts.push(`${minutes} minute${minutes !== 1 ? "s" : ""}`)
+    if (parts.length === 0) return `${sec} sec${sec !== 1 ? "s" : ""}`
+    return parts.join(" ")
+  } catch {
+    return "-"
+  }
+}
+
 function TaskMenu({ agent, task }: { agent: Agent; task: Task }) {
   const { removeTaskRecord, setSelectedTaskId, setSelectedLogId, saveTaskRecord } = useApp()
   const [showEdit, setShowEdit] = useState(false)
@@ -200,7 +248,7 @@ function TaskMenu({ agent, task }: { agent: Agent; task: Task }) {
     setDeleteError(null)
 
     try {
-      const res = await sendCoreRequest("remove-task", { id: Number(task.id) })
+      const res = await sendCoreRequest("remove-task", { id: Number(task.id), agent_id: Number(agent.id) })
       if (res?.status === "ok") {
         await removeTaskRecord(task.id)
         setSelectedTaskId(null)
@@ -219,7 +267,11 @@ function TaskMenu({ agent, task }: { agent: Agent; task: Task }) {
   const handleEditSave = async (payload: any) => {
     if (payload.id) {
       // Edit mode
-      await saveTaskRecord(payload.id, payload.updates)
+      const ok = await saveTaskRecord(payload.id, payload.updates)
+      if (!ok) {
+        alert("Failed to update task")
+        return
+      }
     }
     setShowEdit(false)
   }
@@ -352,7 +404,7 @@ function AgentMenu({ agent }: { agent: Agent | null }) {
           await handleEditSave(payload)
           setShowEdit(false)
         }}
-        initial={{ name: agent.name, ip: agent.ip ?? "", description: agent.description ?? "", port: agent.port ?? 0 }}
+        initial={{ name: agent.name, ip: agent.ip ?? "", description: agent.description ?? "", port: agent.port ?? undefined }}
         title="Edit Agent"
       />
 
