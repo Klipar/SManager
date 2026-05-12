@@ -111,31 +111,7 @@ impl HandlerTrait for RunTaskHandler {
                 )
             }
         };
-        let manager_clone = Arc::clone(&manager);
-        let run_tx = self.state.run_tx.clone();
 
-        tokio::spawn(async move {
-            match start_stream(&manager_clone).await {
-                Ok(mut rx) => {
-                    loop {
-                        match rx.recv().await {
-                            Some(run) => {
-                                let _ = run_tx.send(RunEvent {
-                                    agent_id,
-                                    run,
-                                });
-                            }
-                            None => {
-                                break;
-                            }
-                        }
-                    }
-                }
-                Err(e) => {
-                    error!("Failed to start stream for agent {}: {}", agent_id, e);
-                }
-            }
-        });
         match run_task(
             &manager,
             RunTaskDTO {
