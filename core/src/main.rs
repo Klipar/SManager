@@ -33,7 +33,6 @@ use core_lib::handler::new_core_handler::NewCoreHandler;
 use core_lib::handler::new_task_handler::NewTaskHandler;
 use core_lib::handler::remove_core_handler::RemoveCoreHandler;
 use core_lib::handler::update_core_handler::UpdateCoreHandler;
-use shared::server::dto::new_task_request_dto::NewTaskRequestDTO;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

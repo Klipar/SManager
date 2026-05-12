@@ -52,8 +52,6 @@ pub struct ConnectionManager {
     client: AgentClient,
     inner: Arc<Mutex<Inner>>,
     stream_tx: Arc<Mutex<Option<mpsc::Sender<Message>>>>,
-    run_tx: broadcast::Sender<RunEvent>,
-    agent_id: i64,
 }
 
 impl ConnectionManager {
@@ -81,7 +79,7 @@ impl ConnectionManager {
             tokio::spawn(Self::keepalive_task(client_clone, inner_clone));
         }
 
-        Ok(Self { client, inner, stream_tx, run_tx, agent_id })
+        Ok(Self { client, inner, stream_tx })
     }
 
     pub async fn subscribe_push(&self) -> mpsc::Receiver<Message> {
