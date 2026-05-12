@@ -1,19 +1,22 @@
 use async_trait::async_trait;
 use log::{error, info};
 use serde_json::{json, Value};
-use crate::{handler::handler_trait::HandlerTrait, server::connection_context::ConnectionContext};
-use shared::server::{dto::update_task_core_dto::UpdateTaskCoreDto, message::{Message, Status}};
-use shared::db::models::TaskCore;
-use sqlx::postgres::PgPool;
 use std::sync::Arc;
+use crate::{
+    handler::handler_trait::HandlerTrait,
+    server::connection_context::ConnectionContext,
+    tls_client::{orchestrator::AgentOrchestrator, requests::task::update_task},
+};
+use shared::server::message::{Message, Status};
+use shared::db::models::task::Task;
 
 pub struct UpdateTaskHandler {
-    pub pool: Arc<PgPool>,
+    pub orchestrator: Arc<AgentOrchestrator>,
 }
 
 impl UpdateTaskHandler {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(orchestrator: Arc<AgentOrchestrator>) -> Self {
+        Self { orchestrator }
     }
 }
 
@@ -24,12 +27,15 @@ impl HandlerTrait for UpdateTaskHandler {
 
         let data = match data {
             Some(v) => v,
-            None => {
-                return Message::new_response(Status::Error, None, 400, "Missing data");
-            }
+            None => return Message::new_response(Status::Error, None, 400, "Missing data"),
         };
 
-        let dto: UpdateTaskCoreDto = match serde_json::from_value(data) {
+        let agent_id = match data.get("agent_id").and_then(|v| v.as_i64()) {
+            Some(id) => id,
+            None => return Message::new_response(Status::Error, None, 400, "Missing agent_id"),
+        };
+
+        let dto: Task = match serde_json::from_value(data) {
             Ok(v) => v,
             Err(e) => {
                 error!("Failed to parse update-task request: {}", e);
@@ -37,31 +43,21 @@ impl HandlerTrait for UpdateTaskHandler {
             }
         };
 
-        if dto.agent_id.is_none() {
-            return Message::new_response(Status::Error, None, 400, "No fields to update");
-        }
+        let manager = match self.orchestrator.get(agent_id).await {
+            Ok(m) => m,
+            Err(_) => return Message::new_response(
+                Status::Error, None, 503,
+                format!("Agent {} not connected", agent_id),
+            ),
+        };
 
-        let updated_task = sqlx::query_as::<_, TaskCore>(
-            r#"
-            UPDATE tasks
-            SET agent_id = COALESCE($1, agent_id)
-            WHERE id = $2
-            RETURNING *
-            "#
-        )
-        .bind(dto.agent_id)
-        .bind(dto.id)
-        .fetch_optional(&*self.pool)
-        .await;
-
-        match updated_task {
-            Ok(Some(task)) => Message::new_response(
+        match update_task(&manager, dto).await {
+            Ok(task) => Message::new_response(
                 Status::Ok,
                 Some(json!({ "task": task })),
                 200,
                 "Task updated successfully",
             ),
-            Ok(None) => Message::new_response(Status::Error, None, 404, "Task not found"),
             Err(e) => {
                 error!("Failed to update task: {}", e);
                 Message::new_response(Status::Error, None, 500, "Failed to update task")

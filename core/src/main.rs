@@ -30,8 +30,10 @@ use core_lib::handler::disconnect_agent_handler::DisconnectAgentHandler;
 use core_lib::handler::get_all_cores_handler::GetAllCoresHandler;
 use core_lib::handler::get_runs_handler::GetRunsHandler;
 use core_lib::handler::new_core_handler::NewCoreHandler;
+use core_lib::handler::new_task_handler::NewTaskHandler;
 use core_lib::handler::remove_core_handler::RemoveCoreHandler;
 use core_lib::handler::update_core_handler::UpdateCoreHandler;
+use shared::server::dto::new_task_request_dto::NewTaskRequestDTO;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -89,11 +91,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     server.add_handler("disconnect-agent", Arc::new(DisconnectAgentHandler::new(Arc::clone(&orchestrator))));
 
     // Tasks
-    server.add_handler("run-task", Arc::new(RunTaskHandler::new(Arc::clone(&orchestrator))));
-    server.add_handler("stop-task", Arc::new(StopTaskHandler::new(Arc::clone(&orchestrator))));
-    server.add_handler("get-all-tasks", Arc::new(GetAllTasksHandler::new(state.pool.clone())));
-    server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(state.pool.clone())));
-    server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(state.pool.clone())));
+    server.add_handler("new-task", Arc::new(NewTaskHandler::new(state.pool.clone(),Arc::clone(&orchestrator))));
+    server.add_handler("get-all-tasks", Arc::new(GetAllTasksHandler::new(Arc::clone(&orchestrator), state.pool.clone())));
+    server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(Arc::clone(&orchestrator))));
+    server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(state.pool.clone(), Arc::clone(&orchestrator), )));
     server.add_handler("run-task", Arc::new(RunTaskHandler::new(Arc::clone(&orchestrator))));
     server.add_handler("stop-task", Arc::new(StopTaskHandler::new(Arc::clone(&orchestrator))));
 
