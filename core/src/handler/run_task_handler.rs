@@ -78,6 +78,28 @@ impl HandlerTrait for RunTaskHandler {
             }
         };
 
+        let script_type = match data.get("script_type") {
+            Some(value) => match serde_json::from_value::<ScriptType>(value.clone()) {
+                Ok(script_type) => script_type,
+                Err(_) => {
+                    return Message::new_response(
+                        Status::Error,
+                        None,
+                        400,
+                        "Invalid script_type",
+                    )
+                }
+            },
+            None => {
+                return Message::new_response(
+                    Status::Error,
+                    None,
+                    400,
+                    "Missing script_type",
+                )
+            }
+        };
+
         let manager = match self.orchestrator.get(agent_id).await {
             Ok(m) => m,
             Err(_) => {
@@ -118,7 +140,7 @@ impl HandlerTrait for RunTaskHandler {
             &manager,
             RunTaskDTO {
                 task_id,
-                script_type: ScriptType::Run,
+                script_type,
             },
         )
             .await
