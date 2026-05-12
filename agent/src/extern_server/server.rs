@@ -21,7 +21,7 @@ use crate::extern_server::{connection_registry::{ConnectionRegistry, OutboundReq
 
 const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const READ_TIMEOUT: Duration = Duration::from_secs(60);
-const MAX_LINE_LENGTH: usize = 65536;
+const MAX_LINE_LENGTH: usize = 1048576;
 
 
 pub struct Server {

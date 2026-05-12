@@ -90,7 +90,7 @@ pub async fn connect(server_addr: &str, port: u16) -> Result<AgentFramed> {
 
     let framed = Framed::new(
         tls_stream,
-        LinesCodec::new_with_max_length(65536),
+        LinesCodec::new_with_max_length(1048576),
     );
 
     Ok(framed)
