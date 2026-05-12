@@ -41,10 +41,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     let pg_pool = PgPool::connect(&std::env::var("CORE_DATABASE_URL")?).await?;
-    let state = AppState::new(pg_pool);
-    let orchestrator = Arc::new(AgentOrchestrator::new());
-
-    // Pripoj všetkých agentov pri štarte
+    let state = Arc::new(AppState::new(pg_pool));
+    let orchestrator = Arc::new(AgentOrchestrator::new(state.run_tx.clone()));
     let errors = orchestrator.connect_all(&state.pool).await;
     for (agent_id, e) in &errors {
         eprintln!("Could not connect to agent {}: {}", agent_id, e);
@@ -95,11 +93,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     server.add_handler("get-all-tasks", Arc::new(GetAllTasksHandler::new(Arc::clone(&orchestrator), state.pool.clone())));
     server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(Arc::clone(&orchestrator))));
     server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(state.pool.clone(), Arc::clone(&orchestrator), )));
-    server.add_handler("run-task", Arc::new(RunTaskHandler::new(Arc::clone(&orchestrator))));
-    server.add_handler("stop-task", Arc::new(StopTaskHandler::new(Arc::clone(&orchestrator))));
+    server.add_handler("run-task", Arc::new(RunTaskHandler::new(Arc::clone(&orchestrator), Arc::clone(&state))));
+    server.add_handler("stop-task", Arc::new(StopTaskHandler::new(Arc::clone(&orchestrator), Arc::clone(&state))));
 
     // Logs
     server.add_handler("get-logs", Arc::new(GetLogsHandler::new(state.pool.clone())));
+
+    // Start broadcasting run events to WebSocket clients
+    let registry = Arc::clone(&server.registry());
+    let mut run_rx = state.run_tx.subscribe();
+    tokio::spawn(async move {
+        while let Ok(run_event) = run_rx.recv().await {
+            let msg = shared::server::message::Message::Request {
+                id: 0,
+                action: "run_update".to_string(),
+                data: Some(serde_json::to_value(run_event).unwrap()),
+            };
+            registry.broadcast(&msg).await;
+        }
+    });
 
     server.start_server().await;
 

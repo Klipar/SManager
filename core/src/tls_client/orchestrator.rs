@@ -4,16 +4,20 @@ use tokio::sync::Mutex;
 use anyhow::{bail, Result};
 use log::{error, info, warn};
 use sqlx::postgres::PgPool;
+use tokio::sync::broadcast;
 use crate::tls_client::connection_manager::ConnectionManager;
+use crate::state::RunEvent;
 
 pub struct AgentOrchestrator {
     connections: Arc<Mutex<HashMap<i64, Arc<ConnectionManager>>>>,
+    run_tx: broadcast::Sender<RunEvent>,
 }
 
 impl AgentOrchestrator {
-    pub fn new() -> Self {
+    pub fn new(run_tx: broadcast::Sender<RunEvent>) -> Self {
         Self {
             connections: Arc::new(Mutex::new(HashMap::new())),
+            run_tx,
         }
     }
 
@@ -24,7 +28,7 @@ impl AgentOrchestrator {
         port: u16,
         cn: &str,
     ) -> Result<()> {
-        let manager = Arc::new(ConnectionManager::connect(ip, port, cn).await?);
+        let manager = Arc::new(ConnectionManager::connect(agent_id, ip, port, cn, self.run_tx.clone()).await?);
         let mut conns = self.connections.lock().await;
         conns.insert(agent_id, manager);
         info!("[Orchestrator] Connected to agent {}", agent_id);
@@ -66,18 +70,22 @@ impl AgentOrchestrator {
                 return vec![];
             }
         };
+        let run_tx = self.run_tx.clone();
         let handles: Vec<_> = agents.into_iter().map(|agent| {
-            let self_arc = Arc::clone(&self.connections);
+            let run_tx = run_tx.clone();
+            let connections = Arc::clone(&self.connections);
             tokio::spawn(async move {
                 let result = ConnectionManager::connect(
+                    agent.id as i64,
                     &agent.ip,
                     agent.port as u16,
                     &std::env::var("AGENT_SERVER_CN").unwrap_or("localhost".to_string()),
+                    run_tx,
                 ).await;
 
                 match result {
                     Ok(manager) => {
-                        self_arc.lock().await.insert(agent.id as i64, Arc::new(manager));
+                        connections.lock().await.insert(agent.id as i64, Arc::new(manager));
                         info!("[Orchestrator] Connected to agent {}", agent.id);
                         None
                     }

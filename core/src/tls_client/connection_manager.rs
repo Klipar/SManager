@@ -3,6 +3,9 @@ use tokio::{sync::{mpsc, oneshot, Mutex}, time};
 use shared::server::message::{Message, Status};
 use log::{debug, error, info, warn};
 use anyhow::Result;
+use tokio::sync::broadcast;
+use crate::state::RunEvent;
+use shared::db::models::run::Run;
 
 use crate::tls_client::client::AgentClient;
 use crate::tls_client::connection::connect;
@@ -49,13 +52,17 @@ pub struct ConnectionManager {
     client: AgentClient,
     inner: Arc<Mutex<Inner>>,
     stream_tx: Arc<Mutex<Option<mpsc::Sender<Message>>>>,
+    run_tx: broadcast::Sender<RunEvent>,
+    agent_id: i64,
 }
 
 impl ConnectionManager {
     pub async fn connect(
+        agent_id: i64,
         agent_ip: &str,
         agent_port: u16,
         agent_cn: &str,
+        run_tx: broadcast::Sender<RunEvent>,
     ) -> Result<Self> {
         let framed = connect(agent_ip, agent_port, agent_cn).await?;
         let (client, inbound_rx) = AgentClient::new(framed);
@@ -65,7 +72,9 @@ impl ConnectionManager {
         {
             let inner_clone = Arc::clone(&inner);
             let stream_tx_clone = Arc::clone(&stream_tx);
-            tokio::spawn(Self::reader_task(inbound_rx, inner_clone, stream_tx_clone, client.clone()));
+            let run_tx_clone = run_tx.clone();
+            let agent_id_clone = agent_id;
+            tokio::spawn(Self::reader_task(inbound_rx, inner_clone, stream_tx_clone, client.clone(), run_tx_clone, agent_id_clone));
         }
         {
             let client_clone = client.clone();
@@ -73,7 +82,7 @@ impl ConnectionManager {
             tokio::spawn(Self::keepalive_task(client_clone, inner_clone));
         }
 
-        Ok(Self { client, inner, stream_tx })
+        Ok(Self { client, inner, stream_tx, run_tx, agent_id })
     }
 
     pub async fn subscribe_push(&self) -> mpsc::Receiver<Message> {
@@ -86,12 +95,32 @@ impl ConnectionManager {
         mut inbound_rx: mpsc::Receiver<Message>,
         inner: Arc<Mutex<Inner>>,
         stream_tx: Arc<Mutex<Option<mpsc::Sender<Message>>>>,
-        client: AgentClient,  // nové
+        client: AgentClient,
+        run_tx: broadcast::Sender<RunEvent>,
+        agent_id: i64,
     ) {
         while let Some(msg) = inbound_rx.recv().await {
             match &msg {
-                Message::Request { action, id, .. } if action == "execution_stream" => {
+                Message::Request { action, id, data } if action == "execution_stream" => {
                     let msg_id = *id;
+
+                    // Parse the run data
+                    if let Some(data) = data {
+                        match serde_json::from_value::<Vec<Run>>(data.clone()) {
+                            Ok(runs) => {
+                                for run in runs {
+                                    let run_event = RunEvent {
+                                        agent_id,
+                                        run,
+                                    };
+                                    let _ = run_tx.send(run_event);
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("[ConnectionManager] Failed to parse run data: {}", e);
+                            }
+                        }
+                    }
 
                     let guard = stream_tx.lock().await;
                     if let Some(tx) = guard.as_ref() {
