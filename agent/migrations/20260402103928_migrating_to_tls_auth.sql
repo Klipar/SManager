@@ -9,4 +9,4 @@ CREATE UNIQUE INDEX idx_cores_client_hash ON CORES(client_hash);
 
 -- add test core
 INSERT INTO cores (ip, name, client_hash)
-    VALUES ('127.0.0.1', 'testing core', 'lI/mA/YdwDa1xZbcCf484/PTDckPAkyF88gtssyrZ50=');
+    VALUES ('127.0.0.1', 'testing core', 'ceutfCJY58mbi84q9QtBPVnWcE22fHk01v3XoW7G7sc=');

@@ -161,7 +161,7 @@ async fn authenticate_client(
         .next()
         .and_then(|cn| cn.as_str().ok())
         .unwrap_or_default();
-
+    info!("Client CN: {cn}, IP: {}", addr.ip());
     let core = sqlx::query_as::<_, Core>(
         "SELECT * FROM cores WHERE client_hash = $1 AND ip = $2"
     )

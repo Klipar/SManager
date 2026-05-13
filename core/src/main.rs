@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use shared::server::get_hash::set_salt_env_key;
 use sqlx::postgres::PgPool;
 use dotenvy::dotenv;
 use core_lib::tls_client::orchestrator::AgentOrchestrator;
@@ -38,6 +39,7 @@ use core_lib::handler::update_core_handler::UpdateCoreHandler;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
     env_logger::init();
+    set_salt_env_key("CORE_SALT");
 
     let pg_pool = PgPool::connect(&std::env::var("CORE_DATABASE_URL")?).await?;
     let state = Arc::new(AppState::new(pg_pool));
