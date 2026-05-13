@@ -69,7 +69,7 @@ impl ConnectionManager {
 
         let (disconnect_tx, disconnect_rx) = watch::channel(false);
         let disconnect_tx = Arc::new(disconnect_tx);
-        
+
         {
             let inner_clone = Arc::clone(&inner);
             let stream_tx_clone = Arc::clone(&stream_tx);
@@ -86,12 +86,12 @@ impl ConnectionManager {
                 disconnect_tx,
             ));
         }
-        
+
         {
             let client_clone = client.clone();
             let inner_clone = Arc::clone(&inner);
             let disconnect_tx = Arc::clone(&disconnect_tx);
-            let disconnect_rx_clone = disconnect_rx.clone(); // для задачі
+            let disconnect_rx_clone = disconnect_rx.clone();
             tokio::spawn(Self::keepalive_task(client_clone, inner_clone, disconnect_tx, disconnect_rx_clone));
         }
 
@@ -108,7 +108,7 @@ impl ConnectionManager {
         let mut rx = self.disconnect_rx.clone();
         loop {
             if rx.changed().await.is_err() {
-                return; 
+                return;
             }
             if *rx.borrow() {
                 return;
