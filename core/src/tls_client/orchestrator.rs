@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::{Arc, Weak};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use anyhow::{bail, Result};
 use log::{error, info, warn};
@@ -21,7 +21,7 @@ impl AgentOrchestrator {
             run_tx,
         }
     }
-    
+
     pub fn start_reconnect_loop(self: &Arc<Self>, pool: Arc<PgPool>) {
         let weak_self = Arc::downgrade(self);
         tokio::spawn(async move {
