@@ -487,6 +487,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               const logIndex = task.logs.findIndex((l) => l.id === normalizedLog.id);
 
               if (logIndex !== -1) {
+                const existingLog = task.logs[logIndex];
+
+                if (existingLog.endedAt) {
+                  return updated;
+                }
+
+                const existingOutputSize = existingLog.output.length;
+                const newOutputSize = normalizedLog.output.length;
+                if (newOutputSize < existingOutputSize) {
+                  return updated;
+                }
+
                 task.logs[logIndex] = normalizedLog;
               } else {
                 task.logs.unshift(normalizedLog);
