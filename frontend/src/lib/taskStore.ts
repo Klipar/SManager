@@ -64,10 +64,12 @@ function normalizeScriptType(script: unknown) {
 export function normalizeLog(rawLog: any): TaskLog {
   const output = String(rawLog?.output ?? "");
   const startedAt = rawLog?.start_time || new Date().toISOString();
+  const endedAt = rawLog?.end_time || rawLog?.endTime;
 
   return {
     id: String(rawLog?.id ?? `${startedAt}-${output.slice(0, 12)}`),
     startedAt,
+    endedAt,
     scriptType: normalizeScriptType(rawLog?.script),
     status: logStatusFromMessage(output, rawLog?.return_code),
     summary: output.split("\n")[0] || output.slice(0, 100),

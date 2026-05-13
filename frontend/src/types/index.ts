@@ -49,6 +49,7 @@ export type ScriptType = "install" | "run" | "delete";
 export type TaskLog = {
   id: string;
   startedAt: string;
+  endedAt?: string;
   scriptType: ScriptType;
   status: "ok" | "warning" | "error";
   summary: string;

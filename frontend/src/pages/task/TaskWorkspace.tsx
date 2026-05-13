@@ -46,12 +46,21 @@ const scriptStripClass: Record<ScriptType, string> = {
 }
 
 function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
-  const [activeScriptType, setActiveScriptType] = useState<ScriptType | null>(null)
+  const [pendingRunStart, setPendingRunStart] = useState(false)
   const outputRef = useRef<HTMLDivElement | null>(null)
 
+  const hasRunningRun = selectedTask?.logs.some((log) => log.scriptType === "run" && !log.endedAt) ?? false
+  const isRunActive = hasRunningRun || pendingRunStart
+
   useEffect(() => {
-    setActiveScriptType(null)
+    setPendingRunStart(false)
   }, [selectedTask?.id])
+
+  useEffect(() => {
+    if (!hasRunningRun) {
+      setPendingRunStart(false)
+    }
+  }, [hasRunningRun])
 
   useEffect(() => {
     if (!outputRef.current) return
@@ -71,7 +80,6 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     )
   }
 
-  const isRunActive = activeScriptType === "run"
   const sortedLogs = [...selectedTask.logs].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
 
   const actionRows = [
@@ -84,7 +92,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     if (scriptType === "run" && isRunActive) {
       const ok = await handleStopAction()
       if (ok) {
-        setActiveScriptType(null)
+        setPendingRunStart(false)
       }
       return
     }
@@ -107,7 +115,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     }
 
     if (scriptType === "run") {
-      setActiveScriptType("run")
+      setPendingRunStart(true)
     }
   }
 
@@ -153,7 +161,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
         </div>
 
         <div className="border-y border-white/[0.035] px-3 py-2 text-center">
-          <h3 className="text-3xl font-medium tracking-tight text-white/90">Start log</h3>
+          <h3 className="text-3xl font-medium tracking-tight text-white/90">Runs log</h3>
         </div>
 
         <ScrollArea className="h-[calc(100vh-19rem)] p-3">
@@ -175,7 +183,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                   )}
                 </div>
                 <span className="flex min-w-0 flex-1 items-center justify-between px-3">
-                  <span className="truncate text-sm text-white/82">{log.startedAt}</span>
+                  <span className="truncate text-sm text-white/82">{formatLogLabel(log.startedAt)}</span>
                 </span>
               </button>
             ))}
@@ -195,8 +203,8 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                     <span className={cn("mr-2 inline-block size-2 rounded-full -translate-y-0.5", statusDotClass[selectedTask.status])} />
                     {statusLabel[selectedTask.status]}
                   </p>
-                  <p className="text-sm text-white/70">Started: {selectedLog?.startedAt ?? "Select a log to see the start time"}</p>
-                  <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt)}</p>
+                  <p className="text-sm text-white/70">Started: {formatStartedTime(selectedLog?.startedAt) ?? "Select a log to see the start time"}</p>
+                  <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt, selectedLog?.endedAt)}</p>
                   <div className="pt-3 text-sm text-white/72">
                     <p>Created by core: {selectedTask.createdByCore}</p>
                     <p className="mt-2">Restart policy: {selectedTask.restartPolicy}</p>
@@ -239,12 +247,34 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
   )
 }
 
-function formatUptime(startedAt?: string | null) {
+function formatDatePart(value: number) {
+  return String(value).padStart(2, "0")
+}
+
+function formatLogLabel(startedAt?: string | null) {
+  if (!startedAt) return "-"
+  const date = new Date(startedAt)
+  if (Number.isNaN(date.getTime())) return "-"
+  return `${date.getFullYear()}-${formatDatePart(date.getMonth() + 1)}-${formatDatePart(date.getDate())} ${formatDatePart(date.getHours())}:${formatDatePart(date.getMinutes())}`
+}
+
+function formatStartedTime(startedAt?: string | null) {
+  if (!startedAt) return undefined
+  const date = new Date(startedAt)
+  if (Number.isNaN(date.getTime())) return undefined
+  return `${date.getFullYear()}-${formatDatePart(date.getMonth() + 1)}-${formatDatePart(date.getDate())} ${formatDatePart(date.getHours())}:${formatDatePart(date.getMinutes())}:${formatDatePart(date.getSeconds())}`
+}
+
+function formatUptime(startedAt?: string | null, endedAt?: string | null) {
   if (!startedAt) return "-"
   try {
-    const date = new Date(startedAt)
-    if (Number.isNaN(date.getTime())) return "-"
-    const diff = Date.now() - date.getTime()
+    const startDate = new Date(startedAt)
+    if (Number.isNaN(startDate.getTime())) return "-"
+
+    const endDate = endedAt ? new Date(endedAt) : new Date()
+    if (endedAt && Number.isNaN(endDate.getTime())) return "-"
+
+    const diff = endDate.getTime() - startDate.getTime()
     if (diff < 0) return "-"
 
     const sec = Math.floor(diff / 1000)
