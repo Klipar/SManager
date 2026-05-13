@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { sendCoreRequest, subscribeCoreOpen, subscribeCoreRequest } from "@/lib/ws";
+import { sendCoreRequest, subscribeCoreRequest } from "@/lib/ws";
 import type { Agent, CreateTaskPayload, ScriptType, Task, TaskLog } from "@/types";
 import {
   buildTaskDescription,
@@ -425,24 +425,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [refreshTasks, taskStore, tasksByAgentId]);
 
   useEffect(() => {
-    const unsubscribeOpen = subscribeCoreOpen(() => {
-      void (async () => {
-        try {
-          const streamRes = await sendCoreRequest("start-stream", null);
-          if (streamRes?.status === "ok") {
-            await refreshAgents();
-            await refreshTasks();
-          }
-        } catch {}
-      })();
-    });
-
     const unsubscribeRuns = subscribeCoreRequest("execution_stream", () => {
       void refreshTasks();
     });
 
     return () => {
-      unsubscribeOpen();
       unsubscribeRuns();
     };
   }, [refreshAgents, refreshTasks]);
