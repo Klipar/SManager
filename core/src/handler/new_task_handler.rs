@@ -69,7 +69,7 @@ impl HandlerTrait for NewTaskHandler {
                 format!("Agent {} not connected", dto.agent_id),
             ),
         };
-        
+
         let agent_task = match new_task(&manager, NewTaskRequestDTO {
             name: dto.name.clone(),
             description: dto.description.clone(),

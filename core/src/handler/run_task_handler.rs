@@ -122,7 +122,6 @@ impl HandlerTrait for RunTaskHandler {
             .await
         {
             Ok(_) => {
-                // Spustí live stream z agenta
                 let manager_clone = Arc::clone(&manager);
                 let run_tx = self.state.run_tx.clone();
 

@@ -38,9 +38,6 @@ export function DeleteInactiveRunsModal({
           <p className="text-sm text-white/80">
             Delete <span className="font-medium text-white">{count}</span> finished run{count === 1 ? "" : "s"}?
           </p>
-          {/* <p className="text-sm text-white/60">
-            Only inactive runs with both <span className="font-medium text-white/80">return_code</span> and <span className="font-medium text-white/80">end_time</span> will be removed.
-          </p> */}
           <p className="mt-4 text-xs text-white/80">Running or incomplete runs remain untouched.</p>
         </div>
 
