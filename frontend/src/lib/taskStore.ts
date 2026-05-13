@@ -78,9 +78,9 @@ export function normalizeLog(rawLog: any): TaskLog {
 }
 
 export function buildTaskStatus(logs: TaskLog[], hasStoredMeta: boolean): TaskStatus {
-  if (logs.some((log) => log.status === "error")) return "failed";
-  if (logs.length > 0) return "executed";
-  return hasStoredMeta ? "starting" : "stopped";
+  if (logs.some((log) => log.status === "error")) return "Failed";
+  if (logs.length > 0) return "Executed";
+  return hasStoredMeta ? "Starting" : "Stopped";
 }
 
 export function buildTaskName(taskId: string, storedTask?: StoredTaskRecord) {

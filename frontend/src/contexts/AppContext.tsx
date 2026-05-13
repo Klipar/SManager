@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { sendCoreRequest, subscribeCoreRequest } from "@/lib/ws";
-import type { Agent, CreateTaskPayload, ScriptType, Task, TaskLog } from "@/types";
+import type { Agent, AgentStatus, CreateTaskPayload, ScriptType, Task, TaskLog } from "@/types";
 import {
   buildTaskDescription,
   buildTaskName,
@@ -64,6 +64,34 @@ function saveViewState(state: Partial<AppContextType>) {
   } catch {}
 }
 
+function normalizeAgentStatus(status: unknown): AgentStatus {
+  if (typeof status === "boolean") return status ? "online" : "offline";
+  if (typeof status === "number") return status === 1 ? "online" : "offline";
+
+  const lower = String(status ?? "").toLowerCase();
+  if (lower === "online" || lower === "connected" || lower === "up" || lower === "alive") return "online";
+  if (lower === "error" || lower === "failed") return "error";
+  return "offline";
+}
+
+function normalizeTaskStatus(status: unknown): Task["status"] {
+  const lower = String(status ?? "").toLowerCase();
+  switch (lower) {
+    case "ok":
+      return "Ok";
+    case "starting":
+      return "Starting";
+    case "failed":
+      return "Failed";
+    case "stopped":
+      return "Stopped";
+    case "executed":
+      return "Executed";
+    default:
+      return "Stopped";
+  }
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +143,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const normalized = rawAgents.map((a: any, idx: number) => ({
           id: String(a?.id ?? a?._id ?? a?.uuid ?? `agent-${idx}`),
           name: a?.name ?? `Unnamed ${idx + 1}`,
-          status: a?.status ?? "offline",
+          status: normalizeAgentStatus(a?.status),
           ip: a?.ip,
           description: a?.description,
           port: a?.port ?? a?.sin,
@@ -168,11 +196,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const storedTask = taskStoreSnapshot[taskId];
           const logs = runsByTaskId.get(taskId) ?? [];
 
+          const rawStatus = rawTask?.status !== undefined ? normalizeTaskStatus(rawTask.status) : undefined;
+          const hasActiveRun = logs.some((log) => !log.endedAt);
           const task: Task = {
             id: taskId,
             name: rawTask?.name ?? buildTaskName(taskId, storedTask),
             scriptType: "run",
-            status: (rawTask?.status as Task["status"] | undefined) ?? buildTaskStatus(logs, Boolean(storedTask)),
+            status: hasActiveRun ? "Starting" : (rawStatus ?? buildTaskStatus(logs, Boolean(storedTask))),
             description: rawTask?.description ?? buildTaskDescription(taskId, storedTask),
             createdByCore: storedTask?.createdByCore ?? "Agent",
             restartPolicy: (rawTask?.restart_policy as Task["restartPolicy"] | undefined) ?? storedTask?.restartPolicy ?? "no",
@@ -425,8 +455,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [refreshTasks, taskStore, tasksByAgentId]);
 
   useEffect(() => {
-    const unsubscribeRuns = subscribeCoreRequest("execution_stream", () => {
+    const unsubscribeRuns = subscribeCoreRequest("execution_stream", (msg) => {
+      const agentId = msg?.data?.agent_id ? String(msg.data.agent_id) : undefined;
+      if (agentId) {
+        setAgents((prev) =>
+          prev.map((agent) =>
+            agent.id === agentId ? { ...agent, status: "online" } : agent,
+          ),
+        );
+      }
       void refreshTasks();
+      void refreshAgents();
     });
 
     const unsubscribeRunUpdate = subscribeCoreRequest("run_update", (msg) => {
@@ -454,6 +493,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               }
 
               task.logs.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+              task.status = task.logs.some((log) => !log.endedAt)
+                ? "Starting"
+                : buildTaskStatus(task.logs, true);
               tasks[taskIndex] = task;
               updated[agentId] = [...tasks];
             }
@@ -461,9 +503,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return updated;
         });
 
+        const agentId = msg?.data?.agent_id ? String(msg.data.agent_id) : String(run.agent_id ?? "");
+        if (agentId) {
+          setAgents((prev) =>
+            prev.map((agent) =>
+              agent.id === agentId ? { ...agent, status: "online" } : agent,
+            ),
+          );
+        }
+
         if (shouldAutoSelectLog) {
           setSelectedLogId(normalizedLog.id);
         }
+
+        void refreshAgents();
       } catch (error) {
         console.error("Error handling run_update:", error);
       }

@@ -24,19 +24,19 @@ type TaskWorkspaceProps = {
 }
 
 const statusLabel: Record<Task["status"], string> = {
-  ok: "Current status: ok",
-  starting: "Current status: starting",
-  failed: "Current status: failed",
-  stopped: "Current status: stopped",
-  executed: "Current status: executed",
+  Ok: "Current status: ok",
+  Starting: "Current status: starting",
+  Failed: "Current status: failed",
+  Stopped: "Current status: stopped",
+  Executed: "Current status: executed",
 }
 
 const statusDotClass: Record<Task["status"], string> = {
-  ok: "bg-emerald-500",
-  starting: "bg-sky-400",
-  failed: "bg-red-500",
-  stopped: "bg-slate-500",
-  executed: "bg-violet-500",
+  Ok: "bg-emerald-500",
+  Starting: "bg-sky-400",
+  Failed: "bg-red-500",
+  Stopped: "bg-slate-500",
+  Executed: "bg-violet-500",
 }
 
 const scriptStripClass: Record<ScriptType, string> = {
@@ -211,7 +211,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                     <span className={cn("mr-2 inline-block size-2 rounded-full -translate-y-0.5", statusDotClass[selectedTask.status])} />
                     {statusLabel[selectedTask.status]}
                   </p>
-                  <p className="text-sm text-white/70">Started: {formatStartedTime(selectedLog?.startedAt) ?? "Select a log to see the start time"}</p>
+                  <p className="text-sm text-white/70">Started: {formatStartedTime(selectedLog?.startedAt) ?? "-"}</p>
                   <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt, selectedLog?.endedAt, now)}</p>
                   <div className="pt-3 text-sm text-white/72">
                     <p>Created by core: {selectedTask.createdByCore}</p>
