@@ -42,8 +42,9 @@ pub async fn delete_run(
         _ => bail!("Unexpected response format"),
     }
 }
-pub async fn delete_inactive_runs(manager: &ConnectionManager) -> Result<i64> {
-    let response = manager.request("delete-inactive-runs", None).await?;
+pub async fn delete_inactive_runs(manager: &ConnectionManager, task_id: i64) -> Result<i64> {
+    let data = serde_json::json!({ "id": task_id });
+    let response = manager.request("delete-inactive-runs", Some(data)).await?;
 
     match response {
         Message::Response {

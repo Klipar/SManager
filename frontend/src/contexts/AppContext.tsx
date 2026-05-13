@@ -39,7 +39,7 @@ type AppContextType = {
   runTask: (taskId: string, scriptType: ScriptType) => Promise<boolean>;
   stopTask: (taskId: string) => Promise<boolean>;
   deleteLog: (taskId: string, logId: string) => Promise<boolean>;
-  deleteInactiveRuns: (agentId: string) => Promise<boolean>;
+  deleteInactiveRuns: (agentId: string, taskId: string) => Promise<boolean>;
   refreshAgents: () => void;
   refreshTasks: () => Promise<void>;
 };
@@ -457,15 +457,20 @@ function normalizeTaskStatus(status: unknown): Task["status"] {
   }, [refreshTasks, taskStore, tasksByAgentId]);
 
   const deleteInactiveRuns = useCallback(
-    async (agentId: string) => {
+    async (agentId: string, taskId: string) => {
       const agent_id = Number.parseInt(agentId, 10);
+      const task_id = Number.parseInt(taskId, 10);
       if (Number.isNaN(agent_id)) {
         console.error("[deleteInactiveRuns] Invalid agent id", agentId);
         return false;
       }
+      if (Number.isNaN(task_id)) {
+        console.error("[deleteInactiveRuns] Invalid task id", taskId);
+        return false;
+      }
 
       try {
-        const payload = { agent_id };
+        const payload = { agent_id, task_id };
         console.log("[deleteInactiveRuns] Sending request", payload);
 
         const res = await sendCoreRequest("delete-inactive-runs", payload);

@@ -67,11 +67,13 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
   const inactiveRunsCount = selectedTask?.logs.filter((log) => Boolean(log.endedAt)).length ?? 0
 
   const handleDeleteInactiveRuns = async () => {
+    if (!selectedTask) return
+
     setIsDeletingInactiveRuns(true)
     setDeleteInactiveRunsError(null)
 
     try {
-      const ok = await deleteInactiveRuns(agent.id)
+      const ok = await deleteInactiveRuns(agent.id, selectedTask.id)
       if (ok) {
         setShowDeleteInactiveRuns(false)
       } else {
