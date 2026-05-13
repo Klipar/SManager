@@ -42,7 +42,7 @@ impl Server {
             let handlers = self.handlers.clone();
 
             tokio::spawn(async move {
-                let mut framed =  Framed::new(socket, LinesCodec::new_with_max_length(65536)); //Set to 64 kb data per json. if need can be extended
+                let mut framed =  Framed::new(socket, LinesCodec::new_with_max_length(1048576)); //Set to 1 MB data per json. if need can be extended
 
                 let mut ctx = ConnectionContext::new();
 

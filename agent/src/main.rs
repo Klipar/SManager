@@ -1,5 +1,5 @@
 use agent_lib::{extern_server::{connection_registry::ConnectionRegistry, server::Server}, handler::{extern_server::{delete_inactive_runs_handler::DeleteInactiveRunsHandler, delete_run_handler::DeleteRunByIdHandler, get_all_cores_handler::GetAllCoresHandler, get_all_runs_handler::GetAllRunsHandler, get_all_tasks_handler::GetAllTasksHandler, new_core_handler::NewCoreHandler, new_task_handler::NewTaskHandler, ping_handler::PingHandler, remove_core_handler::RemoveCoreHandler, remove_task_handler::RemoveTaskHandler, run_task_handler::RunTaskHandler, start_stream_handler::StartStreamHandler, stop_stream_handler::StopStreamHandler, stop_task_handler::StopTaskHandler, update_core_handler::UpdateCoreHandler, update_task_handler::UpdateTaskHandler}, intern_server::authenticate_handler::AuthenticateHandler}, managers::task_manager::TaskManager};
-use shared::server::endpoint::Endpoint;
+use shared::server::{endpoint::Endpoint, get_hash::set_salt_env_key};
 use sqlx::postgres::PgPool;
 
 use log::error;
@@ -11,6 +11,7 @@ use agent_lib::config::Config;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
     env_logger::init();
+    set_salt_env_key("AGENT_SALT");
 
     let cfg = Config::from_env();
 

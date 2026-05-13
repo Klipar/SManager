@@ -12,11 +12,11 @@ type AgentTasksProps = {
 }
 
 const taskStatusStyles: Record<Task["status"], string> = {
-  ok: "text-emerald-400",
-  starting: "text-sky-300",
-  failed: "text-red-400",
-  stopped: "text-white/30",
-  executed: "text-violet-400",
+  Ok: "text-emerald-400",
+  Starting: "text-sky-300",
+  Failed: "text-red-400",
+  Stopped: "text-white/30",
+  Executed: "text-violet-400",
 }
 
 function AgentTasks({ tasks, selectedTaskId, onSelectTask, onAddTask }: AgentTasksProps) {

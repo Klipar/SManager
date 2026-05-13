@@ -1,8 +1,9 @@
-use std::{sync::Arc, fs::File, io::BufReader, path::{Path, PathBuf}};
+use std::{env, sync::Arc, fs::File, io::BufReader, path::{Path, PathBuf}};
 use anyhow::Result;
 use tokio_rustls::{TlsConnector, rustls};
 use tokio_rustls::rustls::pki_types::{ServerName, PrivateKeyDer, PrivatePkcs8KeyDer};
 use tokio_util::codec::{Framed, LinesCodec};
+use rustls::ClientConfig;
 
 // ---- cert helpers ----
 
@@ -52,17 +53,35 @@ fn resolve_certs_dir() -> PathBuf {
 
 // ---- TLS config ----
 
-fn build_client_tls_config() -> Arc<rustls::ClientConfig> {
+
+fn build_client_tls_config() -> Arc<ClientConfig> {
+    dotenvy::dotenv().ok();
+
     let certs_dir = resolve_certs_dir();
 
-    let ca_certs = load_certs(&certs_dir.join("ca.crt"));
+    // Read file names from .env
+    let ca_cert_file =
+        env::var("CA_CERT_FILE").expect("CA_CERT_FILE is not set");
+
+    let client_cert_file =
+        env::var("CLIENT_CERT_FILE").expect("CLIENT_CERT_FILE is not set");
+
+    let client_key_file =
+        env::var("CLIENT_KEY_FILE").expect("CLIENT_KEY_FILE is not set");
+
+    // Load certificates and key
+    let ca_certs = load_certs(&certs_dir.join(ca_cert_file));
+
     let mut roots = rustls::RootCertStore::empty();
     for cert in ca_certs {
         roots.add(cert).unwrap();
     }
 
-    let client_certs = load_certs(&certs_dir.join("client.crt"));
-    let client_key = load_key(&certs_dir.join("client.key"));
+    let client_certs =
+        load_certs(&certs_dir.join(client_cert_file));
+
+    let client_key =
+        load_key(&certs_dir.join(client_key_file));
 
     Arc::new(
         rustls::ClientConfig::builder()
@@ -79,18 +98,18 @@ pub type AgentFramed = Framed<
     LinesCodec,
 >;
 
-pub async fn connect(server_ip: &str, port: u16, server_cn: &str) -> Result<AgentFramed> {
+pub async fn connect(server_addr: &str, port: u16) -> Result<AgentFramed> {
     let tls_config = build_client_tls_config();
     let connector = TlsConnector::from(tls_config);
 
-    let tcp = tokio::net::TcpStream::connect((server_ip, port)).await?;
+    let tcp = tokio::net::TcpStream::connect((server_addr, port)).await?;
 
-    let domain = ServerName::try_from(server_cn.to_string())?;
+    let domain = ServerName::try_from(server_addr.to_string())?;
     let tls_stream = connector.connect(domain, tcp).await?;
 
     let framed = Framed::new(
         tls_stream,
-        LinesCodec::new_with_max_length(65536),
+        LinesCodec::new_with_max_length(1048576),
     );
 
     Ok(framed)

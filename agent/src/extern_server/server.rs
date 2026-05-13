@@ -21,7 +21,7 @@ use crate::extern_server::{connection_registry::{ConnectionRegistry, OutboundReq
 
 const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const READ_TIMEOUT: Duration = Duration::from_secs(60);
-const MAX_LINE_LENGTH: usize = 65536;
+const MAX_LINE_LENGTH: usize = 1048576;
 
 
 pub struct Server {
@@ -161,7 +161,7 @@ async fn authenticate_client(
         .next()
         .and_then(|cn| cn.as_str().ok())
         .unwrap_or_default();
-
+    info!("Client CN: {cn}, IP: {}", addr.ip());
     let core = sqlx::query_as::<_, Core>(
         "SELECT * FROM cores WHERE client_hash = $1 AND ip = $2"
     )

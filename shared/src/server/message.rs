@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 pub enum Message {
     #[serde(rename = "request")]
@@ -24,7 +24,8 @@ pub enum Message {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Status {
     #[serde(rename = "ok")]
     Ok,

@@ -4,45 +4,46 @@ use log::{info, error, debug};
 use tokio::sync::mpsc;
 use tokio_tungstenite::accept_async;
 use shared::server::message::{Message, Status};
+use tokio_tungstenite::tungstenite::Message as TMessage;
 use crate::{
     handler::handler_trait::HandlerTrait,
-    server::connection_context::ConnectionContext,
-    server::message_handler::process_message,
+    server::{connection_context::ConnectionContext, connection_registry::ConnectionRegistry, message_handler::process_message},
 };
 
 pub async fn handle_connection(
     stream: tokio::net::TcpStream,
     addr: SocketAddr,
     handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
+    registry: Arc<ConnectionRegistry>,
+    conn_id: u64,
 ) {
     let ws_stream = match accept_async(stream).await {
-        Ok(stream) => stream,
-        Err(e) => {
-            error!("WebSocket handshake failed for {}: {}", addr, e);
-            return;
-        }
+        Ok(s) => s,
+        Err(e) => { error!("Handshake failed for {}: {}", addr, e); return; }
     };
 
-    info!("New WebSocket connection from {}", addr);
-    let ctx = ConnectionContext::new(addr.ip().to_string());
-    run_message_loop(ws_stream, addr, handlers, ctx).await;
-    info!("Connection closed: {}", addr);
+    info!("New WebSocket connection from {} (id={})", addr, conn_id);
+    let ctx = ConnectionContext::new(addr.ip().to_string(), conn_id);
+    run_message_loop(ws_stream, addr, handlers, registry, conn_id, ctx).await;
+    info!("Connection closed: {} (id={})", addr, conn_id);
 }
 
 pub async fn run_message_loop(
     ws_stream: tokio_tungstenite::WebSocketStream<tokio::net::TcpStream>,
     addr: SocketAddr,
     handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
+    registry: Arc<ConnectionRegistry>,
+    conn_id: u64,
     mut ctx: ConnectionContext,
 ) {
     const TIMEOUT_DURATION: Duration = Duration::from_secs(60);
     let mut last_message_time = Instant::now();
 
-    // split sink/stream and create a channel for outgoing messages
     let (mut sink, mut stream) = ws_stream.split();
-    let (tx, mut rx) = mpsc::channel::<tokio_tungstenite::tungstenite::Message>(32);
+    let (tx, mut rx) = mpsc::channel::<TMessage>(32);
 
-    // writer task: send outgoing messages from channel
+    registry.register(conn_id, tx.clone()).await;
+
     let writer = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             if let Err(e) = sink.send(msg).await {
@@ -80,11 +81,11 @@ pub async fn run_message_loop(
                 last_message_time = Instant::now();
 
                 match &msg {
-                    tokio_tungstenite::tungstenite::Message::Close(_) => {
-                        let _ = tx.send(tokio_tungstenite::tungstenite::Message::Close(None)).await;
+                    TMessage::Close(_) => {
+                        let _ = tx.send(TMessage::Close(None)).await;
                         break;
                     }
-                    tokio_tungstenite::tungstenite::Message::Ping(_) | tokio_tungstenite::tungstenite::Message::Pong(_) => {
+                    TMessage::Ping(_) | TMessage::Pong(_) => {
                         continue;
                     }
                     _ => {}
@@ -130,23 +131,24 @@ pub async fn run_message_loop(
     }
 
     drop(tx);
+    registry.unregister(conn_id).await;
     let _ = writer.await;
 }
 
-pub async fn parse_message_from_ws(msg: tokio_tungstenite::tungstenite::Message) -> Option<String> {
+pub async fn parse_message_from_ws(msg: TMessage) -> Option<String> {
     match msg {
-        tokio_tungstenite::tungstenite::Message::Text(text) => Some(text),
-        tokio_tungstenite::tungstenite::Message::Binary(data) => {
+        TMessage::Text(text) => Some(text),
+        TMessage::Binary(data) => {
             String::from_utf8(data).ok()
         }
         _ => None,
     }
 }
 
-pub fn response_to_ws(response: Message) -> tokio_tungstenite::tungstenite::Message {
+pub fn response_to_ws(response: Message) -> TMessage {
     let json = serde_json::to_string(&response).unwrap_or_else(|_| {
         "{\"type\":\"response\",\"id\":0,\"status\":\"error\",\"code\":500,\"message\":\"Failed to serialize response\"}".to_string()
     });
 
-    tokio_tungstenite::tungstenite::Message::Text(json)
+    TMessage::Text(json)
 }

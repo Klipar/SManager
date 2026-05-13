@@ -1,16 +1,17 @@
-import { Download, Play, Square, Trash2, MoreHorizontal } from "lucide-react"
+import { Download, Play, Square, Trash2, MoreHorizontal, X } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useApp } from "@/contexts/AppContext"
 import { sendCoreRequest } from "@/lib/ws"
 import { AddAgentModal } from "../agent/AddAgentModal"
 import DeleteAgentModal from "../agent/DeleteAgentModal"
 import AddTaskModal from "./AddTaskModal"
 import DeleteTaskModal from "./DeleteTaskModal"
+import DeleteInactiveRunsModal from "./DeleteInactiveRunsModal"
 
 import type { Agent, ScriptType, Task, TaskLog } from "@/types"
 
@@ -19,24 +20,24 @@ type TaskWorkspaceProps = {
   selectedTask: Task | null
   selectedLog: TaskLog | null
   onSelectLog: (logId: string | null) => void
-  onRunTask: (taskId: string, scriptType: ScriptType) => void
-  onStopTask: (taskId: string) => void
+  onRunTask: (taskId: string, scriptType: ScriptType) => Promise<boolean>
+  onStopTask: (taskId: string) => Promise<boolean>
 }
 
 const statusLabel: Record<Task["status"], string> = {
-  ok: "Current status: ok",
-  starting: "Current status: starting",
-  failed: "Current status: failed",
-  stopped: "Current status: stopped",
-  executed: "Current status: executed",
+  Ok: "Current status: ok",
+  Starting: "Current status: starting",
+  Failed: "Current status: failed",
+  Stopped: "Current status: stopped",
+  Executed: "Current status: executed",
 }
 
 const statusDotClass: Record<Task["status"], string> = {
-  ok: "bg-emerald-500",
-  starting: "bg-sky-400",
-  failed: "bg-red-500",
-  stopped: "bg-slate-500",
-  executed: "bg-violet-500",
+  Ok: "bg-emerald-500",
+  Starting: "bg-sky-400",
+  Failed: "bg-red-500",
+  Stopped: "bg-slate-500",
+  Executed: "bg-violet-500",
 }
 
 const scriptStripClass: Record<ScriptType, string> = {
@@ -46,6 +47,70 @@ const scriptStripClass: Record<ScriptType, string> = {
 }
 
 function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
+  const [pendingRunStart, setPendingRunStart] = useState(false)
+  const [now, setNow] = useState(new Date())
+  const outputRef = useRef<HTMLDivElement | null>(null)
+  const { deleteLog, deleteInactiveRuns } = useApp()
+  const [showDeleteInactiveRuns, setShowDeleteInactiveRuns] = useState(false)
+  const [isDeletingInactiveRuns, setIsDeletingInactiveRuns] = useState(false)
+  const [deleteInactiveRunsError, setDeleteInactiveRunsError] = useState<string | null>(null)
+
+  const handleDeleteLog = async (logId: string) => {
+    if (!selectedTask) return
+    const ok = await deleteLog(selectedTask.id, logId)
+    if (!ok) {
+      console.error("[TaskWorkspace] handleDeleteLog failed for log", logId)
+      alert("Failed to delete log - check browser console for details")
+    }
+  }
+
+  const inactiveRunsCount = selectedTask?.logs.filter((log) => Boolean(log.endedAt)).length ?? 0
+
+  const handleDeleteInactiveRuns = async () => {
+    setIsDeletingInactiveRuns(true)
+    setDeleteInactiveRunsError(null)
+
+    try {
+      const ok = await deleteInactiveRuns(agent.id)
+      if (ok) {
+        setShowDeleteInactiveRuns(false)
+      } else {
+        const message = "Failed to delete inactive runs"
+        setDeleteInactiveRunsError(message)
+        console.error("[TaskWorkspace] handleDeleteInactiveRuns failed for agent", agent.id)
+      }
+    } catch (error) {
+      setDeleteInactiveRunsError(String(error))
+    } finally {
+      setIsDeletingInactiveRuns(false)
+    }
+  }
+
+  const hasRunningRun = selectedTask?.logs.some((log) => log.scriptType === "run" && !log.endedAt) ?? false
+  const isRunActive = hasRunningRun || pendingRunStart
+
+  useEffect(() => {
+    setPendingRunStart(false)
+  }, [selectedTask?.id])
+
+  useEffect(() => {
+    if (!hasRunningRun) {
+      setPendingRunStart(false)
+    }
+  }, [hasRunningRun])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (!outputRef.current) return
+    outputRef.current.scrollTop = outputRef.current.scrollHeight
+  }, [selectedLog?.id, selectedLog?.output.length])
+
   if (!selectedTask) {
     return (
       <div className="relative flex min-h-[calc(100vh-16rem)] items-center justify-center px-8 pb-8 pt-40 text-center md:pt-56">
@@ -59,11 +124,54 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     )
   }
 
+  const sortedLogs = [...selectedTask.logs].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+
   const actionRows = [
     { id: "install", title: "Install", icon: Download, tone: "bg-violet-400/80" },
-    { id: "run", title: "Run", icon: Play, tone: "bg-emerald-400/80" },
+    { id: "run", title: "Run", icon: Play, tone: "bg-emerald-400/80", active: isRunActive },
     { id: "delete", title: "Delete", icon: Trash2, tone: "bg-red-400/80" },
   ]
+
+  const handleRunAction = async (scriptType: ScriptType) => {
+    if (scriptType === "run" && isRunActive) {
+      const ok = await handleStopAction()
+      if (ok) {
+        setPendingRunStart(false)
+      }
+      return
+    }
+
+    const script = scriptType === "install"
+      ? selectedTask.installScript
+      : scriptType === "run"
+        ? selectedTask.runScript
+        : selectedTask.deleteScript
+
+    if (!script || !script.trim()) {
+      alert(`${scriptType} script is empty for this task`)
+      return
+    }
+
+    const ok = await onRunTask(selectedTask.id, scriptType)
+    if (!ok) {
+      alert(`Failed to start ${scriptType} script`)
+      return
+    }
+
+    if (scriptType === "run") {
+      setPendingRunStart(true)
+    }
+  }
+
+  const handleStopAction = async () => {
+    const ok = await onStopTask(selectedTask.id)
+    if (!ok) {
+      alert("Failed to stop task")
+      return false
+    }
+
+    return true
+  }
 
   return (
     <div className="grid h-full w-full gap-0 lg:grid-cols-[18rem_1fr]">
@@ -74,33 +182,60 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
               <button
                 key={row.id}
                 type="button"
-                onClick={() => onRunTask(selectedTask.id, row.id as ScriptType)}
-                className="group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                onClick={() => { void handleRunAction(row.id as ScriptType) }}
+                className={cn(
+                  "group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
+                  row.active && "border-emerald-400/35 bg-emerald-400/10 hover:bg-emerald-400/14"
+                )}
               >
                 <div className={cn("flex h-11 w-8 items-center justify-center", row.tone)}>
                   <row.icon className="size-3.5 text-black/80" />
                 </div>
                 <div className="flex flex-1 items-center justify-between px-3">
                   <span className="text-sm text-white/82">{row.title}</span>
-                  <Play className="size-4 text-white/60 group-hover:text-white/75" />
+                  {row.id === "run" && isRunActive ? (
+                    <Square className="size-4 text-white/70 group-hover:text-white/90" />
+                  ) : (
+                    <Play className="size-4 text-white/60 group-hover:text-white/75" />
+                  )}
                 </div>
               </button>
             ))}
           </div>
         </div>
 
-        <div className="border-y border-white/[0.035] px-3 py-2 text-center">
-          <h3 className="text-3xl font-medium tracking-tight text-white/90">Start log</h3>
+        <div className="border-y border-white/[0.035] px-3 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-3xl font-medium tracking-tight text-white/90">Runs log</h3>
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteInactiveRuns(true)
+              }}
+              disabled={inactiveRunsCount === 0}
+              title={inactiveRunsCount === 0 ? "No inactive runs to delete" : "Delete inactive runs"}
+              className="rounded p-2 text-white/72 transition-colors hover:bg-white/[0.06] hover:text-white/88 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </div>
         </div>
 
         <ScrollArea className="h-[calc(100vh-19rem)] p-3">
           <div className="space-y-2">
-            {selectedTask.logs.map((log) => (
-              <button
+            {sortedLogs.map((log) => (
+              <div
                 key={log.id}
-                type="button"
                 onClick={() => onSelectLog(log.id)}
-                className="group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    onSelectLog(log.id)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className="group flex w-full cursor-pointer items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
               >
                 <div className={cn("flex h-11 w-8 items-center justify-center", scriptStripClass[log.scriptType])}>
                   {log.scriptType === "install" ? (
@@ -112,21 +247,20 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                   )}
                 </div>
                 <span className="flex min-w-0 flex-1 items-center justify-between px-3">
-                  <span className="truncate text-sm text-white/82">{log.startedAt}</span>
+                  <span className="truncate text-sm text-white/82">{formatLogLabel(log.startedAt)}</span>
                   <button
                     type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onStopTask(selectedTask.id)
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleDeleteLog(log.id)
                     }}
-                    className="inline-flex shrink-0 items-center justify-center text-white/45 transition-colors hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
-                    aria-label={`Stop task ${selectedTask.name}`}
-                    title="Stop task"
+                    className="ml-2 flex-shrink-0 rounded p-1 opacity-0 transition-opacity hover:bg-white/[0.1] group-hover:opacity-100"
+                    title="Delete log"
                   >
-                    <Square className="size-4 text-white/60 group-hover:text-white/75" />
+                    <X className="size-3.5 text-white/60 hover:text-white/80" />
                   </button>
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         </ScrollArea>
@@ -144,11 +278,10 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                     <span className={cn("mr-2 inline-block size-2 rounded-full -translate-y-0.5", statusDotClass[selectedTask.status])} />
                     {statusLabel[selectedTask.status]}
                   </p>
-                  <p className="text-sm text-white/70">Started: {selectedLog?.startedAt ?? "Select a log to see the start time"}</p>
-                  <p className="text-sm text-white/70">Working: 5 days 6 hours 7 minutes</p>
+                  <p className="text-sm text-white/70">Started: {formatStartedTime(selectedLog?.startedAt) ?? "-"}</p>
+                  <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt, selectedLog?.endedAt, now)}</p>
                   <div className="pt-3 text-sm text-white/72">
-                    <p>Created by core: {selectedTask.createdByCore}</p>
-                    <p className="mt-2">Restart policy: {selectedTask.restartPolicy}</p>
+                    <p>Restart policy: {selectedTask.restartPolicy}</p>
                   </div>
                 </div>
 
@@ -172,7 +305,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
             <h3 className="mb-3 text-4xl font-medium tracking-tight text-white/90">Output:</h3>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] max-h-[calc(100vh-22rem)]">
               {selectedLog ? (
-                <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+                <div ref={outputRef} className="min-h-0 flex-1 overflow-auto px-4 py-3">
                   <pre className="m-0 whitespace-pre-wrap text-sm leading-6 text-white/76">{selectedLog.output.join("\n")}</pre>
                 </div>
               ) : (
@@ -184,8 +317,68 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
           </div>
         </div>
       </div>
+
+      <DeleteInactiveRunsModal
+        open={showDeleteInactiveRuns}
+        count={inactiveRunsCount}
+        onClose={() => {
+          setShowDeleteInactiveRuns(false)
+          setDeleteInactiveRunsError(null)
+        }}
+        onConfirm={handleDeleteInactiveRuns}
+        isDeleting={isDeletingInactiveRuns}
+        error={deleteInactiveRunsError}
+      />
     </div>
   )
+}
+
+function formatDatePart(value: number) {
+  return String(value).padStart(2, "0")
+}
+
+function formatLogLabel(startedAt?: string | null) {
+  if (!startedAt) return "-"
+  const date = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
+  if (Number.isNaN(date.getTime())) return "-"
+  return `${date.getFullYear()}-${formatDatePart(date.getMonth() + 1)}-${formatDatePart(date.getDate())} ${formatDatePart(date.getHours())}:${formatDatePart(date.getMinutes())}`
+}
+
+function formatStartedTime(startedAt?: string | null) {
+  if (!startedAt) return undefined
+  const date = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
+  if (Number.isNaN(date.getTime())) return undefined
+  return `${date.getFullYear()}-${formatDatePart(date.getMonth() + 1)}-${formatDatePart(date.getDate())} ${formatDatePart(date.getHours())}:${formatDatePart(date.getMinutes())}:${formatDatePart(date.getSeconds())}`
+}
+
+function formatUptime(startedAt?: string | null, endedAt?: string | null, currentTime?: Date) {
+  if (!startedAt) return "-"
+  try {
+    const startDate = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
+    if (Number.isNaN(startDate.getTime())) return "-"
+
+    const endDate = endedAt
+      ? new Date(endedAt + (endedAt.includes('Z') ? '' : 'Z'))
+      : (currentTime || new Date())
+
+    if (endedAt && Number.isNaN(endDate.getTime())) return "-"
+
+    const diff = endDate.getTime() - startDate.getTime()
+    if (diff < 0) return "-"
+
+    const sec = Math.floor(diff / 1000)
+    const days = Math.floor(sec / 86400)
+    const hours = Math.floor((sec % 86400) / 3600)
+    const minutes = Math.floor((sec % 3600) / 60)
+    const parts: string[] = []
+    if (days > 0) parts.push(`${days} day${days !== 1 ? "s" : ""}`)
+    if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? "s" : ""}`)
+    if (minutes > 0) parts.push(`${minutes} minute${minutes !== 1 ? "s" : ""}`)
+    if (parts.length === 0) return `${sec} sec${sec !== 1 ? "s" : ""}`
+    return parts.join(" ")
+  } catch {
+    return "-"
+  }
 }
 
 function TaskMenu({ agent, task }: { agent: Agent; task: Task }) {
@@ -200,7 +393,7 @@ function TaskMenu({ agent, task }: { agent: Agent; task: Task }) {
     setDeleteError(null)
 
     try {
-      const res = await sendCoreRequest("remove-task", { id: Number(task.id) })
+      const res = await sendCoreRequest("remove-task", { id: Number(task.id), agent_id: Number(agent.id) })
       if (res?.status === "ok") {
         await removeTaskRecord(task.id)
         setSelectedTaskId(null)
@@ -219,7 +412,11 @@ function TaskMenu({ agent, task }: { agent: Agent; task: Task }) {
   const handleEditSave = async (payload: any) => {
     if (payload.id) {
       // Edit mode
-      await saveTaskRecord(payload.id, payload.updates)
+      const ok = await saveTaskRecord(payload.id, payload.updates)
+      if (!ok) {
+        alert("Failed to update task")
+        return
+      }
     }
     setShowEdit(false)
   }
@@ -352,7 +549,7 @@ function AgentMenu({ agent }: { agent: Agent | null }) {
           await handleEditSave(payload)
           setShowEdit(false)
         }}
-        initial={{ name: agent.name, ip: agent.ip ?? "", description: agent.description ?? "", port: agent.port ?? 0 }}
+        initial={{ name: agent.name, ip: agent.ip ?? "", description: agent.description ?? "", port: agent.port ?? undefined }}
         title="Edit Agent"
       />
 

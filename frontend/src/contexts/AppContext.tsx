@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
-import { sendCoreRequest, subscribeCoreOpen, subscribeCoreRequest } from "@/lib/ws";
-import type { Agent, CreateTaskPayload, ScriptType, Task, TaskLog } from "@/types";
+import { sendCoreRequest, subscribeCoreRequest } from "@/lib/ws";
+import type { Agent, AgentStatus, CreateTaskPayload, ScriptType, Task, TaskLog } from "@/types";
 import {
   buildTaskDescription,
   buildTaskName,
@@ -38,6 +38,8 @@ type AppContextType = {
   removeTaskRecord: (taskId: string) => Promise<boolean>;
   runTask: (taskId: string, scriptType: ScriptType) => Promise<boolean>;
   stopTask: (taskId: string) => Promise<boolean>;
+  deleteLog: (taskId: string, logId: string) => Promise<boolean>;
+  deleteInactiveRuns: (agentId: string) => Promise<boolean>;
   refreshAgents: () => void;
   refreshTasks: () => Promise<void>;
 };
@@ -64,48 +66,76 @@ function saveViewState(state: Partial<AppContextType>) {
   } catch {}
 }
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
-  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
-  const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(null);
-  const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(228);
-  const [taskStore, setTaskStore] = useState<Record<string, StoredTaskRecord>>(() => loadTaskStore());
-  const [tasksByAgentId, setTasksByAgentId] = useState<Record<string, Task[]>>({});
+function normalizeAgentStatus(status: unknown): AgentStatus {
+  if (typeof status === "boolean") return status ? "online" : "offline";
+  if (typeof status === "number") return status === 1 ? "online" : "offline";
 
-  useEffect(() => {
-    saveTaskStore(taskStore);
-  }, [taskStore]);
+  const lower = String(status ?? "").toLowerCase();
+  if (lower === "online" || lower === "connected" || lower === "up" || lower === "alive") return "online";
+  if (lower === "error" || lower === "failed") return "error";
+  return "offline";
+}
 
-  useEffect(() => {
-    const saved = loadViewState();
-    if (saved.selectedAgentId) setSelectedAgentId(saved.selectedAgentId);
-    if (saved.expandedAgentId) setExpandedAgentId(saved.expandedAgentId);
-    if (saved.selectedTaskId) setSelectedTaskId(saved.selectedTaskId);
-    if (saved.selectedLogId) setSelectedLogId(saved.selectedLogId);
-    if (saved.createTaskAgentId) setCreateTaskAgentId(saved.createTaskAgentId);
-    if (saved.createTaskModalOpen !== undefined) setCreateTaskModalOpen(saved.createTaskModalOpen);
-    if (saved.isSidebarCollapsed !== undefined) setIsSidebarCollapsed(saved.isSidebarCollapsed);
-    if (saved.sidebarWidth) setSidebarWidth(saved.sidebarWidth);
-  }, []);
+function normalizeTaskStatus(status: unknown): Task["status"] {
+  const lower = String(status ?? "").toLowerCase();
+  switch (lower) {
+    case "ok":
+      return "Ok";
+    case "starting":
+      return "Starting";
+    case "failed":
+      return "Failed";
+    case "stopped":
+      return "Stopped";
+    case 'executed':
+      return 'Executed';
+    default:
+      return 'Stopped';
+  }
+}
 
-  useEffect(() => {
-    saveViewState({
-      selectedAgentId,
-      expandedAgentId,
-      selectedTaskId,
-      selectedLogId,
-      createTaskAgentId,
-      createTaskModalOpen,
-      isSidebarCollapsed,
-      sidebarWidth,
-    });
-  }, [selectedAgentId, expandedAgentId, selectedTaskId, selectedLogId, createTaskAgentId, createTaskModalOpen, isSidebarCollapsed, sidebarWidth]);
+  export function AppProvider({ children }: { children: React.ReactNode }) {
+    const [agents, setAgents] = useState<Agent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+    const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
+    const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(null);
+    const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [sidebarWidth, setSidebarWidth] = useState(228);
+    const [taskStore, setTaskStore] = useState<Record<string, StoredTaskRecord>>(() => loadTaskStore());
+    const [tasksByAgentId, setTasksByAgentId] = useState<Record<string, Task[]>>({});
+
+    useEffect(() => {
+      saveTaskStore(taskStore);
+    }, [taskStore]);
+
+    useEffect(() => {
+      const saved = loadViewState();
+      if (saved.selectedAgentId) setSelectedAgentId(saved.selectedAgentId);
+      if (saved.expandedAgentId) setExpandedAgentId(saved.expandedAgentId);
+      if (saved.selectedTaskId) setSelectedTaskId(saved.selectedTaskId);
+      if (saved.selectedLogId) setSelectedLogId(saved.selectedLogId);
+      if (saved.createTaskAgentId) setCreateTaskAgentId(saved.createTaskAgentId);
+      if (saved.createTaskModalOpen !== undefined) setCreateTaskModalOpen(saved.createTaskModalOpen);
+      if (saved.isSidebarCollapsed !== undefined) setIsSidebarCollapsed(saved.isSidebarCollapsed);
+      if (saved.sidebarWidth) setSidebarWidth(saved.sidebarWidth);
+    }, []);
+
+    useEffect(() => {
+      saveViewState({
+        selectedAgentId,
+        expandedAgentId,
+        selectedTaskId,
+        selectedLogId,
+        createTaskAgentId,
+        createTaskModalOpen,
+        isSidebarCollapsed,
+        sidebarWidth,
+      });
+    }, [selectedAgentId, expandedAgentId, selectedTaskId, selectedLogId, createTaskAgentId, createTaskModalOpen, isSidebarCollapsed, sidebarWidth]);
 
   const refreshAgents = useCallback(async () => {
     try {
@@ -115,7 +145,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const normalized = rawAgents.map((a: any, idx: number) => ({
           id: String(a?.id ?? a?._id ?? a?.uuid ?? `agent-${idx}`),
           name: a?.name ?? `Unnamed ${idx + 1}`,
-          status: a?.status ?? "offline",
+          status: normalizeAgentStatus(a?.status),
           ip: a?.ip,
           description: a?.description,
           port: a?.port ?? a?.sin,
@@ -131,65 +161,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshTasks = useCallback(async (taskStoreSnapshot: Record<string, StoredTaskRecord> = taskStore) => {
     try {
-      const [tasksRes, logsRes] = await Promise.all([
-        sendCoreRequest("get-all-tasks", null),
-        sendCoreRequest("get-runs", null),
-      ]);
-
-      if (tasksRes?.status !== "ok") {
-        setTasksByAgentId({});
-        return;
-      }
-
-      const rawTasks = tasksRes.data?.tasks ?? [];
-      const rawRuns = logsRes?.status === "ok" ? (logsRes.data?.runs ?? []) : [];
+      const agentsRes = await sendCoreRequest("get-all-agents", null);
+      const agentList = agentsRes?.status === "ok" ? (agentsRes.data?.agents ?? []) : [];
 
       const runsByTaskId = new Map<string, TaskLog[]>();
-      for (const rawRun of rawRuns) {
-        const taskId = rawRun?.task_id;
-        if (taskId === null || taskId === undefined) continue;
-
-        const normalizedLog = normalizeLog(rawRun);
-        const key = String(taskId);
-        const existing = runsByTaskId.get(key) ?? [];
-        existing.push(normalizedLog);
-        runsByTaskId.set(key, existing);
-      }
-
       const groupedTasks: Record<string, Task[]> = {};
 
-      for (const rawTask of rawTasks) {
-        const taskId = String(rawTask?.id ?? "");
-        const agentId = String(rawTask?.agent_id ?? "");
-        if (!taskId || !agentId) continue;
+      await Promise.all(agentList.map(async (a: any) => {
+        const agentId = Number(a?.id ?? a?._id ?? a?.uuid ?? NaN);
+        if (Number.isNaN(agentId)) return;
 
-        const storedTask = taskStoreSnapshot[taskId];
-        const logs = runsByTaskId.get(taskId) ?? [];
+        const [tasksRes, runsRes] = await Promise.all([
+          sendCoreRequest("get-all-tasks", { agent_id: agentId }),
+          sendCoreRequest("get-runs", { agent_id: agentId }),
+        ]);
 
-        const task: Task = {
-          id: taskId,
-          name: buildTaskName(taskId, storedTask),
-          scriptType: "run",
-          status: (rawTask?.status as Task["status"] | undefined) ?? buildTaskStatus(logs, Boolean(storedTask)),
-          description: buildTaskDescription(taskId, storedTask),
-          createdByCore: storedTask?.createdByCore ?? "Core",
-          restartPolicy: storedTask?.restartPolicy ?? "no",
-          logs,
-        };
+        const rawTasks = tasksRes?.status === "ok" ? (tasksRes.data?.tasks ?? []) : [];
+        const rawRuns = runsRes?.status === "ok" ? (runsRes.data?.runs ?? []) : [];
 
-        if (!groupedTasks[agentId]) {
-          groupedTasks[agentId] = [];
+        for (const rawRun of rawRuns) {
+          const taskId = rawRun?.task_id;
+          if (taskId === null || taskId === undefined) continue;
+
+          const normalizedLog = normalizeLog(rawRun);
+          const key = String(taskId);
+          const existing = runsByTaskId.get(key) ?? [];
+          existing.push(normalizedLog);
+          runsByTaskId.set(key, existing);
         }
 
-        groupedTasks[agentId].push(task);
-      }
+        for (const rawTask of rawTasks) {
+          const taskId = String(rawTask?.id ?? "");
+          const agentIdStr = String(agentId);
+          if (!taskId) continue;
+
+          const storedTask = taskStoreSnapshot[taskId];
+          const logs = runsByTaskId.get(taskId) ?? [];
+
+          const rawStatus = rawTask?.status !== undefined ? normalizeTaskStatus(rawTask.status) : undefined;
+          const hasActiveRun = logs.some((log) => !log.endedAt);
+          const task: Task = {
+            id: taskId,
+            name: rawTask?.name ?? buildTaskName(taskId, storedTask),
+            scriptType: "run",
+            status: hasActiveRun ? "Starting" : (rawStatus ?? buildTaskStatus(logs, Boolean(storedTask))),
+            description: rawTask?.description ?? buildTaskDescription(taskId, storedTask),
+            createdByCore: storedTask?.createdByCore ?? "Agent",
+            restartPolicy: (rawTask?.restart_policy as Task["restartPolicy"] | undefined) ?? storedTask?.restartPolicy ?? "no",
+            installScript: rawTask?.install_script ?? storedTask?.installScript ?? "",
+            runScript: rawTask?.run_script ?? storedTask?.runScript ?? "",
+            deleteScript: rawTask?.delete_script ?? storedTask?.deleteScript ?? "",
+            logs,
+          };
+
+          if (!groupedTasks[agentIdStr]) groupedTasks[agentIdStr] = [];
+          groupedTasks[agentIdStr].push(task);
+        }
+      }));
 
       Object.values(groupedTasks).forEach((tasks) => {
         tasks.sort((left, right) => Number(right.id) - Number(left.id));
       });
 
       setTasksByAgentId(groupedTasks);
-    } catch {
+    } catch (e) {
+      console.error("refreshTasks error:", e);
       setTasksByAgentId({});
     }
   }, [taskStore]);
@@ -256,17 +292,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [refreshTasks, taskStore]);
 
   const saveTaskRecord = useCallback(async (taskId: string, updates: Partial<Omit<StoredTaskRecord, "id">>) => {
+    const numericTaskId = Number.parseInt(taskId, 10);
+    if (Number.isNaN(numericTaskId)) {
+      return false;
+    }
+
     const currentTask = taskStore[taskId];
-    if (!currentTask) {
+
+    let fallbackAgentId: string | null = null;
+    let fallbackTask: Task | null = null;
+    for (const [agentId, tasks] of Object.entries(tasksByAgentId)) {
+      const found = tasks.find((task) => task.id === taskId);
+      if (found) {
+        fallbackAgentId = agentId;
+        fallbackTask = found;
+        break;
+      }
+    }
+
+    const resolvedAgentId = updates.agentId ?? currentTask?.agentId ?? fallbackAgentId;
+    if (!resolvedAgentId) {
+      return false;
+    }
+
+    const numericAgentId = Number.parseInt(resolvedAgentId, 10);
+    if (Number.isNaN(numericAgentId)) {
       return false;
     }
 
     const nextTask: StoredTaskRecord = {
-      ...currentTask,
-      ...updates,
       id: taskId,
-      agentId: updates.agentId ?? currentTask.agentId,
+      agentId: resolvedAgentId,
+      name: updates.name ?? currentTask?.name ?? fallbackTask?.name ?? `Task ${taskId}`,
+      description: updates.description ?? currentTask?.description ?? fallbackTask?.description ?? "",
+      installScript: updates.installScript ?? currentTask?.installScript ?? fallbackTask?.installScript ?? "",
+      runScript: updates.runScript ?? currentTask?.runScript ?? fallbackTask?.runScript ?? "",
+      deleteScript: updates.deleteScript ?? currentTask?.deleteScript ?? fallbackTask?.deleteScript ?? "",
+      restartPolicy: updates.restartPolicy ?? currentTask?.restartPolicy ?? fallbackTask?.restartPolicy ?? "no",
+      createdByCore: currentTask?.createdByCore ?? fallbackTask?.createdByCore ?? "Agent",
     };
+
+    const res = await sendCoreRequest("update-task", {
+      agent_id: numericAgentId,
+      id: numericTaskId,
+      name: nextTask.name,
+      description: nextTask.description || null,
+      install_script: nextTask.installScript || null,
+      run_script: nextTask.runScript || null,
+      delete_script: nextTask.deleteScript || null,
+      restart_policy: nextTask.restartPolicy,
+      status: fallbackTask?.status ?? "stopped",
+    });
+
+    if (res?.status !== "ok") {
+      return false;
+    }
 
     const nextTaskStore = {
       ...taskStore,
@@ -276,7 +356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTaskStore(nextTaskStore);
     await refreshTasks(nextTaskStore);
     return true;
-  }, [refreshTasks, taskStore]);
+  }, [refreshTasks, taskStore, tasksByAgentId]);
 
   const removeTaskRecord = useCallback(async (taskId: string) => {
     const nextTaskStore = { ...taskStore };
@@ -294,21 +374,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const res = await sendCoreRequest("run-task", {
+      let agentIdStr: string | undefined = taskStore[taskId]?.agentId;
+      if (!agentIdStr) {
+        for (const [aid, tasks] of Object.entries(tasksByAgentId)) {
+          if (tasks.some((t) => t.id === taskId)) {
+            agentIdStr = aid;
+            break;
+          }
+        }
+      }
+
+      if (!agentIdStr) return false;
+
+      const agent_id = Number.parseInt(agentIdStr, 10);
+      if (Number.isNaN(agent_id)) return false;
+
+      const coreScriptTypeMap = {
+        install: "Install",
+        run: "Run",
+        delete: "Delete",
+      } as const;
+
+      const payload = {
+        agent_id,
         task_id: numericTaskId,
-        script_type: scriptType,
-      });
+        script_type: coreScriptTypeMap[scriptType],
+      };
+
+      console.log("[run-task] request", payload);
+
+      const res = await sendCoreRequest("run-task", payload);
 
       if (res?.status !== "ok") {
+        console.error("[run-task] failed response", res);
         return false;
       }
 
       await refreshTasks();
       return true;
     } catch {
+      console.error("[run-task] request error");
       return false;
     }
-  }, [refreshTasks]);
+  }, [refreshTasks, taskStore, tasksByAgentId]);
 
   const stopTask = useCallback(async (taskId: string) => {
     const numericTaskId = Number.parseInt(taskId, 10);
@@ -317,7 +425,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      let agentIdStr: string | undefined = taskStore[taskId]?.agentId;
+      if (!agentIdStr) {
+        for (const [aid, tasks] of Object.entries(tasksByAgentId)) {
+          if (tasks.some((t) => t.id === taskId)) {
+            agentIdStr = aid;
+            break;
+          }
+        }
+      }
+
+      if (!agentIdStr) return false;
+
+      const agent_id = Number.parseInt(agentIdStr, 10);
+      if (Number.isNaN(agent_id)) return false;
+
       const res = await sendCoreRequest("stop-task", {
+        agent_id,
         task_id: numericTaskId,
       });
 
@@ -330,30 +454,194 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {
       return false;
     }
-  }, [refreshTasks]);
+  }, [refreshTasks, taskStore, tasksByAgentId]);
+
+  const deleteInactiveRuns = useCallback(
+    async (agentId: string) => {
+      const agent_id = Number.parseInt(agentId, 10);
+      if (Number.isNaN(agent_id)) {
+        console.error("[deleteInactiveRuns] Invalid agent id", agentId);
+        return false;
+      }
+
+      try {
+        const payload = { agent_id };
+        console.log("[deleteInactiveRuns] Sending request", payload);
+
+        const res = await sendCoreRequest("delete-inactive-runs", payload);
+
+        console.log("[deleteInactiveRuns] Response", res);
+
+        if (res?.status !== "ok") {
+          console.error("[deleteInactiveRuns] Failed response", { status: res?.status, message: res?.message, code: res?.code });
+          return false;
+        }
+
+        if (selectedLogId) {
+          setSelectedLogId(null);
+        }
+
+        await refreshTasks();
+        return true;
+      } catch (e) {
+        console.error("[deleteInactiveRuns] Exception", e);
+        return false;
+      }
+    },
+    [refreshTasks, selectedLogId],
+  );
+
+  const deleteLog = useCallback(
+    async (taskId: string, logId: string) => {
+      try {
+        let agentIdStr: string | undefined = taskStore[taskId]?.agentId;
+        if (!agentIdStr) {
+          for (const [aid, tasks] of Object.entries(tasksByAgentId)) {
+            if (tasks.some((t) => t.id === taskId)) {
+              agentIdStr = aid;
+              break;
+            }
+          }
+        }
+
+        if (!agentIdStr) {
+          console.error("[deleteLog] No agent ID found for task", taskId);
+          return false;
+        }
+
+        const agent_id = Number.parseInt(agentIdStr, 10);
+        const numericLogId = Number.parseInt(logId, 10);
+
+        if (Number.isNaN(agent_id) || Number.isNaN(numericLogId)) {
+          console.error("[deleteLog] Invalid numeric IDs", { agent_id, numericLogId });
+          return false;
+        }
+
+        const payload = { agent_id, run_id: numericLogId };
+        console.log("[deleteLog] Sending request", payload);
+
+        const res = await sendCoreRequest("delete-run", payload);
+
+        console.log("[deleteLog] Response", res);
+
+        if (res?.status !== "ok") {
+          console.error("[deleteLog] Failed response", { status: res?.status, message: res?.message, code: res?.code });
+          return false;
+        }
+
+        setTasksByAgentId((prevAgentTasks) => {
+          const updated = { ...prevAgentTasks };
+          const tasks = updated[agentIdStr!];
+          if (tasks) {
+            const taskIndex = tasks.findIndex((t) => t.id === taskId);
+            if (taskIndex !== -1) {
+              const task = tasks[taskIndex];
+              task.logs = task.logs.filter((log) => log.id !== logId);
+              tasks[taskIndex] = task;
+              updated[agentIdStr!] = [...tasks];
+            }
+          }
+          return updated;
+        });
+
+        if (selectedLogId === logId) {
+          setSelectedLogId(null);
+        }
+
+        return true;
+      } catch (e) {
+        console.error("[deleteLog] Exception", e);
+        return false;
+      }
+    },
+    [selectedLogId, taskStore, tasksByAgentId],
+  );
 
   useEffect(() => {
-    const unsubscribeOpen = subscribeCoreOpen(() => {
-      void (async () => {
-        try {
-          const streamRes = await sendCoreRequest("start-stream", null);
-          if (streamRes?.status === "ok") {
-            await refreshAgents();
-            await refreshTasks();
-          }
-        } catch {}
-      })();
+    const unsubscribeRuns = subscribeCoreRequest("execution_stream", (msg) => {
+      const agentId = msg?.data?.agent_id ? String(msg.data.agent_id) : undefined;
+      if (agentId) {
+        setAgents((prev) =>
+          prev.map((agent) =>
+            agent.id === agentId ? { ...agent, status: "online" } : agent,
+          ),
+        );
+      }
+      void refreshTasks();
+      void refreshAgents();
     });
 
-    const unsubscribeRuns = subscribeCoreRequest("execution_stream", () => {
-      void refreshTasks();
+    const unsubscribeRunUpdate = subscribeCoreRequest("run_update", (msg) => {
+      try {
+        const run = msg?.data?.run;
+        if (!run || !run.task_id) return;
+
+        const taskId = String(run.task_id);
+        const normalizedLog = normalizeLog(run);
+        const shouldAutoSelectLog = selectedTaskId === taskId && normalizedLog.scriptType === "run";
+
+        setTasksByAgentId((prevAgentTasks) => {
+          const updated = { ...prevAgentTasks };
+          for (const agentId in updated) {
+            const tasks = updated[agentId];
+            const taskIndex = tasks.findIndex((t) => t.id === taskId);
+            if (taskIndex !== -1) {
+              const task = tasks[taskIndex];
+              const logIndex = task.logs.findIndex((l) => l.id === normalizedLog.id);
+
+              if (logIndex !== -1) {
+                const existingLog = task.logs[logIndex];
+
+                if (existingLog.endedAt) {
+                  return updated;
+                }
+
+                const existingOutputSize = existingLog.output.length;
+                const newOutputSize = normalizedLog.output.length;
+                if (newOutputSize < existingOutputSize) {
+                  return updated;
+                }
+
+                task.logs[logIndex] = normalizedLog;
+              } else {
+                task.logs.unshift(normalizedLog);
+              }
+
+              task.logs.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+              task.status = task.logs.some((log) => !log.endedAt)
+                ? "Starting"
+                : buildTaskStatus(task.logs, true);
+              tasks[taskIndex] = task;
+              updated[agentId] = [...tasks];
+            }
+          }
+          return updated;
+        });
+
+        const agentId = msg?.data?.agent_id ? String(msg.data.agent_id) : String(run.agent_id ?? "");
+        if (agentId) {
+          setAgents((prev) =>
+            prev.map((agent) =>
+              agent.id === agentId ? { ...agent, status: "online" } : agent,
+            ),
+          );
+        }
+
+        if (shouldAutoSelectLog) {
+          setSelectedLogId(normalizedLog.id);
+        }
+
+        void refreshAgents();
+      } catch (error) {
+        console.error("Error handling run_update:", error);
+      }
     });
 
     return () => {
-      unsubscribeOpen();
       unsubscribeRuns();
+      unsubscribeRunUpdate();
     };
-  }, [refreshAgents, refreshTasks]);
+  }, [refreshAgents, refreshTasks, taskStore, selectedTaskId]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -409,6 +697,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     removeTaskRecord,
     runTask,
     stopTask,
+    deleteLog,
+    deleteInactiveRuns,
     refreshAgents,
     refreshTasks,
   };

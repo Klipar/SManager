@@ -8,7 +8,7 @@ INSERT INTO users (name, email, password, is_admin)
 VALUES (
     'admin',
     'admin@localhost',
-    'jGl25bVBBBW96Qi9Te4V37Fnqchz/Eu4qB9vKrRIqRg=',
+    'pib9szStyiWl7ib38y/09Z/gW1oMokLG7diRpjMThqc=',
     TRUE
 )
 ON CONFLICT (email) DO NOTHING;
