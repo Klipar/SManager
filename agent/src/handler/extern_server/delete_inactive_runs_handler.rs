@@ -19,16 +19,29 @@ impl DeleteInactiveRunsHandler {
 
 #[async_trait]
 impl HandlerTrait for DeleteInactiveRunsHandler {
-    async fn handle(&self, _data: Option<Value>, _ctx: &mut ConnectionContext) -> Message {
+    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext) -> Message {
         info!("Deleting all inactive runs");
 
-        let delete_result = sqlx::query(
-            "DELETE FROM runs WHERE return_code IS NOT NULL AND end_time IS NOT NULL"
-        )
-        .execute(&*self.pool)
-        .await;
+        let data = match data {
+            Some(v) => v,
+            None => {
+                return Message::new_response(
+                    Status::Error,
+                    None,
+                    400,
+                    "Missing data"
+                );
+            }
+        };
 
-        match delete_result {
+        if let Some(id) = data.get("id").and_then(|v| v.as_i64()) {
+            let delete_result = sqlx::query(
+                "DELETE FROM runs WHERE return_code IS NOT NULL AND end_time IS NOT NULL AND task_id = $1"
+            )
+            .bind(id as i32)
+            .execute(&*self.pool)
+            .await;
+            match delete_result {
             Ok(result) => {
                 let rows_affected = result.rows_affected();
                 info!("Successfully deleted {} inactive runs", rows_affected);
@@ -52,6 +65,15 @@ impl HandlerTrait for DeleteInactiveRunsHandler {
                     "Failed to delete inactive runs"
                 )
             }
+        }
+        } else {
+            error!("Failed to delete inactive runs, bad request");
+            Message::new_response (
+                Status::Error,
+                None,
+                400,
+                "Failed to delete runs, bad request"
+            )
         }
     }
 }
