@@ -1,4 +1,4 @@
-import { Download, Play, Square, Trash2, MoreHorizontal } from "lucide-react"
+import { Download, Play, Square, Trash2, MoreHorizontal, X } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
@@ -11,6 +11,7 @@ import { AddAgentModal } from "../agent/AddAgentModal"
 import DeleteAgentModal from "../agent/DeleteAgentModal"
 import AddTaskModal from "./AddTaskModal"
 import DeleteTaskModal from "./DeleteTaskModal"
+import DeleteInactiveRunsModal from "./DeleteInactiveRunsModal"
 
 import type { Agent, ScriptType, Task, TaskLog } from "@/types"
 
@@ -49,6 +50,41 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
   const [pendingRunStart, setPendingRunStart] = useState(false)
   const [now, setNow] = useState(new Date())
   const outputRef = useRef<HTMLDivElement | null>(null)
+  const { deleteLog, deleteInactiveRuns } = useApp()
+  const [showDeleteInactiveRuns, setShowDeleteInactiveRuns] = useState(false)
+  const [isDeletingInactiveRuns, setIsDeletingInactiveRuns] = useState(false)
+  const [deleteInactiveRunsError, setDeleteInactiveRunsError] = useState<string | null>(null)
+
+  const handleDeleteLog = async (logId: string) => {
+    if (!selectedTask) return
+    const ok = await deleteLog(selectedTask.id, logId)
+    if (!ok) {
+      console.error("[TaskWorkspace] handleDeleteLog failed for log", logId)
+      alert("Failed to delete log - check browser console for details")
+    }
+  }
+
+  const inactiveRunsCount = selectedTask?.logs.filter((log) => Boolean(log.endedAt)).length ?? 0
+
+  const handleDeleteInactiveRuns = async () => {
+    setIsDeletingInactiveRuns(true)
+    setDeleteInactiveRunsError(null)
+
+    try {
+      const ok = await deleteInactiveRuns(agent.id)
+      if (ok) {
+        setShowDeleteInactiveRuns(false)
+      } else {
+        const message = "Failed to delete inactive runs"
+        setDeleteInactiveRunsError(message)
+        console.error("[TaskWorkspace] handleDeleteInactiveRuns failed for agent", agent.id)
+      }
+    } catch (error) {
+      setDeleteInactiveRunsError(String(error))
+    } finally {
+      setIsDeletingInactiveRuns(false)
+    }
+  }
 
   const hasRunningRun = selectedTask?.logs.some((log) => log.scriptType === "run" && !log.endedAt) ?? false
   const isRunActive = hasRunningRun || pendingRunStart
@@ -168,18 +204,38 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
           </div>
         </div>
 
-        <div className="border-y border-white/[0.035] px-3 py-2 text-center">
-          <h3 className="text-3xl font-medium tracking-tight text-white/90">Runs log</h3>
+        <div className="border-y border-white/[0.035] px-3 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-3xl font-medium tracking-tight text-white/90">Runs log</h3>
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteInactiveRuns(true)
+              }}
+              disabled={inactiveRunsCount === 0}
+              title={inactiveRunsCount === 0 ? "No inactive runs to delete" : "Delete inactive runs"}
+              className="rounded p-2 text-white/72 transition-colors hover:bg-white/[0.06] hover:text-white/88 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </div>
         </div>
 
         <ScrollArea className="h-[calc(100vh-19rem)] p-3">
           <div className="space-y-2">
             {sortedLogs.map((log) => (
-              <button
+              <div
                 key={log.id}
-                type="button"
                 onClick={() => onSelectLog(log.id)}
-                className="group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    onSelectLog(log.id)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className="group flex w-full cursor-pointer items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
               >
                 <div className={cn("flex h-11 w-8 items-center justify-center", scriptStripClass[log.scriptType])}>
                   {log.scriptType === "install" ? (
@@ -192,8 +248,19 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                 </div>
                 <span className="flex min-w-0 flex-1 items-center justify-between px-3">
                   <span className="truncate text-sm text-white/82">{formatLogLabel(log.startedAt)}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleDeleteLog(log.id)
+                    }}
+                    className="ml-2 flex-shrink-0 rounded p-1 opacity-0 transition-opacity hover:bg-white/[0.1] group-hover:opacity-100"
+                    title="Delete log"
+                  >
+                    <X className="size-3.5 text-white/60 hover:text-white/80" />
+                  </button>
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         </ScrollArea>
@@ -250,6 +317,18 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
           </div>
         </div>
       </div>
+
+      <DeleteInactiveRunsModal
+        open={showDeleteInactiveRuns}
+        count={inactiveRunsCount}
+        onClose={() => {
+          setShowDeleteInactiveRuns(false)
+          setDeleteInactiveRunsError(null)
+        }}
+        onConfirm={handleDeleteInactiveRuns}
+        isDeleting={isDeletingInactiveRuns}
+        error={deleteInactiveRunsError}
+      />
     </div>
   )
 }

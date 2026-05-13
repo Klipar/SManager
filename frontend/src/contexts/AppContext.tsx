@@ -38,6 +38,8 @@ type AppContextType = {
   removeTaskRecord: (taskId: string) => Promise<boolean>;
   runTask: (taskId: string, scriptType: ScriptType) => Promise<boolean>;
   stopTask: (taskId: string) => Promise<boolean>;
+  deleteLog: (taskId: string, logId: string) => Promise<boolean>;
+  deleteInactiveRuns: (agentId: string) => Promise<boolean>;
   refreshAgents: () => void;
   refreshTasks: () => Promise<void>;
 };
@@ -85,55 +87,55 @@ function normalizeTaskStatus(status: unknown): Task["status"] {
       return "Failed";
     case "stopped":
       return "Stopped";
-    case "executed":
-      return "Executed";
+    case 'executed':
+      return 'Executed';
     default:
-      return "Stopped";
+      return 'Stopped';
   }
 }
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
-  const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
-  const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(null);
-  const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(228);
-  const [taskStore, setTaskStore] = useState<Record<string, StoredTaskRecord>>(() => loadTaskStore());
-  const [tasksByAgentId, setTasksByAgentId] = useState<Record<string, Task[]>>({});
+  export function AppProvider({ children }: { children: React.ReactNode }) {
+    const [agents, setAgents] = useState<Agent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+    const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+    const [selectedLogId, setSelectedLogId] = useState<string | null>(null);
+    const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
+    const [createTaskAgentId, setCreateTaskAgentId] = useState<string | null>(null);
+    const [createTaskModalOpen, setCreateTaskModalOpen] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [sidebarWidth, setSidebarWidth] = useState(228);
+    const [taskStore, setTaskStore] = useState<Record<string, StoredTaskRecord>>(() => loadTaskStore());
+    const [tasksByAgentId, setTasksByAgentId] = useState<Record<string, Task[]>>({});
 
-  useEffect(() => {
-    saveTaskStore(taskStore);
-  }, [taskStore]);
+    useEffect(() => {
+      saveTaskStore(taskStore);
+    }, [taskStore]);
 
-  useEffect(() => {
-    const saved = loadViewState();
-    if (saved.selectedAgentId) setSelectedAgentId(saved.selectedAgentId);
-    if (saved.expandedAgentId) setExpandedAgentId(saved.expandedAgentId);
-    if (saved.selectedTaskId) setSelectedTaskId(saved.selectedTaskId);
-    if (saved.selectedLogId) setSelectedLogId(saved.selectedLogId);
-    if (saved.createTaskAgentId) setCreateTaskAgentId(saved.createTaskAgentId);
-    if (saved.createTaskModalOpen !== undefined) setCreateTaskModalOpen(saved.createTaskModalOpen);
-    if (saved.isSidebarCollapsed !== undefined) setIsSidebarCollapsed(saved.isSidebarCollapsed);
-    if (saved.sidebarWidth) setSidebarWidth(saved.sidebarWidth);
-  }, []);
+    useEffect(() => {
+      const saved = loadViewState();
+      if (saved.selectedAgentId) setSelectedAgentId(saved.selectedAgentId);
+      if (saved.expandedAgentId) setExpandedAgentId(saved.expandedAgentId);
+      if (saved.selectedTaskId) setSelectedTaskId(saved.selectedTaskId);
+      if (saved.selectedLogId) setSelectedLogId(saved.selectedLogId);
+      if (saved.createTaskAgentId) setCreateTaskAgentId(saved.createTaskAgentId);
+      if (saved.createTaskModalOpen !== undefined) setCreateTaskModalOpen(saved.createTaskModalOpen);
+      if (saved.isSidebarCollapsed !== undefined) setIsSidebarCollapsed(saved.isSidebarCollapsed);
+      if (saved.sidebarWidth) setSidebarWidth(saved.sidebarWidth);
+    }, []);
 
-  useEffect(() => {
-    saveViewState({
-      selectedAgentId,
-      expandedAgentId,
-      selectedTaskId,
-      selectedLogId,
-      createTaskAgentId,
-      createTaskModalOpen,
-      isSidebarCollapsed,
-      sidebarWidth,
-    });
-  }, [selectedAgentId, expandedAgentId, selectedTaskId, selectedLogId, createTaskAgentId, createTaskModalOpen, isSidebarCollapsed, sidebarWidth]);
+    useEffect(() => {
+      saveViewState({
+        selectedAgentId,
+        expandedAgentId,
+        selectedTaskId,
+        selectedLogId,
+        createTaskAgentId,
+        createTaskModalOpen,
+        isSidebarCollapsed,
+        sidebarWidth,
+      });
+    }, [selectedAgentId, expandedAgentId, selectedTaskId, selectedLogId, createTaskAgentId, createTaskModalOpen, isSidebarCollapsed, sidebarWidth]);
 
   const refreshAgents = useCallback(async () => {
     try {
@@ -454,6 +456,107 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [refreshTasks, taskStore, tasksByAgentId]);
 
+  const deleteInactiveRuns = useCallback(
+    async (agentId: string) => {
+      const agent_id = Number.parseInt(agentId, 10);
+      if (Number.isNaN(agent_id)) {
+        console.error("[deleteInactiveRuns] Invalid agent id", agentId);
+        return false;
+      }
+
+      try {
+        const payload = { agent_id };
+        console.log("[deleteInactiveRuns] Sending request", payload);
+
+        const res = await sendCoreRequest("delete-inactive-runs", payload);
+
+        console.log("[deleteInactiveRuns] Response", res);
+
+        if (res?.status !== "ok") {
+          console.error("[deleteInactiveRuns] Failed response", { status: res?.status, message: res?.message, code: res?.code });
+          return false;
+        }
+
+        if (selectedLogId) {
+          setSelectedLogId(null);
+        }
+
+        await refreshTasks();
+        return true;
+      } catch (e) {
+        console.error("[deleteInactiveRuns] Exception", e);
+        return false;
+      }
+    },
+    [refreshTasks, selectedLogId],
+  );
+
+  const deleteLog = useCallback(
+    async (taskId: string, logId: string) => {
+      try {
+        let agentIdStr: string | undefined = taskStore[taskId]?.agentId;
+        if (!agentIdStr) {
+          for (const [aid, tasks] of Object.entries(tasksByAgentId)) {
+            if (tasks.some((t) => t.id === taskId)) {
+              agentIdStr = aid;
+              break;
+            }
+          }
+        }
+
+        if (!agentIdStr) {
+          console.error("[deleteLog] No agent ID found for task", taskId);
+          return false;
+        }
+
+        const agent_id = Number.parseInt(agentIdStr, 10);
+        const numericLogId = Number.parseInt(logId, 10);
+
+        if (Number.isNaN(agent_id) || Number.isNaN(numericLogId)) {
+          console.error("[deleteLog] Invalid numeric IDs", { agent_id, numericLogId });
+          return false;
+        }
+
+        const payload = { agent_id, run_id: numericLogId };
+        console.log("[deleteLog] Sending request", payload);
+
+        const res = await sendCoreRequest("delete-run", payload);
+
+        console.log("[deleteLog] Response", res);
+
+        if (res?.status !== "ok") {
+          console.error("[deleteLog] Failed response", { status: res?.status, message: res?.message, code: res?.code });
+          return false;
+        }
+
+        setTasksByAgentId((prevAgentTasks) => {
+          const updated = { ...prevAgentTasks };
+          const tasks = updated[agentIdStr!];
+          if (tasks) {
+            const taskIndex = tasks.findIndex((t) => t.id === taskId);
+            if (taskIndex !== -1) {
+              const task = tasks[taskIndex];
+              task.logs = task.logs.filter((log) => log.id !== logId);
+              tasks[taskIndex] = task;
+              updated[agentIdStr!] = [...tasks];
+            }
+          }
+          return updated;
+        });
+
+        if (selectedLogId === logId) {
+          setSelectedLogId(null);
+        }
+
+        return true;
+      } catch (e) {
+        console.error("[deleteLog] Exception", e);
+        return false;
+      }
+    },
+    [selectedLogId, taskStore, tasksByAgentId],
+  );
+
   useEffect(() => {
     const unsubscribeRuns = subscribeCoreRequest("execution_stream", (msg) => {
       const agentId = msg?.data?.agent_id ? String(msg.data.agent_id) : undefined;
@@ -594,6 +697,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     removeTaskRecord,
     runTask,
     stopTask,
+    deleteLog,
+    deleteInactiveRuns,
     refreshAgents,
     refreshTasks,
   };
