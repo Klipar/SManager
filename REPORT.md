@@ -35,7 +35,7 @@ Create multi server management system, dashboard and monitor simultaneously. Pro
 # Task
 + Composed of three bash scripts: install, run, delete.
 + Logs are captured by agent and streamed to Core(stdout, stderr and return code captured to Run and delivered to Web GUI).
-# Security & Non‑functional
+# Security & Non-functional
 + TLS 1.2+ for all communications (agent<->core, GUI<->core).
 + Passwords hashed with salt.
 ## Design diagram
@@ -45,13 +45,13 @@ We structured the project into several crates: agent for task management, core f
 
 For asynchronous execution we chose the Tokio runtime. It handles networking, TLS, database access, and task management. Tokio works well with WebSocket/TLS streaming and ping/reconnect logic, has a mature ecosystem, and supports libraries like tokio-tungstenite, tokio-rustls, and sqlx. The main alternative would be async-std or smol, but those have less ecosystem support for our stack.
 
-Agent connections use TLS over WebSocket with a custom protocol. Messages are generic request/response structures plus push notifications. The AgentClient and ConnectionManager handle sending, receiving, and health checking. This ensures encrypted and authenticated communication, provides real‑time streaming, and remains flexible for ping, execution streams, and other actions. Alternatives like plain TCP, HTTP/REST, or gRPC would be simpler in some ways but less suitable for persistent bidirectional streaming with authentication.
+Agent connections use TLS over WebSocket with a custom protocol. Messages are generic request/response structures plus push notifications. The AgentClient and ConnectionManager handle sending, receiving, and health checking. This ensures encrypted and authenticated communication, provides real-time streaming, and remains flexible for ping, execution streams, and other actions. Alternatives like plain TCP, HTTP/REST, or gRPC would be simpler in some ways but less suitable for persistent bidirectional streaming with authentication.
 
-All shared definitions (messages, DTOs, enums, models) live in the shared crate. Both core and agent compile against the same definitions, which avoids duplicate schemas and serialization mismatches. Copy‑pasting types across crates would risk errors and inconsistencies.
+All shared definitions (messages, DTOs, enums, models) live in the shared crate. Both core and agent compile against the same definitions, which avoids duplicate schemas and serialization mismatches. Copy-pasting types across crates would risk errors and inconsistencies.
 
-For robust connection management we implemented reconnect and health‑check orchestration. The AgentOrchestrator holds ConnectionManager instances. Each manager uses ping and disconnect notifications to detect broken peers, and the orchestrator removes stale connections and retries. This handles unexpected drops, ensures recovery without manual restart, and keeps the logic centralised. Letting the transport reconnect silently or requiring manual reconnection would be less reliable for long‑running tasks.
+For robust connection management we implemented reconnect and health-check orchestration. The AgentOrchestrator holds ConnectionManager instances. Each manager uses ping and disconnect notifications to detect broken peers, and the orchestrator removes stale connections and retries. This handles unexpected drops, ensures recovery without manual restart, and keeps the logic centralised. Letting the transport reconnect silently or requiring manual reconnection would be less reliable for long-running tasks.
 
-For database access we use sqlx. It provides asynchronous PostgreSQL queries that are non‑blocking, fits the async runtime well, offers compile‑time checking via query macros, and works with our existing schema and migrations. Alternatives like Diesel or blocking drivers would be heavier or require thread pools.
+For database access we use sqlx. It provides asynchronous PostgreSQL queries that are non-blocking, fits the async runtime well, offers compile-time checking via query macros, and works with our existing schema and migrations. Alternatives like Diesel or blocking drivers would be heavier or require thread pools.
 # Dependencies
 ## Agent Crate
 + anyhow: Unified error handling
