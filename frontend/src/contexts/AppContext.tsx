@@ -436,6 +436,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const taskId = String(run.task_id);
         const normalizedLog = normalizeLog(run);
+        const shouldAutoSelectLog = selectedTaskId === taskId && normalizedLog.scriptType === "run";
 
         setTasksByAgentId((prevAgentTasks) => {
           const updated = { ...prevAgentTasks };
@@ -449,15 +450,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               if (logIndex !== -1) {
                 task.logs[logIndex] = normalizedLog;
               } else {
-                task.logs.push(normalizedLog);
+                task.logs.unshift(normalizedLog);
               }
 
+              task.logs.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
               tasks[taskIndex] = task;
               updated[agentId] = [...tasks];
             }
           }
           return updated;
         });
+
+        if (shouldAutoSelectLog) {
+          setSelectedLogId(normalizedLog.id);
+        }
       } catch (error) {
         console.error("Error handling run_update:", error);
       }
@@ -467,7 +473,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       unsubscribeRuns();
       unsubscribeRunUpdate();
     };
-  }, [refreshAgents, refreshTasks, taskStore]);
+  }, [refreshAgents, refreshTasks, taskStore, selectedTaskId]);
 
   useEffect(() => {
     setIsLoading(true);

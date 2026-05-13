@@ -66,6 +66,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
   }
 
   const isRunActive = activeScriptType === "run"
+  const sortedLogs = [...selectedTask.logs].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
 
   const actionRows = [
     { id: "install", title: "Install", icon: Download, tone: "bg-violet-400/80" },
@@ -151,7 +152,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
 
         <ScrollArea className="h-[calc(100vh-19rem)] p-3">
           <div className="space-y-2">
-            {selectedTask.logs.map((log) => (
+            {sortedLogs.map((log) => (
               <button
                 key={log.id}
                 type="button"
