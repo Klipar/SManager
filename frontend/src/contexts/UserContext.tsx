@@ -2,11 +2,6 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { connectCore, sendCoreRequest, logout as wsLogout } from "@/lib/ws";
 import type { UserData } from "@/types";
 
-async function startExecutionStream() {
-  try {
-    await sendCoreRequest("start-stream", null);
-  } catch {}
-}
 
 type UserContextType = {
   user: UserData | null;
@@ -46,7 +41,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         .then((res) => {
           if (!isMounted) return;
           if (res?.status === "ok") {
-            void startExecutionStream();
             setIsAuthenticated(true);
             if (res.data?.user) {
               const updatedUser: UserData = {
@@ -86,7 +80,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     sendCoreRequest("authenticate", { token: newToken })
       .then((res) => {
         if (res?.status === "ok") {
-          void startExecutionStream();
           try { localStorage.setItem("sm_token", newToken); } catch {}
           const userToSave: UserData = {
             id: newUser.id,
