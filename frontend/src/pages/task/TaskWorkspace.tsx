@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useApp } from "@/contexts/AppContext"
 import { sendCoreRequest } from "@/lib/ws"
 import { AddAgentModal } from "../agent/AddAgentModal"
@@ -46,6 +46,12 @@ const scriptStripClass: Record<ScriptType, string> = {
 }
 
 function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
+  const [activeScriptType, setActiveScriptType] = useState<ScriptType | null>(null)
+
+  useEffect(() => {
+    setActiveScriptType(null)
+  }, [selectedTask?.id])
+
   if (!selectedTask) {
     return (
       <div className="relative flex min-h-[calc(100vh-16rem)] items-center justify-center px-8 pb-8 pt-40 text-center md:pt-56">
@@ -59,13 +65,23 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     )
   }
 
+  const isRunActive = activeScriptType === "run"
+
   const actionRows = [
     { id: "install", title: "Install", icon: Download, tone: "bg-violet-400/80" },
-    { id: "run", title: "Run", icon: Play, tone: "bg-emerald-400/80" },
+    { id: "run", title: "Run", icon: isRunActive ? Square : Play, tone: "bg-emerald-400/80", active: isRunActive },
     { id: "delete", title: "Delete", icon: Trash2, tone: "bg-red-400/80" },
   ]
 
   const handleRunAction = async (scriptType: ScriptType) => {
+    if (scriptType === "run" && isRunActive) {
+      const ok = await handleStopAction()
+      if (ok) {
+        setActiveScriptType(null)
+      }
+      return
+    }
+
     const script = scriptType === "install"
       ? selectedTask.installScript
       : scriptType === "run"
@@ -80,6 +96,11 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     const ok = await onRunTask(selectedTask.id, scriptType)
     if (!ok) {
       alert(`Failed to start ${scriptType} script`)
+      return
+    }
+
+    if (scriptType === "run") {
+      setActiveScriptType("run")
     }
   }
 
@@ -87,7 +108,10 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     const ok = await onStopTask(selectedTask.id)
     if (!ok) {
       alert("Failed to stop task")
+      return false
     }
+
+    return true
   }
 
   return (
@@ -100,14 +124,21 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                 key={row.id}
                 type="button"
                 onClick={() => { void handleRunAction(row.id as ScriptType) }}
-                className="group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                className={cn(
+                  "group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40",
+                  row.active && "border-emerald-400/35 bg-emerald-400/10 hover:bg-emerald-400/14"
+                )}
               >
                 <div className={cn("flex h-11 w-8 items-center justify-center", row.tone)}>
                   <row.icon className="size-3.5 text-black/80" />
                 </div>
                 <div className="flex flex-1 items-center justify-between px-3">
                   <span className="text-sm text-white/82">{row.title}</span>
-                  <Play className="size-4 text-white/60 group-hover:text-white/75" />
+                  {row.id === "run" && isRunActive ? (
+                    <Square className="size-4 text-white/70 group-hover:text-white/90" />
+                  ) : (
+                    <Play className="size-4 text-white/60 group-hover:text-white/75" />
+                  )}
                 </div>
               </button>
             ))}
@@ -138,18 +169,6 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                 </div>
                 <span className="flex min-w-0 flex-1 items-center justify-between px-3">
                   <span className="truncate text-sm text-white/82">{log.startedAt}</span>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void handleStopAction()
-                    }}
-                    className="inline-flex shrink-0 items-center justify-center text-white/45 transition-colors hover:text-white/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
-                    aria-label={`Stop task ${selectedTask.name}`}
-                    title="Stop task"
-                  >
-                    <Square className="size-4 text-white/60 group-hover:text-white/75" />
-                  </button>
                 </span>
               </button>
             ))}
