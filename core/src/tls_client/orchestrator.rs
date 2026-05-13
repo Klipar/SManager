@@ -1,10 +1,11 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use tokio::sync::Mutex;
 use anyhow::{bail, Result};
 use log::{error, info, warn};
 use sqlx::postgres::PgPool;
 use tokio::sync::broadcast;
+use tokio::time::{interval, Duration};
 use crate::tls_client::connection_manager::ConnectionManager;
 use crate::state::RunEvent;
 
@@ -20,16 +21,40 @@ impl AgentOrchestrator {
             run_tx,
         }
     }
+    
+    pub fn start_reconnect_loop(self: &Arc<Self>, pool: Arc<PgPool>) {
+        let weak_self = Arc::downgrade(self);
+        tokio::spawn(async move {
+            let mut interval = interval(Duration::from_secs(10));
+            loop {
+                interval.tick().await;
+                let orch = match weak_self.upgrade() {
+                    Some(orch) => orch,
+                    None => break,
+                };
+                reconnect_disconnected_agents(orch, &pool).await;
+            }
+        });
+    }
 
     pub async fn connect(
-        &self,
+        self: &Arc<Self>,
         agent_id: i64,
         ip: &str,
         port: u16,
     ) -> Result<()> {
-        let manager = Arc::new(ConnectionManager::connect(agent_id, ip, port,  self.run_tx.clone()).await?);
+        let manager = ConnectionManager::connect(agent_id, ip, port, self.run_tx.clone()).await?;
+        let manager = Arc::new(manager);
+
         let mut conns = self.connections.lock().await;
-        conns.insert(agent_id, manager);
+        if conns.contains_key(&agent_id) {
+            warn!("[Orchestrator] Agent {} already connected", agent_id);
+            return Ok(());
+        }
+        conns.insert(agent_id, Arc::clone(&manager));
+        drop(conns);
+
+        spawn_disconnect_watcher(self, agent_id, Arc::clone(&manager));
         info!("[Orchestrator] Connected to agent {}", agent_id);
         Ok(())
     }
@@ -58,7 +83,8 @@ impl AgentOrchestrator {
     pub async fn is_connected(&self, agent_id: i64) -> bool {
         self.connections.lock().await.contains_key(&agent_id)
     }
-    pub async fn connect_all(&self, pool: &Arc<PgPool>) -> Vec<(i64, anyhow::Error)> {
+
+    pub async fn connect_all(self: &Arc<Self>, pool: &Arc<PgPool>) -> Vec<(i64, anyhow::Error)> {
         let agents = match sqlx::query!("SELECT id, ip, port FROM agents")
             .fetch_all(pool.as_ref())
             .await
@@ -69,13 +95,17 @@ impl AgentOrchestrator {
                 return vec![];
             }
         };
+
+        let weak_self = Arc::downgrade(self);
         let run_tx = self.run_tx.clone();
         let handles: Vec<_> = agents.into_iter().map(|agent| {
             let run_tx = run_tx.clone();
             let connections = Arc::clone(&self.connections);
+            let agent_id = agent.id as i64;
+            let weak_self = weak_self.clone();
             tokio::spawn(async move {
                 let result = ConnectionManager::connect(
-                    agent.id as i64,
+                    agent_id,
                     &agent.ip,
                     agent.port as u16,
                     run_tx,
@@ -83,13 +113,22 @@ impl AgentOrchestrator {
 
                 match result {
                     Ok(manager) => {
-                        connections.lock().await.insert(agent.id as i64, Arc::new(manager));
-                        info!("[Orchestrator] Connected to agent {}", agent.id);
+                        let manager = Arc::new(manager);
+                        let mut conns = connections.lock().await;
+                        if conns.contains_key(&agent_id) {
+                            return None;
+                        }
+                        conns.insert(agent_id, Arc::clone(&manager));
+                        drop(conns);
+                        if let Some(orch) = weak_self.upgrade() {
+                            spawn_disconnect_watcher(&orch, agent_id, manager);
+                        }
+                        info!("[Orchestrator] Connected to agent {}", agent_id);
                         None
                     }
                     Err(e) => {
-                        error!("[Orchestrator] Failed to connect to agent {}: {}", agent.id, e);
-                        Some((agent.id as i64, e))
+                        error!("[Orchestrator] Failed to connect to agent {}: {}", agent_id, e);
+                        Some((agent_id, e))
                     }
                 }
             })
@@ -105,4 +144,49 @@ impl AgentOrchestrator {
     }
 }
 
+async fn reconnect_disconnected_agents(orch: Arc<AgentOrchestrator>, pool: &PgPool) {
+    let agents = match sqlx::query!("SELECT id, ip, port FROM agents")
+        .fetch_all(pool)
+        .await
+    {
+        Ok(a) => a,
+        Err(e) => {
+            error!("[Reconnect loop] DB error: {}", e);
+            return;
+        }
+    };
 
+    for agent in agents {
+        let agent_id = agent.id as i64;
+        if orch.is_connected(agent_id).await {
+            continue;
+        }
+        match ConnectionManager::connect(agent_id, &agent.ip, agent.port as u16, orch.run_tx.clone()).await {
+            Ok(manager) => {
+                let manager = Arc::new(manager);
+                let mut conns = orch.connections.lock().await;
+                if conns.contains_key(&agent_id) {
+                    continue;
+                }
+                conns.insert(agent_id, Arc::clone(&manager));
+                drop(conns);
+                spawn_disconnect_watcher(&orch, agent_id, manager);
+                info!("[Orchestrator] Reconnected to agent {}", agent_id);
+            }
+            Err(e) => {
+                warn!("[Reconnect loop] Agent {} connection failed: {}", agent_id, e);
+            }
+        }
+    }
+}
+
+fn spawn_disconnect_watcher(orch: &Arc<AgentOrchestrator>, agent_id: i64, manager: Arc<ConnectionManager>) {
+    let weak_self = Arc::downgrade(orch);
+    tokio::spawn(async move {
+        manager.wait_for_disconnect().await;
+        if let Some(orch) = weak_self.upgrade() {
+            orch.disconnect(agent_id).await;
+            info!("[Orchestrator] Agent {} disconnected (detected)", agent_id);
+        }
+    });
+}

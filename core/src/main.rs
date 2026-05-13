@@ -48,14 +48,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (agent_id, e) in &errors {
         eprintln!("Could not connect to agent {}: {}", agent_id, e);
     }
-
+    orchestrator.start_reconnect_loop(state.pool.clone());
     let ip = std::env::var("CORE_SERVER_IP").unwrap_or("127.0.0.1".to_string());
     let port: u16 = std::env::var("CORE_SERVER_PORT")
         .unwrap_or("6767".to_string())
         .parse()
         .unwrap_or(6767);
 
-    let mut server = Server::new(ip.to_string(), port);
+    let mut server = Server::new(ip, port);
 
     // Users
     server.add_handler("login", Arc::new(LoginUserHandler::new(state.pool.clone())));
@@ -73,6 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         state.pool.clone(),
         Arc::clone(&orchestrator),
     )));
+    server.add_handler("disconnect-agent", Arc::new(DisconnectAgentHandler::new(Arc::clone(&orchestrator))));
 
     // Cores
     server.add_handler("new-core", Arc::new(NewCoreHandler::new(Arc::clone(&orchestrator))));
@@ -85,22 +86,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     server.add_handler("delete-run", Arc::new(DeleteRunHandler::new(Arc::clone(&orchestrator))));
     server.add_handler("delete-inactive-runs", Arc::new(DeleteInactiveRunsHandler::new(Arc::clone(&orchestrator))));
 
-    // Agent connection
-    server.add_handler("connect-agent", Arc::new(ConnectAgentHandler::new(state.pool.clone(), Arc::clone(&orchestrator))));
-    server.add_handler("disconnect-agent", Arc::new(DisconnectAgentHandler::new(Arc::clone(&orchestrator))));
-
     // Tasks
-    server.add_handler("new-task", Arc::new(NewTaskHandler::new(state.pool.clone(),Arc::clone(&orchestrator))));
+    server.add_handler("new-task", Arc::new(NewTaskHandler::new(state.pool.clone(), Arc::clone(&orchestrator))));
     server.add_handler("get-all-tasks", Arc::new(GetAllTasksHandler::new(Arc::clone(&orchestrator), state.pool.clone())));
     server.add_handler("update-task", Arc::new(UpdateTaskHandler::new(Arc::clone(&orchestrator))));
-    server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(state.pool.clone(), Arc::clone(&orchestrator), )));
+    server.add_handler("remove-task", Arc::new(RemoveTaskHandler::new(state.pool.clone(), Arc::clone(&orchestrator))));
     server.add_handler("run-task", Arc::new(RunTaskHandler::new(Arc::clone(&orchestrator), Arc::clone(&state))));
     server.add_handler("stop-task", Arc::new(StopTaskHandler::new(Arc::clone(&orchestrator), Arc::clone(&state))));
 
     // Logs
     server.add_handler("get-logs", Arc::new(GetLogsHandler::new(state.pool.clone())));
 
-    // Start broadcasting run events to WebSocket clients
     let registry = Arc::clone(&server.registry());
     let mut run_rx = state.run_tx.subscribe();
     tokio::spawn(async move {
