@@ -429,10 +429,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       void refreshTasks();
     });
 
+    const unsubscribeRunUpdate = subscribeCoreRequest("run_update", (msg) => {
+      try {
+        const run = msg?.data?.run;
+        if (!run || !run.task_id) return;
+
+        const taskId = String(run.task_id);
+        const normalizedLog = normalizeLog(run);
+
+        setTasksByAgentId((prevAgentTasks) => {
+          const updated = { ...prevAgentTasks };
+          for (const agentId in updated) {
+            const tasks = updated[agentId];
+            const taskIndex = tasks.findIndex((t) => t.id === taskId);
+            if (taskIndex !== -1) {
+              const task = tasks[taskIndex];
+              const logIndex = task.logs.findIndex((l) => l.id === normalizedLog.id);
+
+              if (logIndex !== -1) {
+                task.logs[logIndex] = normalizedLog;
+              } else {
+                task.logs.push(normalizedLog);
+              }
+
+              tasks[taskIndex] = task;
+              updated[agentId] = [...tasks];
+            }
+          }
+          return updated;
+        });
+      } catch (error) {
+        console.error("Error handling run_update:", error);
+      }
+    });
+
     return () => {
       unsubscribeRuns();
+      unsubscribeRunUpdate();
     };
-  }, [refreshAgents, refreshTasks]);
+  }, [refreshAgents, refreshTasks, taskStore]);
 
   useEffect(() => {
     setIsLoading(true);

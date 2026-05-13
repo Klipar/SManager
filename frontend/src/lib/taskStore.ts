@@ -42,7 +42,11 @@ export function generateTaskId(existingIds: Set<number>) {
   return candidate;
 }
 
-function logStatusFromMessage(message: string): TaskLog["status"] {
+function logStatusFromMessage(message: string, returnCode?: number | null): TaskLog["status"] {
+  if (returnCode !== null && returnCode !== undefined) {
+    if (returnCode !== 0) return "error";
+    return "ok";
+  }
   const lower = message.toLowerCase();
   if (lower.includes("error") || lower.includes("fail")) return "error";
   if (lower.includes("warn")) return "warning";
@@ -58,16 +62,16 @@ function normalizeScriptType(script: unknown) {
 }
 
 export function normalizeLog(rawLog: any): TaskLog {
-  const message = String(rawLog?.message ?? "");
-  const startedAt = rawLog?.timestamp ? String(rawLog.timestamp) : new Date().toISOString();
+  const output = String(rawLog?.output ?? "");
+  const startedAt = rawLog?.start_time || new Date().toISOString();
 
   return {
-    id: String(rawLog?.id ?? `${startedAt}-${message.slice(0, 12)}`),
+    id: String(rawLog?.id ?? `${startedAt}-${output.slice(0, 12)}`),
     startedAt,
     scriptType: normalizeScriptType(rawLog?.script),
-    status: logStatusFromMessage(message),
-    summary: message,
-    output: message ? message.split("\n") : [],
+    status: logStatusFromMessage(output, rawLog?.return_code),
+    summary: output.split("\n")[0] || output.slice(0, 100),
+    output: output ? output.split("\n") : [],
   };
 }
 
