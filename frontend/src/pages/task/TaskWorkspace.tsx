@@ -92,7 +92,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
 
   const actionRows = [
     { id: "install", title: "Install", icon: Download, tone: "bg-violet-400/80" },
-    { id: "run", title: "Run", icon: isRunActive ? Square : Play, tone: "bg-emerald-400/80", active: isRunActive },
+    { id: "run", title: "Run", icon: Play, tone: "bg-emerald-400/80", active: isRunActive },
     { id: "delete", title: "Delete", icon: Trash2, tone: "bg-red-400/80" },
   ]
 
@@ -214,8 +214,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                   <p className="text-sm text-white/70">Started: {formatStartedTime(selectedLog?.startedAt) ?? "-"}</p>
                   <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt, selectedLog?.endedAt, now)}</p>
                   <div className="pt-3 text-sm text-white/72">
-                    <p>Created by core: {selectedTask.createdByCore}</p>
-                    <p className="mt-2">Restart policy: {selectedTask.restartPolicy}</p>
+                    <p>Restart policy: {selectedTask.restartPolicy}</p>
                   </div>
                 </div>
 
