@@ -4,7 +4,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useApp } from "@/contexts/AppContext"
 import { sendCoreRequest } from "@/lib/ws"
 import { AddAgentModal } from "../agent/AddAgentModal"
@@ -47,10 +47,16 @@ const scriptStripClass: Record<ScriptType, string> = {
 
 function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
   const [activeScriptType, setActiveScriptType] = useState<ScriptType | null>(null)
+  const outputRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setActiveScriptType(null)
   }, [selectedTask?.id])
+
+  useEffect(() => {
+    if (!outputRef.current) return
+    outputRef.current.scrollTop = outputRef.current.scrollHeight
+  }, [selectedLog?.id, selectedLog?.output.length])
 
   if (!selectedTask) {
     return (
@@ -217,7 +223,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
             <h3 className="mb-3 text-4xl font-medium tracking-tight text-white/90">Output:</h3>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] max-h-[calc(100vh-22rem)]">
               {selectedLog ? (
-                <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+                <div ref={outputRef} className="min-h-0 flex-1 overflow-auto px-4 py-3">
                   <pre className="m-0 whitespace-pre-wrap text-sm leading-6 text-white/76">{selectedLog.output.join("\n")}</pre>
                 </div>
               ) : (
