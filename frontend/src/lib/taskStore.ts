@@ -42,7 +42,11 @@ export function generateTaskId(existingIds: Set<number>) {
   return candidate;
 }
 
-function logStatusFromMessage(message: string): TaskLog["status"] {
+function logStatusFromMessage(message: string, returnCode?: number | null): TaskLog["status"] {
+  if (returnCode !== null && returnCode !== undefined) {
+    if (returnCode !== 0) return "error";
+    return "ok";
+  }
   const lower = message.toLowerCase();
   if (lower.includes("error") || lower.includes("fail")) return "error";
   if (lower.includes("warn")) return "warning";
@@ -58,23 +62,25 @@ function normalizeScriptType(script: unknown) {
 }
 
 export function normalizeLog(rawLog: any): TaskLog {
-  const message = String(rawLog?.message ?? "");
-  const startedAt = rawLog?.timestamp ? String(rawLog.timestamp) : new Date().toISOString();
+  const output = String(rawLog?.output ?? "");
+  const startedAt = rawLog?.start_time || new Date().toISOString();
+  const endedAt = rawLog?.end_time || rawLog?.endTime;
 
   return {
-    id: String(rawLog?.id ?? `${startedAt}-${message.slice(0, 12)}`),
+    id: String(rawLog?.id ?? `${startedAt}-${output.slice(0, 12)}`),
     startedAt,
+    endedAt,
     scriptType: normalizeScriptType(rawLog?.script),
-    status: logStatusFromMessage(message),
-    summary: message,
-    output: message ? message.split("\n") : [],
+    status: logStatusFromMessage(output, rawLog?.return_code),
+    summary: output.split("\n")[0] || output.slice(0, 100),
+    output: output ? output.split("\n") : [],
   };
 }
 
 export function buildTaskStatus(logs: TaskLog[], hasStoredMeta: boolean): TaskStatus {
-  if (logs.some((log) => log.status === "error")) return "failed";
-  if (logs.length > 0) return "executed";
-  return hasStoredMeta ? "starting" : "stopped";
+  if (logs.some((log) => log.status === "error")) return "Failed";
+  if (logs.length > 0) return "Executed";
+  return hasStoredMeta ? "Starting" : "Stopped";
 }
 
 export function buildTaskName(taskId: string, storedTask?: StoredTaskRecord) {

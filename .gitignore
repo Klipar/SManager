@@ -4,3 +4,5 @@
 target/
 .env
 tasks_storage
+
+frontend/.vite/

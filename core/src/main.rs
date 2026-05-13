@@ -43,8 +43,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pg_pool = PgPool::connect(&std::env::var("CORE_DATABASE_URL")?).await?;
     let state = Arc::new(AppState::new(pg_pool));
-    let orchestrator = Arc::new(AgentOrchestrator::new(state.run_tx.clone()));
-    let errors = orchestrator.connect_all(&state.pool).await;
+    let orchestrator = Arc::new(AgentOrchestrator::new(state.run_tx.clone(), Arc::clone(&state.pool)));
+    let errors = orchestrator.connect_all().await;
     for (agent_id, e) in &errors {
         eprintln!("Could not connect to agent {}: {}", agent_id, e);
     }

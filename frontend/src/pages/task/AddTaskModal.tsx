@@ -208,9 +208,9 @@ export function AddTaskModal({ open, agent, task, onClose, onSave, title }: AddT
             agentId: agent.id,
             name: name.trim(),
             description: description.trim(),
-            installScript: scripts.install.trim(),
-            runScript: scripts.run.trim(),
-            deleteScript: scripts.delete.trim(),
+            installScript: scripts.install,
+            runScript: scripts.run,
+            deleteScript: scripts.delete,
             restartPolicy,
           },
         })
@@ -219,9 +219,9 @@ export function AddTaskModal({ open, agent, task, onClose, onSave, title }: AddT
           agentId: agent.id,
           name: name.trim(),
           description: description.trim(),
-          installScript: scripts.install.trim(),
-          runScript: scripts.run.trim(),
-          deleteScript: scripts.delete.trim(),
+          installScript: scripts.install,
+          runScript: scripts.run,
+          deleteScript: scripts.delete,
           restartPolicy,
         }
         onSave(payload)

@@ -42,13 +42,14 @@ export type CreateTaskPayload = {
   restartPolicy: RestartPolicy;
 };
 
-export type TaskStatus = "ok" | "starting" | "failed" | "stopped" | "executed";
+export type TaskStatus = "Ok" | "Starting" | "Failed" | "Stopped" | "Executed";
 
 export type ScriptType = "install" | "run" | "delete";
 
 export type TaskLog = {
   id: string;
   startedAt: string;
+  endedAt?: string;
   scriptType: ScriptType;
   status: "ok" | "warning" | "error";
   summary: string;

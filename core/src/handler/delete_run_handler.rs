@@ -32,9 +32,9 @@ impl HandlerTrait for DeleteRunHandler {
             None => return Message::new_response(Status::Error, None, 400, "Missing agent_id"),
         };
 
-        let id = match data.get("id").and_then(|v| v.as_i64()) {
+        let run_id = match data.get("run_id").and_then(|v| v.as_i64()) {
             Some(id) => id,
-            None => return Message::new_response(Status::Error, None, 400, "Missing id"),
+            None => return Message::new_response(Status::Error, None, 400, "Missing run_id"),
         };
 
         let manager = match self.orchestrator.get(agent_id).await {
@@ -42,7 +42,7 @@ impl HandlerTrait for DeleteRunHandler {
             Err(_) => return Message::new_response(Status::Error, None, 503, format!("Agent {} not connected", agent_id)),
         };
 
-        match delete_run(&manager, id).await {
+        match delete_run(&manager, run_id).await {
             Ok(_) => Message::new_response(Status::Ok, None, 200, "Run deleted"),
             Err(e) => {
                 error!("Failed to delete run: {}", e);

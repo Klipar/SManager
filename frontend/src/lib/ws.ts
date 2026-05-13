@@ -14,7 +14,23 @@ class WSClient {
   private autoReconnect = true;
 
   constructor(url?: string) {
-    this.url = url ?? (import.meta.env.VITE_CORE_WS as string) ?? "ws://127.0.0.1:6767";
+    this.url = url ?? this.getDefaultWebSocketUrl();
+  }
+
+  private getDefaultWebSocketUrl() {
+    const envUrl = (import.meta.env.VITE_CORE_WS as string | undefined)?.trim();
+    if (envUrl) {
+      return envUrl;
+    }
+
+    if (typeof window !== "undefined") {
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const hostname = window.location.hostname || "127.0.0.1";
+      const port = (import.meta.env.VITE_CORE_WS_PORT as string | undefined)?.trim() || "6767";
+      return `${protocol}//${hostname}:${port}`;
+    }
+
+    return "ws://127.0.0.1:6767";
   }
 
   connect() {

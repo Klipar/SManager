@@ -1,16 +1,17 @@
-import { Download, Play, Square, Trash2, MoreHorizontal } from "lucide-react"
+import { Download, Play, Square, Trash2, MoreHorizontal, X } from "lucide-react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useApp } from "@/contexts/AppContext"
 import { sendCoreRequest } from "@/lib/ws"
 import { AddAgentModal } from "../agent/AddAgentModal"
 import DeleteAgentModal from "../agent/DeleteAgentModal"
 import AddTaskModal from "./AddTaskModal"
 import DeleteTaskModal from "./DeleteTaskModal"
+import DeleteInactiveRunsModal from "./DeleteInactiveRunsModal"
 
 import type { Agent, ScriptType, Task, TaskLog } from "@/types"
 
@@ -24,19 +25,19 @@ type TaskWorkspaceProps = {
 }
 
 const statusLabel: Record<Task["status"], string> = {
-  ok: "Current status: ok",
-  starting: "Current status: starting",
-  failed: "Current status: failed",
-  stopped: "Current status: stopped",
-  executed: "Current status: executed",
+  Ok: "Current status: ok",
+  Starting: "Current status: starting",
+  Failed: "Current status: failed",
+  Stopped: "Current status: stopped",
+  Executed: "Current status: executed",
 }
 
 const statusDotClass: Record<Task["status"], string> = {
-  ok: "bg-emerald-500",
-  starting: "bg-sky-400",
-  failed: "bg-red-500",
-  stopped: "bg-slate-500",
-  executed: "bg-violet-500",
+  Ok: "bg-emerald-500",
+  Starting: "bg-sky-400",
+  Failed: "bg-red-500",
+  Stopped: "bg-slate-500",
+  Executed: "bg-violet-500",
 }
 
 const scriptStripClass: Record<ScriptType, string> = {
@@ -46,11 +47,69 @@ const scriptStripClass: Record<ScriptType, string> = {
 }
 
 function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
-  const [activeScriptType, setActiveScriptType] = useState<ScriptType | null>(null)
+  const [pendingRunStart, setPendingRunStart] = useState(false)
+  const [now, setNow] = useState(new Date())
+  const outputRef = useRef<HTMLDivElement | null>(null)
+  const { deleteLog, deleteInactiveRuns } = useApp()
+  const [showDeleteInactiveRuns, setShowDeleteInactiveRuns] = useState(false)
+  const [isDeletingInactiveRuns, setIsDeletingInactiveRuns] = useState(false)
+  const [deleteInactiveRunsError, setDeleteInactiveRunsError] = useState<string | null>(null)
+
+  const handleDeleteLog = async (logId: string) => {
+    if (!selectedTask) return
+    const ok = await deleteLog(selectedTask.id, logId)
+    if (!ok) {
+      console.error("[TaskWorkspace] handleDeleteLog failed for log", logId)
+      alert("Failed to delete log - check browser console for details")
+    }
+  }
+
+  const inactiveRunsCount = selectedTask?.logs.filter((log) => Boolean(log.endedAt)).length ?? 0
+
+  const handleDeleteInactiveRuns = async () => {
+    setIsDeletingInactiveRuns(true)
+    setDeleteInactiveRunsError(null)
+
+    try {
+      const ok = await deleteInactiveRuns(agent.id)
+      if (ok) {
+        setShowDeleteInactiveRuns(false)
+      } else {
+        const message = "Failed to delete inactive runs"
+        setDeleteInactiveRunsError(message)
+        console.error("[TaskWorkspace] handleDeleteInactiveRuns failed for agent", agent.id)
+      }
+    } catch (error) {
+      setDeleteInactiveRunsError(String(error))
+    } finally {
+      setIsDeletingInactiveRuns(false)
+    }
+  }
+
+  const hasRunningRun = selectedTask?.logs.some((log) => log.scriptType === "run" && !log.endedAt) ?? false
+  const isRunActive = hasRunningRun || pendingRunStart
 
   useEffect(() => {
-    setActiveScriptType(null)
+    setPendingRunStart(false)
   }, [selectedTask?.id])
+
+  useEffect(() => {
+    if (!hasRunningRun) {
+      setPendingRunStart(false)
+    }
+  }, [hasRunningRun])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    if (!outputRef.current) return
+    outputRef.current.scrollTop = outputRef.current.scrollHeight
+  }, [selectedLog?.id, selectedLog?.output.length])
 
   if (!selectedTask) {
     return (
@@ -65,11 +124,11 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     )
   }
 
-  const isRunActive = activeScriptType === "run"
+  const sortedLogs = [...selectedTask.logs].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
 
   const actionRows = [
     { id: "install", title: "Install", icon: Download, tone: "bg-violet-400/80" },
-    { id: "run", title: "Run", icon: isRunActive ? Square : Play, tone: "bg-emerald-400/80", active: isRunActive },
+    { id: "run", title: "Run", icon: Play, tone: "bg-emerald-400/80", active: isRunActive },
     { id: "delete", title: "Delete", icon: Trash2, tone: "bg-red-400/80" },
   ]
 
@@ -77,7 +136,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     if (scriptType === "run" && isRunActive) {
       const ok = await handleStopAction()
       if (ok) {
-        setActiveScriptType(null)
+        setPendingRunStart(false)
       }
       return
     }
@@ -100,7 +159,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
     }
 
     if (scriptType === "run") {
-      setActiveScriptType("run")
+      setPendingRunStart(true)
     }
   }
 
@@ -145,18 +204,38 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
           </div>
         </div>
 
-        <div className="border-y border-white/[0.035] px-3 py-2 text-center">
-          <h3 className="text-3xl font-medium tracking-tight text-white/90">Start log</h3>
+        <div className="border-y border-white/[0.035] px-3 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-3xl font-medium tracking-tight text-white/90">Runs log</h3>
+            <button
+              type="button"
+              onClick={() => {
+                setShowDeleteInactiveRuns(true)
+              }}
+              disabled={inactiveRunsCount === 0}
+              title={inactiveRunsCount === 0 ? "No inactive runs to delete" : "Delete inactive runs"}
+              className="rounded p-2 text-white/72 transition-colors hover:bg-white/[0.06] hover:text-white/88 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </div>
         </div>
 
         <ScrollArea className="h-[calc(100vh-19rem)] p-3">
           <div className="space-y-2">
-            {selectedTask.logs.map((log) => (
-              <button
+            {sortedLogs.map((log) => (
+              <div
                 key={log.id}
-                type="button"
                 onClick={() => onSelectLog(log.id)}
-                className="group flex w-full items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    onSelectLog(log.id)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                className="group flex w-full cursor-pointer items-center overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40"
               >
                 <div className={cn("flex h-11 w-8 items-center justify-center", scriptStripClass[log.scriptType])}>
                   {log.scriptType === "install" ? (
@@ -168,9 +247,20 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                   )}
                 </div>
                 <span className="flex min-w-0 flex-1 items-center justify-between px-3">
-                  <span className="truncate text-sm text-white/82">{log.startedAt}</span>
+                  <span className="truncate text-sm text-white/82">{formatLogLabel(log.startedAt)}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void handleDeleteLog(log.id)
+                    }}
+                    className="ml-2 flex-shrink-0 rounded p-1 opacity-0 transition-opacity hover:bg-white/[0.1] group-hover:opacity-100"
+                    title="Delete log"
+                  >
+                    <X className="size-3.5 text-white/60 hover:text-white/80" />
+                  </button>
                 </span>
-              </button>
+              </div>
             ))}
           </div>
         </ScrollArea>
@@ -188,11 +278,10 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                     <span className={cn("mr-2 inline-block size-2 rounded-full -translate-y-0.5", statusDotClass[selectedTask.status])} />
                     {statusLabel[selectedTask.status]}
                   </p>
-                  <p className="text-sm text-white/70">Started: {selectedLog?.startedAt ?? "Select a log to see the start time"}</p>
-                  <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt)}</p>
+                  <p className="text-sm text-white/70">Started: {formatStartedTime(selectedLog?.startedAt) ?? "-"}</p>
+                  <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt, selectedLog?.endedAt, now)}</p>
                   <div className="pt-3 text-sm text-white/72">
-                    <p>Created by core: {selectedTask.createdByCore}</p>
-                    <p className="mt-2">Restart policy: {selectedTask.restartPolicy}</p>
+                    <p>Restart policy: {selectedTask.restartPolicy}</p>
                   </div>
                 </div>
 
@@ -216,7 +305,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
             <h3 className="mb-3 text-4xl font-medium tracking-tight text-white/90">Output:</h3>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.03] max-h-[calc(100vh-22rem)]">
               {selectedLog ? (
-                <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+                <div ref={outputRef} className="min-h-0 flex-1 overflow-auto px-4 py-3">
                   <pre className="m-0 whitespace-pre-wrap text-sm leading-6 text-white/76">{selectedLog.output.join("\n")}</pre>
                 </div>
               ) : (
@@ -228,16 +317,53 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
           </div>
         </div>
       </div>
+
+      <DeleteInactiveRunsModal
+        open={showDeleteInactiveRuns}
+        count={inactiveRunsCount}
+        onClose={() => {
+          setShowDeleteInactiveRuns(false)
+          setDeleteInactiveRunsError(null)
+        }}
+        onConfirm={handleDeleteInactiveRuns}
+        isDeleting={isDeletingInactiveRuns}
+        error={deleteInactiveRunsError}
+      />
     </div>
   )
 }
 
-function formatUptime(startedAt?: string | null) {
+function formatDatePart(value: number) {
+  return String(value).padStart(2, "0")
+}
+
+function formatLogLabel(startedAt?: string | null) {
+  if (!startedAt) return "-"
+  const date = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
+  if (Number.isNaN(date.getTime())) return "-"
+  return `${date.getFullYear()}-${formatDatePart(date.getMonth() + 1)}-${formatDatePart(date.getDate())} ${formatDatePart(date.getHours())}:${formatDatePart(date.getMinutes())}`
+}
+
+function formatStartedTime(startedAt?: string | null) {
+  if (!startedAt) return undefined
+  const date = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
+  if (Number.isNaN(date.getTime())) return undefined
+  return `${date.getFullYear()}-${formatDatePart(date.getMonth() + 1)}-${formatDatePart(date.getDate())} ${formatDatePart(date.getHours())}:${formatDatePart(date.getMinutes())}:${formatDatePart(date.getSeconds())}`
+}
+
+function formatUptime(startedAt?: string | null, endedAt?: string | null, currentTime?: Date) {
   if (!startedAt) return "-"
   try {
-    const date = new Date(startedAt)
-    if (Number.isNaN(date.getTime())) return "-"
-    const diff = Date.now() - date.getTime()
+    const startDate = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
+    if (Number.isNaN(startDate.getTime())) return "-"
+
+    const endDate = endedAt
+      ? new Date(endedAt + (endedAt.includes('Z') ? '' : 'Z'))
+      : (currentTime || new Date())
+
+    if (endedAt && Number.isNaN(endDate.getTime())) return "-"
+
+    const diff = endDate.getTime() - startDate.getTime()
     if (diff < 0) return "-"
 
     const sec = Math.floor(diff / 1000)
