@@ -47,6 +47,7 @@ const scriptStripClass: Record<ScriptType, string> = {
 
 function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTask, onStopTask }: TaskWorkspaceProps) {
   const [pendingRunStart, setPendingRunStart] = useState(false)
+  const [now, setNow] = useState(new Date())
   const outputRef = useRef<HTMLDivElement | null>(null)
 
   const hasRunningRun = selectedTask?.logs.some((log) => log.scriptType === "run" && !log.endedAt) ?? false
@@ -61,6 +62,13 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
       setPendingRunStart(false)
     }
   }, [hasRunningRun])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     if (!outputRef.current) return
@@ -204,7 +212,7 @@ function TaskWorkspace({ agent, selectedTask, selectedLog, onSelectLog, onRunTas
                     {statusLabel[selectedTask.status]}
                   </p>
                   <p className="text-sm text-white/70">Started: {formatStartedTime(selectedLog?.startedAt) ?? "Select a log to see the start time"}</p>
-                  <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt, selectedLog?.endedAt)}</p>
+                  <p className="text-sm text-white/70">Working: {formatUptime(selectedLog?.startedAt, selectedLog?.endedAt, now)}</p>
                   <div className="pt-3 text-sm text-white/72">
                     <p>Created by core: {selectedTask.createdByCore}</p>
                     <p className="mt-2">Restart policy: {selectedTask.restartPolicy}</p>
@@ -253,25 +261,28 @@ function formatDatePart(value: number) {
 
 function formatLogLabel(startedAt?: string | null) {
   if (!startedAt) return "-"
-  const date = new Date(startedAt)
+  const date = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
   if (Number.isNaN(date.getTime())) return "-"
   return `${date.getFullYear()}-${formatDatePart(date.getMonth() + 1)}-${formatDatePart(date.getDate())} ${formatDatePart(date.getHours())}:${formatDatePart(date.getMinutes())}`
 }
 
 function formatStartedTime(startedAt?: string | null) {
   if (!startedAt) return undefined
-  const date = new Date(startedAt)
+  const date = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
   if (Number.isNaN(date.getTime())) return undefined
   return `${date.getFullYear()}-${formatDatePart(date.getMonth() + 1)}-${formatDatePart(date.getDate())} ${formatDatePart(date.getHours())}:${formatDatePart(date.getMinutes())}:${formatDatePart(date.getSeconds())}`
 }
 
-function formatUptime(startedAt?: string | null, endedAt?: string | null) {
+function formatUptime(startedAt?: string | null, endedAt?: string | null, currentTime?: Date) {
   if (!startedAt) return "-"
   try {
-    const startDate = new Date(startedAt)
+    const startDate = new Date(startedAt + (startedAt.includes('Z') ? '' : 'Z'))
     if (Number.isNaN(startDate.getTime())) return "-"
 
-    const endDate = endedAt ? new Date(endedAt) : new Date()
+    const endDate = endedAt
+      ? new Date(endedAt + (endedAt.includes('Z') ? '' : 'Z'))
+      : (currentTime || new Date())
+
     if (endedAt && Number.isNaN(endDate.getTime())) return "-"
 
     const diff = endDate.getTime() - startDate.getTime()
