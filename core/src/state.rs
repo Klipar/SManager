@@ -20,10 +20,11 @@ pub struct AppState {
 impl AppState {
     pub fn new(pool: PgPool) -> Self {
         let (run_tx, _) = broadcast::channel(1024);
+        let pool = Arc::new(pool);
 
         Self {
-            pool: Arc::new(pool),
-            orchestrator: Arc::new(AgentOrchestrator::new(run_tx.clone())),
+            pool: Arc::clone(&pool),
+            orchestrator: Arc::new(AgentOrchestrator::new(run_tx.clone(), pool)),
             run_tx,
         }
     }

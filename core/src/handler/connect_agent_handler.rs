@@ -34,10 +34,7 @@ impl HandlerTrait for ConnectAgentHandler {
             None => return Message::new_response(Status::Error, None, 400, "Missing agent_id"),
         };
 
-        let agent = sqlx::query!(
-            "SELECT ip, port FROM agents WHERE id = $1",
-            agent_id as i32
-        )
+        let agent = sqlx::query!("SELECT ip, port FROM agents WHERE id = $1", agent_id as i32)
             .fetch_optional(&*self.pool)
             .await;
 

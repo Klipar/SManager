@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use log::error;
 use serde_json::Value;
 use std::sync::Arc;
 use crate::{
@@ -31,7 +32,10 @@ impl HandlerTrait for DisconnectAgentHandler {
             None => return Message::new_response(Status::Error, None, 400, "Missing agent_id"),
         };
 
-        self.orchestrator.disconnect(agent_id).await;
+        if let Err(e) = self.orchestrator.disconnect(agent_id).await {
+            error!("Failed to update offline state for agent {}: {}", agent_id, e);
+            return Message::new_response(Status::Error, None, 500, "Failed to disconnect agent");
+        }
         Message::new_response(Status::Ok, None, 200, "Disconnected from agent")
     }
 }

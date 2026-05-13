@@ -5,20 +5,42 @@ use anyhow::{bail, Result};
 use log::{error, info, warn};
 use sqlx::postgres::PgPool;
 use tokio::sync::broadcast;
+use futures::future::join_all;
 use crate::tls_client::connection_manager::ConnectionManager;
 use crate::state::RunEvent;
 
+#[derive(Clone)]
 pub struct AgentOrchestrator {
     connections: Arc<Mutex<HashMap<i64, Arc<ConnectionManager>>>>,
     run_tx: broadcast::Sender<RunEvent>,
+    pool: Arc<PgPool>,
 }
 
 impl AgentOrchestrator {
-    pub fn new(run_tx: broadcast::Sender<RunEvent>) -> Self {
+    pub fn new(run_tx: broadcast::Sender<RunEvent>, pool: Arc<PgPool>) -> Self {
         Self {
             connections: Arc::new(Mutex::new(HashMap::new())),
             run_tx,
+            pool,
         }
+    }
+
+    async fn mark_online(&self, agent_id: i64) -> Result<()> {
+        sqlx::query(
+            "UPDATE agents SET status = 'online', last_connection = NOW() WHERE id = $1",
+        )
+        .bind(agent_id as i32)
+        .execute(self.pool.as_ref())
+        .await?;
+        Ok(())
+    }
+
+    async fn mark_offline(&self, agent_id: i64) -> Result<()> {
+        sqlx::query("UPDATE agents SET status = 'offline' WHERE id = $1")
+            .bind(agent_id as i32)
+            .execute(self.pool.as_ref())
+            .await?;
+        Ok(())
     }
 
     pub async fn connect(
@@ -28,19 +50,39 @@ impl AgentOrchestrator {
         port: u16,
     ) -> Result<()> {
         let manager = Arc::new(ConnectionManager::connect(agent_id, ip, port,  self.run_tx.clone()).await?);
-        let mut conns = self.connections.lock().await;
-        conns.insert(agent_id, manager);
+        let previous = {
+            let mut conns = self.connections.lock().await;
+            conns.insert(agent_id, manager)
+        };
+
+        if let Err(e) = self.mark_online(agent_id).await {
+            let mut conns = self.connections.lock().await;
+            if let Some(prev) = previous {
+                conns.insert(agent_id, prev);
+            } else {
+                conns.remove(&agent_id);
+            }
+            return Err(e);
+        }
+
         info!("[Orchestrator] Connected to agent {}", agent_id);
         Ok(())
     }
 
-    pub async fn disconnect(&self, agent_id: i64) {
-        let mut conns = self.connections.lock().await;
-        if conns.remove(&agent_id).is_some() {
+    pub async fn disconnect(&self, agent_id: i64) -> Result<()> {
+        let removed = {
+            let mut conns = self.connections.lock().await;
+            conns.remove(&agent_id).is_some()
+        };
+
+        if removed {
             info!("[Orchestrator] Disconnected agent {}", agent_id);
         } else {
             warn!("[Orchestrator] Agent {} not found", agent_id);
         }
+
+        self.mark_offline(agent_id).await?;
+        Ok(())
     }
 
     pub async fn get(&self, agent_id: i64) -> Result<Arc<ConnectionManager>> {
@@ -58,9 +100,9 @@ impl AgentOrchestrator {
     pub async fn is_connected(&self, agent_id: i64) -> bool {
         self.connections.lock().await.contains_key(&agent_id)
     }
-    pub async fn connect_all(&self, pool: &Arc<PgPool>) -> Vec<(i64, anyhow::Error)> {
+    pub async fn connect_all(&self) -> Vec<(i64, anyhow::Error)> {
         let agents = match sqlx::query!("SELECT id, ip, port FROM agents")
-            .fetch_all(pool.as_ref())
+            .fetch_all(self.pool.as_ref())
             .await
         {
             Ok(a) => a,
@@ -69,40 +111,21 @@ impl AgentOrchestrator {
                 return vec![];
             }
         };
-        let run_tx = self.run_tx.clone();
-        let handles: Vec<_> = agents.into_iter().map(|agent| {
-            let run_tx = run_tx.clone();
-            let connections = Arc::clone(&self.connections);
-            tokio::spawn(async move {
-                let result = ConnectionManager::connect(
-                    agent.id as i64,
-                    &agent.ip,
-                    agent.port as u16,
-                    run_tx,
-                ).await;
 
-                match result {
-                    Ok(manager) => {
-                        connections.lock().await.insert(agent.id as i64, Arc::new(manager));
-                        info!("[Orchestrator] Connected to agent {}", agent.id);
-                        None
-                    }
-                    Err(e) => {
-                        error!("[Orchestrator] Failed to connect to agent {}: {}", agent.id, e);
-                        Some((agent.id as i64, e))
-                    }
-                }
-            })
-        }).collect();
-
-        let mut errors = vec![];
-        for handle in handles {
-            if let Ok(Some(err)) = handle.await {
-                errors.push(err);
+        let futures = agents.into_iter().map(|agent| {
+            let orchestrator = self.clone();
+            async move {
+                orchestrator
+                    .connect(agent.id as i64, &agent.ip, agent.port as u16)
+                    .await
+                    .map_err(|e| (agent.id as i64, e))
             }
-        }
-        errors
+        });
+
+        join_all(futures)
+            .await
+            .into_iter()
+            .filter_map(|result| result.err())
+            .collect()
     }
 }
-
-

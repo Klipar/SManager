@@ -41,8 +41,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pg_pool = PgPool::connect(&std::env::var("CORE_DATABASE_URL")?).await?;
     let state = Arc::new(AppState::new(pg_pool));
-    let orchestrator = Arc::new(AgentOrchestrator::new(state.run_tx.clone()));
-    let errors = orchestrator.connect_all(&state.pool).await;
+    let orchestrator = Arc::new(AgentOrchestrator::new(state.run_tx.clone(), Arc::clone(&state.pool)));
+    let errors = orchestrator.connect_all().await;
     for (agent_id, e) in &errors {
         eprintln!("Could not connect to agent {}: {}", agent_id, e);
     }
@@ -67,11 +67,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     server.add_handler("get-all-agents", Arc::new(GetAllAgentsHandler::new(state.pool.clone())));
     server.add_handler("update-agent", Arc::new(UpdateAgentHandler::new(state.pool.clone())));
     server.add_handler("remove-agent", Arc::new(RemoveAgentHandler::new(state.pool.clone())));
-    server.add_handler("connect-agent", Arc::new(ConnectAgentHandler::new(
-        state.pool.clone(),
-        Arc::clone(&orchestrator),
-    )));
-
     // Cores
     server.add_handler("new-core", Arc::new(NewCoreHandler::new(Arc::clone(&orchestrator))));
     server.add_handler("get-all-cores", Arc::new(GetAllCoresHandler::new(Arc::clone(&orchestrator))));
