@@ -1,6 +1,6 @@
 .vscode/
 .idea/
-
+database.db
 target/
 .env
 tasks_storage
