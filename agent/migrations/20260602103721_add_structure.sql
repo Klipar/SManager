@@ -1,17 +1,17 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE ACTIONS (
+CREATE TABLE actions (
     id INTEGER PRIMARY KEY,
     core_id INTEGER, -- Can be NULL if core was deleted.
     timestamp DATETIME NOT NULL,
 
     FOREIGN KEY (core_id)
-        REFERENCES CORES(id)
+        REFERENCES cores(id)
         ON DELETE SET NULL
         ON UPDATE CASCADE
 );
 
-CREATE TABLE CORES (
+CREATE TABLE cores (
     id INTEGER PRIMARY KEY,
     spiffe_id TEXT NOT NULL,
     create_action INTEGER NOT NULL,
@@ -20,16 +20,16 @@ CREATE TABLE CORES (
     UNIQUE(spiffe_id),
 
     FOREIGN KEY (create_action)
-        REFERENCES ACTIONS(id)
+        REFERENCES actions(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
     FOREIGN KEY (update_action)
-        REFERENCES ACTIONS(id)
+        REFERENCES actions(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
 );
 
-CREATE TABLE TASKS (
+CREATE TABLE tasks (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
@@ -69,26 +69,26 @@ CREATE TABLE TASKS (
     update_action INTEGER NOT NULL,
 
     FOREIGN KEY (create_action)
-        REFERENCES ACTIONS(id)
+        REFERENCES actions(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
     FOREIGN KEY (update_action)
-        REFERENCES ACTIONS(id)
+        REFERENCES actions(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
 );
 
-CREATE TABLE SCRIPTS (
+CREATE TABLE scripts (
     id INTEGER PRIMARY KEY,
     task_id INTEGER NOT NULL,
     name TEXT NOT NULL,
     code TEXT NOT NULL DEFAULT 'echo Hello from template script!',
-    FOREIGN KEY (task_id) REFERENCES TASKS(id)
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
 
-CREATE TABLE RUNS (
+CREATE TABLE runs (
     id INTEGER PRIMARY KEY,
     task_id INTEGER NOT NULL,
     script_id INTEGER NOT NULL,
@@ -100,29 +100,29 @@ CREATE TABLE RUNS (
 
     output TEXT NOT NULL DEFAULT '',
 
-    FOREIGN KEY (task_id) REFERENCES TASKS(id)
+    FOREIGN KEY (task_id) REFERENCES tasks(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE,
 
-    FOREIGN KEY (script_id) REFERENCES SCRIPTS(id)
+    FOREIGN KEY (script_id) REFERENCES scripts(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
 
-    FOREIGN KEY (start_action) REFERENCES ACTIONS(id)
+    FOREIGN KEY (start_action) REFERENCES actions(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
 
-    FOREIGN KEY (stop_action) REFERENCES ACTIONS(id)
+    FOREIGN KEY (stop_action) REFERENCES actions(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE
 );
 
-CREATE TABLE PENDING_MESSAGES (
+CREATE TABLE pending_messages (
     id INTEGER PRIMARY KEY,
     message TEXT NOT NULL,
     retry_budget INTEGER DEFAULT 5 CHECK(retry_budget > 0 OR retry_budget IS NULL),
     send_to_core_id INTEGER NOT NULL,
-    FOREIGN KEY (send_to_core_id) REFERENCES CORES(id)
+    FOREIGN KEY (send_to_core_id) REFERENCES cores(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
