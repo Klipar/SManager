@@ -1,0 +1,2 @@
+subjectAltName = URI:spiffe://dev/client1
+extendedKeyUsage = clientAuth
