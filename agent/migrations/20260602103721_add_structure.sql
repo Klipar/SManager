@@ -1,31 +1,24 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE actions (
-    id INTEGER PRIMARY KEY,
-    core_id INTEGER, -- Can be NULL if core was deleted.
-    timestamp DATETIME NOT NULL,
-
-    FOREIGN KEY (core_id)
-        REFERENCES cores(id)
-        ON DELETE SET NULL
-        ON UPDATE CASCADE
-);
-
 CREATE TABLE cores (
     id INTEGER PRIMARY KEY,
     spiffe_id TEXT NOT NULL,
-    create_action INTEGER NOT NULL,
-    update_action INTEGER NOT NULL,
 
     UNIQUE(spiffe_id),
 
-    FOREIGN KEY (create_action)
-        REFERENCES actions(id)
-        ON DELETE RESTRICT
+    create_by_core_id INTEGER, -- Can be NULL if core was deleted.
+    create_at DATETIME NOT NULL,
+
+    update_by_core_id INTEGER, -- Can be NULL if core was deleted.
+    update_at DATETIME NOT NULL,
+
+    FOREIGN KEY (create_by_core_id)
+        REFERENCES cores(id)
+        ON DELETE SET NULL
         ON UPDATE CASCADE,
-    FOREIGN KEY (update_action)
-        REFERENCES actions(id)
-        ON DELETE RESTRICT
+    FOREIGN KEY (update_by_core_id)
+        REFERENCES cores(id)
+        ON DELETE SET NULL
         ON UPDATE CASCADE
 );
 
@@ -65,16 +58,19 @@ CREATE TABLE tasks (
         NOT NULL
         CHECK(substatus != ''),
 
-    create_action INTEGER NOT NULL,
-    update_action INTEGER NOT NULL,
+    create_by_core_id INTEGER, -- Can be NULL if core was deleted.
+    create_at DATETIME NOT NULL,
 
-    FOREIGN KEY (create_action)
-        REFERENCES actions(id)
-        ON DELETE RESTRICT
+    update_by_core_id INTEGER, -- Can be NULL if core was deleted.
+    update_at DATETIME NOT NULL,
+
+    FOREIGN KEY (create_by_core_id)
+        REFERENCES cores(id)
+        ON DELETE SET NULL
         ON UPDATE CASCADE,
-    FOREIGN KEY (update_action)
-        REFERENCES actions(id)
-        ON DELETE RESTRICT
+    FOREIGN KEY (update_by_core_id)
+        REFERENCES cores(id)
+        ON DELETE SET NULL
         ON UPDATE CASCADE
 );
 
@@ -92,8 +88,6 @@ CREATE TABLE runs (
     id INTEGER PRIMARY KEY,
     task_id INTEGER NOT NULL,
     script_id INTEGER NOT NULL,
-    start_action INTEGER NOT NULL,
-    stop_action INTEGER,
     return_code INTEGER
         DEFAULT NULL
         CHECK(return_code IS NULL OR return_code >= 0),
@@ -108,12 +102,19 @@ CREATE TABLE runs (
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
 
-    FOREIGN KEY (start_action) REFERENCES actions(id)
-        ON DELETE RESTRICT
-        ON UPDATE CASCADE,
+    started_by_core_id INTEGER, -- Can be NULL if core was deleted.
+    started_at DATETIME NOT NULL,
 
-    FOREIGN KEY (stop_action) REFERENCES actions(id)
-        ON DELETE RESTRICT
+    stopped_by_core_id INTEGER, -- Can be NULL if core was deleted or if no core haw stopped this task
+    stopped_at DATETIME,
+
+    FOREIGN KEY (started_by_core_id)
+        REFERENCES cores(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+    FOREIGN KEY (stopped_by_core_id)
+        REFERENCES cores(id)
+        ON DELETE SET NULL
         ON UPDATE CASCADE
 );
 
