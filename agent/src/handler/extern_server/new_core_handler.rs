@@ -1,84 +1,72 @@
 use async_trait::async_trait;
+use log::{error, info};
 use serde_json::Value;
-use shared::{db::models::Core, server::{get_hash::get_hash, connection_context::ConnectionContext, dto::create_core_dto::CreateCoreDto, handler_trait::HandlerTrait, message::{Message, Status}}};
-use sqlx::postgres::PgPool;
+use shared::server::{
+    connection_context::ConnectionContext,
+    dto::create_core_dto::CreateCoreDto,
+    handler_trait::HandlerTrait,
+    message::{Message, Status},
+};
+use sqlx::SqlitePool;
 use std::sync::Arc;
-use log::{info, error};
 
 pub struct NewCoreHandler {
-    pub pool: Arc<PgPool>,
+    pub pool: Arc<SqlitePool>,
 }
 
 impl NewCoreHandler {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: Arc<SqlitePool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
 impl HandlerTrait for NewCoreHandler {
-    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext) -> Message {
+    async fn handle(&self, data: Option<Value>, ctx: &mut ConnectionContext) -> Message {
         info!("Creating new core");
 
         let data = match data {
             Some(v) => v,
-            None => {
-                return Message::new_response(
-                    Status::Error,
-                    None,
-                    400,
-                    "Missing data"
-                );
-            }
+            None => return Message::new_response(Status::Error, None, 400, "Missing data"),
         };
 
         let dto: CreateCoreDto = match serde_json::from_value(data) {
             Ok(v) => v,
             Err(e) => {
                 error!("Failed to parse create new core request: {}", e);
-                return Message::new_response(
-                    Status::Error,
-                    None,
-                    400,
-                    "Invalid new-core request"
-                );
+                return Message::new_response(Status::Error, None, 400, "Invalid new-core request");
             }
         };
 
         let inserted = sqlx::query_as!(
             Core,
             r#"
-            INSERT INTO cores (ip, name, client_hash)
-            VALUES ($1, $2, $3)
-            RETURNING id, ip, name, client_hash
+            INSERT INTO cores (spiffe_id, create_by_core_id, create_at, update_by_core_id, update_at)
+            VALUES (?, ?, ?, ?, ?)
+            RETURNING id
             "#,
             dto.ip,
-            dto.name,
-            get_hash(&dto.client_cn)
+            ctx.id,
         )
-        .fetch_one(&*self.pool)
-        .await;
+        .fetch_one(&self.pool)
+        .await?;
 
         match inserted {
             Ok(core) => {
                 info!("Successful created new core: `{}`", core.name);
 
-                return Message::new_response (
-                    Status::Ok,
-                    None,
-                    200,
-                    "Created successfully!"
-                );
+                return Message::new_response(Status::Ok, None, 200, "Created successfully!");
             }
-             Err(e) => {
-                if let sqlx::Error::Database(db_err) = &e { // non uniq ip-port
+            Err(e) => {
+                if let sqlx::Error::Database(db_err) = &e {
+                    // non uniq ip-port
                     if let Some(constraint) = db_err.constraint() {
                         if constraint == "unique_ip_port" {
                             return Message::new_response(
                                 Status::Error,
                                 None,
                                 409,
-                                "Core with this IP and port already exists."
+                                "Core with this IP and port already exists.",
                             );
                         }
                     }
@@ -89,7 +77,7 @@ impl HandlerTrait for NewCoreHandler {
                     Status::Error,
                     None,
                     500,
-                    "Failed to create new core."
+                    "Failed to create new core.",
                 );
             }
         }

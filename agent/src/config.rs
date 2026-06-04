@@ -10,8 +10,7 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Self {
         Self {
-            database_url: env::var("AGENT_DATABASE_URL")
-                .expect("AGENT_DATABASE_URL must be set"),
+            database_url: env::var("AGENT_DATABASE_URL").expect("AGENT_DATABASE_URL must be set"),
 
             intern_port: Self::parse_u16("AGENT_INTERN_SERVER_PORT", 6767),
 

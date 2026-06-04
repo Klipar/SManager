@@ -1,35 +1,38 @@
 use async_trait::async_trait;
+use log::{error, info};
 use serde_json::Value;
-use shared::{db::models::Task, server::{connection_context::ConnectionContext, dto::update_task_dto::UpdateTaskDTO, handler_trait::HandlerTrait, message::{Message, Status}}};
-use sqlx::postgres::PgPool;
-use std::sync::Arc;
 use serde_json::json;
-use log::{info, error};
+use shared::{
+    db::models::Task,
+    server::{
+        connection_context::ConnectionContext,
+        dto::update_task_dto::UpdateTaskDTO,
+        handler_trait::HandlerTrait,
+        message::{Message, Status},
+    },
+};
+use sqlx::SqlitePool;
+use std::sync::Arc;
 
 pub struct UpdateTaskHandler {
-    pub pool: Arc<PgPool>,
+    pub pool: Arc<SqlitePool>,
 }
 
 impl UpdateTaskHandler {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: Arc<SqlitePool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
 impl HandlerTrait for UpdateTaskHandler {
-    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext) -> Message {
         info!("Received request for updating task");
 
         let data = match data {
             Some(v) => v,
             None => {
-                return Message::new_response(
-                    Status::Error,
-                    None,
-                    400,
-                    "Missing data"
-                );
+                return Message::new_response(Status::Error, None, 400, "Missing data");
             }
         };
 
@@ -41,12 +44,13 @@ impl HandlerTrait for UpdateTaskHandler {
                     Status::Error,
                     None,
                     400,
-                    "Invalid update-task request"
+                    "Invalid update-task request",
                 );
             }
         };
 
-        let updated  = sqlx::query_as::<_, Task>( // TODO: use repository for this.
+        let updated = sqlx::query_as::<_, Task>(
+            // TODO: use repository for this.
             r#"
             UPDATE tasks
             SET
@@ -61,7 +65,7 @@ impl HandlerTrait for UpdateTaskHandler {
                 id, core_id, name, description,
                 install_script, run_script, delete_script,
                 restart_policy, status
-            "#
+            "#,
         )
         .bind(&task.name)
         .bind(&task.description)
@@ -73,23 +77,18 @@ impl HandlerTrait for UpdateTaskHandler {
         .fetch_optional(&*self.pool)
         .await;
 
-        match updated{
+        match updated {
             Ok(task) => {
-                return Message::new_response (
+                return Message::new_response(
                     Status::Ok,
                     Some(json!({"task" : task})),
                     200,
-                    "Successfully updated task."
+                    "Successfully updated task.",
                 );
             }
             Err(e) => {
                 error!("Failed to update task: {}", e);
-                return Message::new_response (
-                    Status::Error,
-                    None,
-                    400,
-                    "Failed to update task"
-                );
+                return Message::new_response(Status::Error, None, 400, "Failed to update task");
             }
         }
     }

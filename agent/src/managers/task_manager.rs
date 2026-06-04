@@ -1,13 +1,22 @@
-use crate::{ enums::task_errors::TaskError, extern_server::connection_registry::ConnectionRegistry, managers::{managed_task::ManagedTask, token_manager::TokenManager}, repository::task_repository::TaskRepository };
+use crate::{
+    enums::task_errors::TaskError,
+    extern_server::connection_registry::ConnectionRegistry,
+    managers::{managed_task::ManagedTask, token_manager::TokenManager},
+    repository::task_repository::TaskRepository,
+};
 use dashmap::DashMap;
 use log::error;
-use shared::{ db::models::{Run, Task, TaskStatus}, enums::script_types::ScriptType, server::endpoint::Endpoint };
-use sqlx::postgres::PgPool;
-use std::{ collections::HashMap, path::PathBuf, sync::Arc };
+use shared::{
+    db::models::{Run, Task, TaskStatus},
+    enums::script_types::ScriptType,
+    server::endpoint::Endpoint,
+};
+use sqlx::SqlitePool;
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::{fs, sync::Mutex, time};
 
 pub struct TaskManager {
-    pool: Arc<PgPool>,
+    pool: Arc<SqlitePool>,
     tasks: Arc<DashMap<i64, ManagedTask>>, // i64 -> run_id
     token_manager: Arc<Mutex<TokenManager>>,
     endpoint: Arc<Endpoint>,
@@ -16,7 +25,11 @@ pub struct TaskManager {
 }
 
 impl TaskManager {
-    pub fn new(pool: Arc<PgPool>, endpoint: Arc<Endpoint>, connection_registry: ConnectionRegistry) -> Arc<Self> {
+    pub fn new(
+        pool: Arc<SqlitePool>,
+        endpoint: Arc<Endpoint>,
+        connection_registry: ConnectionRegistry,
+    ) -> Arc<Self> {
         let tm = Arc::new(Self {
             pool,
             tasks: Arc::new(DashMap::new()),
@@ -58,7 +71,12 @@ impl TaskManager {
         pending.insert(run.id, run);
     }
 
-    pub async fn run_task(self: Arc<Self>, task_id: i64, scrypt_type: ScriptType, core_id: Option<i32>) -> Result<(), TaskError> {
+    pub async fn run_task(
+        self: Arc<Self>,
+        task_id: i64,
+        scrypt_type: ScriptType,
+        core_id: Option<i32>,
+    ) -> Result<(), TaskError> {
         let rask_repository = TaskRepository::new(self.pool.clone());
 
         let mut task = rask_repository.get_by_id(task_id).await?;
@@ -71,10 +89,12 @@ impl TaskManager {
 
         task = rask_repository.update_task(task).await?;
 
-        let run_id = TaskManager::create_run_record(self.pool.clone(), &task, scrypt_type, core_id).await
+        let run_id = TaskManager::create_run_record(self.pool.clone(), &task, scrypt_type, core_id)
+            .await
             .map_err(|_| TaskError::DatabaseError)?;
 
-        let script_path = self.prepare_dir(&task, scrypt_type)
+        let script_path = self
+            .prepare_dir(&task, scrypt_type)
             .await
             .map_err(|e| TaskError::FailedToPrepareEnvironment(e.to_string()))?;
 
@@ -88,9 +108,10 @@ impl TaskManager {
                     let mut tm = self.token_manager.lock().await;
                     tm.gen_token(task_id)
                 },
-                self.endpoint.clone()
-            ).await
-            .map_err(|_e| TaskError::FailedToRunTask)?
+                self.endpoint.clone(),
+            )
+            .await
+            .map_err(|_e| TaskError::FailedToRunTask)?,
         );
 
         Ok(())
@@ -123,7 +144,7 @@ impl TaskManager {
             SET output = COALESCE(output, '') || $1 || E'\n'
             WHERE id = $2
             RETURNING *
-            "#
+            "#,
         )
         .bind(format!("[{}] {}", test_type, line))
         .bind(run_id)
@@ -147,7 +168,10 @@ impl TaskManager {
         let task_repository = TaskRepository::new(self.pool.clone());
 
         let mut task = task_repository.get_by_id(task_id).await?;
-        if matches!(task.status, TaskStatus::Stopped | TaskStatus::Executed | TaskStatus::Failed) {
+        if matches!(
+            task.status,
+            TaskStatus::Stopped | TaskStatus::Executed | TaskStatus::Failed
+        ) {
             return Err(TaskError::TaskAlreadyStopped);
         }
 
@@ -165,13 +189,18 @@ impl TaskManager {
         .map_err(|_| TaskError::FailedToManageRun)?
         .ok_or(TaskError::FailedToManageRun)?;
 
-        let managed_task_pgid = self.tasks.remove(&run_id)
-            .ok_or(TaskError::TaskAlreadyStopped)?.1.pgid;
+        let managed_task_pgid = self
+            .tasks
+            .remove(&run_id)
+            .ok_or(TaskError::TaskAlreadyStopped)?
+            .1
+            .pgid;
 
         nix::sys::signal::killpg(
             nix::unistd::Pid::from_raw(managed_task_pgid),
-            nix::sys::signal::Signal::SIGTERM
-        ).ok();
+            nix::sys::signal::Signal::SIGTERM,
+        )
+        .ok();
 
         task.status = TaskStatus::Stopped;
         task_repository.update_task(task).await?;
@@ -192,7 +221,7 @@ impl TaskManager {
                     return_code = $1
                 WHERE id = $2
                 RETURNING *
-                "#
+                "#,
             )
             .bind(code)
             .bind(run_id)
@@ -229,10 +258,7 @@ impl TaskManager {
                         }
                     }
                 }
-                Ok(None) => error!(
-                    "[MANAGER STDOUT DB ERROR] Run with id {} not found",
-                    run_id
-                ),
+                Ok(None) => error!("[MANAGER STDOUT DB ERROR] Run with id {} not found", run_id),
                 Err(e) => error!("[MANAGER STDOUT DB ERROR] {}", e),
             }
         });
@@ -242,9 +268,8 @@ impl TaskManager {
         pool: Arc<PgPool>,
         task: &Task,
         script_type: ScriptType,
-        core_id: Option<i32>
+        core_id: Option<i32>,
     ) -> Result<i64, sqlx::Error> {
-
         let rec = sqlx::query!(
             r#"
             INSERT INTO runs (task_id, core_id, script)
@@ -261,7 +286,7 @@ impl TaskManager {
         Ok(rec.id)
     }
 
-    async fn prepare_dir(&self, task: &Task, scrypt_type: ScriptType) -> std::io::Result<PathBuf>{
+    async fn prepare_dir(&self, task: &Task, scrypt_type: ScriptType) -> std::io::Result<PathBuf> {
         let mut path = PathBuf::from("tasks_storage/data");
         path.push(task.id.to_string());
 
@@ -295,7 +320,7 @@ impl TaskManager {
             .collect()
     }
 
-    pub async fn token_to_task_id(self: Arc<Self>, token: &String) -> Option<i64>{
+    pub async fn token_to_task_id(self: Arc<Self>, token: &String) -> Option<i64> {
         let mut tm = self.token_manager.lock().await;
         tm.use_token(token)
     }

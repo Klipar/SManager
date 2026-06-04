@@ -1,35 +1,33 @@
 use async_trait::async_trait;
+use log::{error, info};
 use serde_json::Value;
-use shared::server::{connection_context::ConnectionContext,
-                    handler_trait::HandlerTrait, message::{Message, Status}};
-use sqlx::postgres::PgPool;
+use shared::server::{
+    connection_context::ConnectionContext,
+    handler_trait::HandlerTrait,
+    message::{Message, Status},
+};
+use sqlx::SqlitePool;
 use std::sync::Arc;
-use log::{info, error};
 
 pub struct RemoveCoreHandler {
-    pub pool: Arc<PgPool>,
+    pub pool: Arc<SqlitePool>,
 }
 
 impl RemoveCoreHandler {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: Arc<SqlitePool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
 impl HandlerTrait for RemoveCoreHandler {
-    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, data: Option<Value>, _ctx: &mut ConnectionContext) -> Message {
         info!("Received request removing core");
 
         let data = match data {
             Some(v) => v,
             None => {
-                return Message::new_response(
-                    Status::Error,
-                    None,
-                    400,
-                    "Missing data"
-                );
+                return Message::new_response(Status::Error, None, 400, "Missing data");
             }
         };
 
@@ -44,25 +42,24 @@ impl HandlerTrait for RemoveCoreHandler {
             .execute(&*self.pool)
             .await;
 
-
             if let Ok(result) = result {
                 if result.rows_affected() == 1 {
-                    return Message::new_response (
+                    return Message::new_response(
                         Status::Ok,
                         None,
                         200,
-                        format!("Successfully deleted core {}", id)
+                        format!("Successfully deleted core {}", id),
                     );
                 }
             }
         }
 
         error!("Failed to delete core, bad request");
-        return Message::new_response (
+        return Message::new_response(
             Status::Error,
             None,
             400,
-            "Failed to delete core, bad request"
+            "Failed to delete core, bad request",
         );
     }
 }

@@ -1,36 +1,39 @@
 use async_trait::async_trait;
 use serde_json::Value;
-use shared::{db::models::{Task, TaskStatus}, server::{connection_context::ConnectionContext, dto::new_task_request_dto::NewTaskRequestDTO, handler_trait::HandlerTrait, message::{Message, Status}}};
-use sqlx::postgres::PgPool;
-use std::sync::Arc;
 use serde_json::json;
+use shared::{
+    db::models::{Task, TaskStatus},
+    server::{
+        connection_context::ConnectionContext,
+        dto::new_task_request_dto::NewTaskRequestDTO,
+        handler_trait::HandlerTrait,
+        message::{Message, Status},
+    },
+};
+use sqlx::SqlitePool;
+use std::sync::Arc;
 
-use log::{info, error};
+use log::{error, info};
 
 pub struct NewTaskHandler {
-    pub pool: Arc<PgPool>,
+    pub pool: Arc<SqlitePool>,
 }
 
 impl NewTaskHandler {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: Arc<SqlitePool>) -> Self {
         Self { pool }
     }
 }
 
 #[async_trait]
 impl HandlerTrait for NewTaskHandler {
-    async fn handle(&self, data: Option<Value>, ctx: &mut ConnectionContext)-> Message {
+    async fn handle(&self, data: Option<Value>, ctx: &mut ConnectionContext) -> Message {
         info!("Creating new task");
 
         let data = match data {
             Some(v) => v,
             None => {
-                return Message::new_response(
-                    Status::Error,
-                    None,
-                    400,
-                    "Missing data"
-                );
+                return Message::new_response(Status::Error, None, 400, "Missing data");
             }
         };
 
@@ -38,12 +41,7 @@ impl HandlerTrait for NewTaskHandler {
             Ok(v) => v,
             Err(e) => {
                 error!("Failed to parse create new task request: {}", e);
-                return Message::new_response(
-                    Status::Error,
-                    None,
-                    400,
-                    "Invalid new-task request"
-                );
+                return Message::new_response(Status::Error, None, 400, "Invalid new-task request");
             }
         };
 
@@ -59,7 +57,7 @@ impl HandlerTrait for NewTaskHandler {
                 id, core_id, name, description,
                 install_script, run_script, delete_script,
                 restart_policy, status
-            "#
+            "#,
         )
         .bind(ctx.id)
         .bind(dto.name)
@@ -74,20 +72,20 @@ impl HandlerTrait for NewTaskHandler {
 
         match inserted {
             Ok(task) => {
-                return Message::new_response (
+                return Message::new_response(
                     Status::Ok,
                     Some(json!({"task" : task})),
                     200,
-                    "Successfully created new task."
+                    "Successfully created new task.",
                 );
             }
             Err(e) => {
                 error!("Failed to create new task: {}", e);
-                return Message::new_response (
+                return Message::new_response(
                     Status::Error,
                     None,
                     400,
-                    "Failed to create new task"
+                    "Failed to create new task",
                 );
             }
         }

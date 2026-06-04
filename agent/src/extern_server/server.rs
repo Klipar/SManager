@@ -1,39 +1,53 @@
-use std::{collections::HashMap, sync::Arc, time::{Duration, Instant}, net::SocketAddr};
-use sqlx::PgPool;
+use futures::{SinkExt, StreamExt};
+use sqlx::SqlitePool;
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::oneshot;
 use tokio_rustls::{TlsAcceptor, server::TlsStream};
 use tokio_util::codec::{Framed, LinesCodec};
-use futures::{StreamExt, SinkExt};
-use tokio::sync::oneshot;
 
 use anyhow::{Context, Result};
-use log::{info, error};
+use log::{error, info};
 
-use shared::{db::models::Core, server::{
-    connection_context::ConnectionContext,
-    endpoint::Endpoint,
-    get_hash::get_hash,
-    handler_trait::HandlerTrait,
-    message::{Message, Status},
-}};
+use shared::{
+    db::models::Core,
+    server::{
+        connection_context::ConnectionContext,
+        endpoint::Endpoint,
+        get_hash::get_hash,
+        handler_trait::HandlerTrait,
+        message::{Message, Status},
+    },
+};
 
-use crate::extern_server::{connection_registry::{ConnectionRegistry, OutboundRequest}, tls_helpers::build_tls_config};
+use crate::extern_server::{
+    connection_registry::{ConnectionRegistry, OutboundRequest},
+    tls_helpers::build_tls_config,
+};
 
 const TLS_HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 const READ_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_LINE_LENGTH: usize = 1048576;
 
-
 pub struct Server {
     endpoint: Arc<Endpoint>,
     pub is_active: bool,
     pub handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
-    pool: Arc<PgPool>,
+    pool: Arc<SqlitePool>,
     registry: ConnectionRegistry,
 }
 
 impl Server {
-    pub fn new(endpoint: Arc<Endpoint>, pool: Arc<PgPool>, registry: ConnectionRegistry) -> Self {
+    pub fn new(
+        endpoint: Arc<Endpoint>,
+        pool: Arc<SqlitePool>,
+        registry: ConnectionRegistry,
+    ) -> Self {
         Self {
             endpoint,
             is_active: false,
@@ -83,7 +97,7 @@ impl Server {
         addr: SocketAddr,
         acceptor: TlsAcceptor,
         handlers: Arc<HashMap<String, Arc<dyn HandlerTrait>>>,
-        pool: Arc<PgPool>,
+        pool: Arc<SqlitePool>,
         registry: ConnectionRegistry,
     ) {
         let tls_stream = match perform_tls_handshake(socket, addr, &acceptor).await {
@@ -112,7 +126,7 @@ impl Server {
         }
 
         info!("TLS connection established: {}", addr);
-        run_message_loop( tls_stream, addr, handlers, ctx, rx ).await;
+        run_message_loop(tls_stream, addr, handlers, ctx, rx).await;
         registry.unregister(core_id).await;
         info!("Disconnected: {}", addr);
     }
@@ -139,7 +153,7 @@ async fn perform_tls_handshake(
 async fn authenticate_client(
     stream: &tokio_rustls::server::TlsStream<TcpStream>,
     addr: SocketAddr,
-    pool: &PgPool,
+    pool: &SqlitePool,
 ) -> Option<ConnectionContext> {
     let client_certs = stream.get_ref().1.peer_certificates()?;
     let cert_der = client_certs.first().or_else(|| {
@@ -162,13 +176,11 @@ async fn authenticate_client(
         .and_then(|cn| cn.as_str().ok())
         .unwrap_or_default();
     info!("Client CN: {cn}, IP: {}", addr.ip());
-    let core = sqlx::query_as::<_, Core>(
-        "SELECT * FROM cores WHERE client_hash = $1 AND ip = $2"
-    )
-    .bind(get_hash(cn))
-    .bind(addr.ip().to_string())
-    .fetch_one(pool)
-    .await;
+    let core = sqlx::query_as::<_, Core>("SELECT * FROM cores WHERE client_hash = $1 AND ip = $2")
+        .bind(get_hash(cn))
+        .bind(addr.ip().to_string())
+        .fetch_one(pool)
+        .await;
 
     match core {
         Ok(core) => {
@@ -191,10 +203,7 @@ async fn run_message_loop(
     mut ctx: ConnectionContext,
     mut outbound_rx: tokio::sync::mpsc::Receiver<OutboundRequest>,
 ) {
-    let mut framed = Framed::new(
-        tls_stream,
-        LinesCodec::new_with_max_length(MAX_LINE_LENGTH),
-    );
+    let mut framed = Framed::new(tls_stream, LinesCodec::new_with_max_length(MAX_LINE_LENGTH));
 
     let mut pending: HashMap<u64, oneshot::Sender<Message>> = HashMap::new();
 

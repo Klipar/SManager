@@ -1,20 +1,23 @@
 use async_trait::async_trait;
 use serde_json::Value;
-use shared::{server::message::{Message, Status}};
-use sqlx::postgres::PgPool;
+use shared::server::message::{Message, Status};
+use sqlx::SqlitePool;
 use std::sync::Arc;
 
-use log::{info, warn, error};
+use log::{error, info, warn};
 
-use crate::{intern_server::{connection_context::ConnectionContext, handler_trait::HandlerTrait}, managers::task_manager::TaskManager};
+use crate::{
+    intern_server::{connection_context::ConnectionContext, handler_trait::HandlerTrait},
+    managers::task_manager::TaskManager,
+};
 
 pub struct AuthenticateHandler {
-    pub pool: Arc<PgPool>,
+    pub pool: Arc<SqlitePool>,
     pub task_manager: Arc<TaskManager>,
 }
 
 impl AuthenticateHandler {
-    pub fn new(pool: Arc<PgPool>, task_manager: Arc<TaskManager>) -> Self {
+    pub fn new(pool: Arc<SqlitePool>, task_manager: Arc<TaskManager>) -> Self {
         Self { pool, task_manager }
     }
 }
@@ -22,14 +25,9 @@ impl AuthenticateHandler {
 #[async_trait]
 impl HandlerTrait for AuthenticateHandler {
     async fn handle(&self, data: Option<Value>, ctx: &mut ConnectionContext) -> Message {
-        if ctx.authenticated{
+        if ctx.authenticated {
             error!("Received authenticate request for already authenticated socket...");
-            return Message::new_response (
-                Status::Error,
-                None,
-                401,
-                "Double authorization",
-            );
+            return Message::new_response(Status::Error, None, 401, "Double authorization");
         }
 
         info!("Received authenticate request");
@@ -37,47 +35,52 @@ impl HandlerTrait for AuthenticateHandler {
         match data {
             Some(data) => {
                 if let Some(token) = data.get("token").and_then(|v| v.as_str()) {
-                    let task_id = TaskManager::token_to_task_id(self.task_manager.clone(), &token.to_string()).await;
+                    let task_id = TaskManager::token_to_task_id(
+                        self.task_manager.clone(),
+                        &token.to_string(),
+                    )
+                    .await;
 
                     match task_id {
                         Some(task_id) => {
                             info!("Successful authentication for task id: `{}`", task_id);
                             ctx.authenticated = true;
                             ctx.id = Some(task_id);
-                            return Message::new_response (
+                            return Message::new_response(
                                 Status::Ok,
                                 None,
                                 200,
-                                "Authorized successfully!"
+                                "Authorized successfully!",
                             );
                         }
                         None => {
                             warn!("Failed to authentication task using token: {}", token);
 
-                            return Message::new_response (
+                            return Message::new_response(
                                 Status::Error,
                                 None,
                                 401,
-                                "Failed to authenticate. Your token invalid."
+                                "Failed to authenticate. Your token invalid.",
                             );
                         }
                     }
                 } else {
-                    return Message::new_response (
+                    return Message::new_response(
                         Status::Error,
                         None,
                         400,
-                        "Invalid auth request, field 'data.token' is not exist or not string.");
+                        "Invalid auth request, field 'data.token' is not exist or not string.",
+                    );
                 }
-            },
+            }
             None => {
-                return Message::new_response (
+                return Message::new_response(
                     Status::Error,
                     None,
                     400,
-                    "Invalid auth request, field 'data' is not exist."
+                    "Invalid auth request, field 'data' is not exist.",
                 );
-            },
+            }
         }
     }
 }
