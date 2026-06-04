@@ -4,13 +4,13 @@ CREATE TABLE cores (
     id INTEGER PRIMARY KEY,
     spiffe_id TEXT NOT NULL,
 
-    UNIQUE(spiffe_id),
-
     create_by_core_id INTEGER, -- Can be NULL if core was deleted.
     create_at DATETIME NOT NULL,
 
     update_by_core_id INTEGER, -- Can be NULL if core was deleted.
     update_at DATETIME NOT NULL,
+
+    UNIQUE(spiffe_id),
 
     FOREIGN KEY (create_by_core_id)
         REFERENCES cores(id)
@@ -94,6 +94,12 @@ CREATE TABLE runs (
 
     output TEXT NOT NULL DEFAULT '',
 
+    started_by_core_id INTEGER, -- Can be NULL if core was deleted.
+    started_at DATETIME NOT NULL,
+
+    stopped_by_core_id INTEGER, -- Can be NULL if core was deleted or if no core haw stopped this task
+    stopped_at DATETIME,
+
     FOREIGN KEY (task_id) REFERENCES tasks(id)
         ON DELETE CASCADE
         ON UPDATE CASCADE,
@@ -101,12 +107,6 @@ CREATE TABLE runs (
     FOREIGN KEY (script_id) REFERENCES scripts(id)
         ON DELETE RESTRICT
         ON UPDATE CASCADE,
-
-    started_by_core_id INTEGER, -- Can be NULL if core was deleted.
-    started_at DATETIME NOT NULL,
-
-    stopped_by_core_id INTEGER, -- Can be NULL if core was deleted or if no core haw stopped this task
-    stopped_at DATETIME,
 
     FOREIGN KEY (started_by_core_id)
         REFERENCES cores(id)
